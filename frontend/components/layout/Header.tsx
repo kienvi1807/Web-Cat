@@ -27,7 +27,7 @@ export default function Header() {
         <nav className="hidden md:flex gap-8 font-medium text-stone-600 items-center">
           <a href="#blog" className="hover:text-pink-400 transition-colors">Blog / Kiến Thức</a>
           <button className="bg-pink-50 w-9 h-9 flex items-center justify-center rounded-full hover:bg-pink-100 transition-colors">
-            <span className="text-pink-500 text-sm">💖</span>
+            <span className="text-pink-500 text-sm">Oke</span>
           </button>
           <button className="flex items-center gap-2 bg-pink-400 text-white px-5 py-2.5 rounded-full hover:bg-pink-500 transition-colors shadow-lg shadow-pink-200/50 font-medium">
             <span>🛍️</span> Giỏ Hàng
