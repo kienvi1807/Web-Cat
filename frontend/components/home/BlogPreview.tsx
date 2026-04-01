@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { BlogPost } from '@/types';
 
 export default function BlogPreview({ posts }: { posts: BlogPost[] }) {
@@ -14,9 +15,15 @@ export default function BlogPreview({ posts }: { posts: BlogPost[] }) {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-5xl mx-auto">
         {posts.map((post) => (
-          <div key={post.id} className="flex flex-col sm:flex-row gap-6 bg-white rounded-[2rem] p-4 shadow-sm border border-pink-50 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
+          /* Bọc toàn bộ bài viết bằng thẻ Link để click vào đâu cũng sang trang Blog */
+          <Link 
+            href="/blog" 
+            key={post.id} 
+            className="flex flex-col sm:flex-row gap-6 bg-white rounded-[2rem] p-4 shadow-sm border border-pink-50 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 cursor-pointer group"
+          >
             <div className="w-full sm:w-2/5 aspect-[4/3] bg-pink-50 rounded-3xl flex items-center justify-center overflow-hidden shrink-0 relative">
                <span className="text-pink-300 text-xs px-2 text-center relative z-10">{post.img}</span>
+               {/* Overlay nhẹ khi hover */}
                <div className="absolute inset-0 bg-pink-400/0 group-hover:bg-pink-400/10 transition-colors z-0"></div>
             </div>
             <div className="flex flex-col justify-center py-2 pr-4">
@@ -24,8 +31,18 @@ export default function BlogPreview({ posts }: { posts: BlogPost[] }) {
               <h3 className="text-xl font-bold text-stone-800 mb-3 group-hover:text-pink-500 transition-colors leading-snug">{post.title}</h3>
               <p className="text-stone-500 text-sm line-clamp-2 leading-relaxed">Khám phá những mẹo hay ho và chuẩn khoa học để giúp bé mèo nhà bạn khỏe mạnh, xinh đẹp hơn mỗi ngày...</p>
             </div>
-          </div>
+          </Link>
         ))}
+      </div>
+
+      {/* Thêm nút Xem tất cả bài viết ở dưới cùng cho đồng bộ */}
+      <div className="text-center mt-12">
+        <Link 
+          href="/blog" 
+          className="text-pink-500 font-bold hover:text-pink-600 inline-flex items-center gap-2 px-6 py-3 rounded-full hover:bg-pink-50 transition-colors"
+        >
+          Xem tất cả bài viết <span className="font-sans">➔</span>
+        </Link>
       </div>
     </section>
   );

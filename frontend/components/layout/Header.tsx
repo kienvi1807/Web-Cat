@@ -1,39 +1,157 @@
+"use client";
+
 import React from 'react';
+import Link from 'next/link';
+import Image from 'next/image';
+import { usePathname } from 'next/navigation';
 
 export default function Header() {
+  const pathname = usePathname();
+  
+  // ========================================================
+  // BIẾN GIẢ LẬP TRẠNG THÁI
+  // ========================================================
+  const IS_LOGGED_IN = false;       
+  const USER_ROLE: string = 'customer';    
+  const CART_ITEM_COUNT = 3;       
+
+  // Logic check xem đang ở trang nào để đổi size logo
+  const isShopPage = pathname === '/cattery' || pathname === '/petshop';
+  
+  // Kích thước vòng ngoài và logo thay đổi linh hoạt (TO RÕ RÀNG)
+  const wrapperSize = isShopPage ? 'w-24 h-24' : 'w-32 h-32';
+  const spinRingSize = isShopPage ? 'w-20 h-20' : 'w-28 h-28';
+  const logoSize = isShopPage ? 'w-18 h-18' : 'w-24 h-24';
+
   return (
     <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-pink-50">
-      <div className="container mx-auto px-4 h-20 flex items-center justify-between">
+      
+      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY (Chỉ chạy trong Header này) --- */}
+      <style dangerouslySetInnerHTML={{__html: `
+        @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
+        @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
+        @keyframes tail-wag { 0% { transform: rotate(10deg); } 100% { transform: rotate(-20deg); } }
+        @keyframes cat-bounce { 0% { transform: translateY(0px); } 100% { transform: translateY(-3px); } }
         
-        {/* Menu Trái */}
-        <nav className="hidden md:flex gap-8 font-medium text-stone-600">
-          <a href="#" className="text-pink-500 font-bold border-b-2 border-pink-500 pb-1">Trang Chủ</a>
-          <a href="#kinvie-cattery" className="hover:text-pink-400 transition-colors">KinVie Cattery</a>
-          <a href="#beam-petshop" className="hover:text-pink-400 transition-colors">Beam Petshop</a>
+        .cat-leg-f { transform-origin: 65px 50px; animation: run-front 0.2s infinite alternate ease-in-out; }
+        .cat-leg-b { transform-origin: 35px 50px; animation: run-back 0.2s infinite alternate ease-in-out; }
+        .cat-tail { transform-origin: 25px 45px; animation: tail-wag 0.25s infinite alternate ease-in-out; }
+        .cat-body-group { animation: cat-bounce 0.2s infinite alternate ease-in-out; }
+      `}} />
+
+      <div className="container mx-auto px-4 h-20 flex items-center justify-between relative">
+        
+        {/* --- MENU TRÁI --- */}
+        <nav className="hidden md:flex gap-8 font-medium text-stone-600 w-1/3">
+          {pathname === '/' ? (
+            <span className="text-pink-500 font-bold border-b-2 border-pink-500 pb-1 cursor-default">Trang Chủ</span>
+          ) : (
+            <Link href="/" className="hover:text-pink-400 transition-colors pb-1">Trang Chủ</Link>
+          )}
+          {pathname === '/cattery' ? (
+            <span className="text-pink-500 font-bold border-b-2 border-pink-500 pb-1 cursor-default">KinVie Cattery</span>
+          ) : (
+            <Link href="/cattery" className="hover:text-pink-400 transition-colors pb-1">KinVie Cattery</Link>
+          )}
+          {pathname === '/petshop' ? (
+            <span className="text-pink-500 font-bold border-b-2 border-pink-500 pb-1 cursor-default">Beam Petshop</span>
+          ) : (
+            <Link href="/petshop" className="hover:text-pink-400 transition-colors pb-1">Beam Petshop</Link>
+          )}
         </nav>
 
-        {/* Logo Trung Tâm (Mô phỏng logo vòng hoa) */}
-        <div className="flex flex-col items-center justify-center cursor-pointer absolute left-1/2 transform -translate-x-1/2">
-          <div className="relative flex items-center justify-center">
-             <div className="absolute inset-0 border-2 border-pink-200 border-dashed rounded-full animate-[spin_10s_linear_infinite] w-12 h-12 m-auto"></div>
-             <div className="bg-white w-9 h-9 flex items-center justify-center rounded-full shadow-sm relative z-10 m-1">
-               <span className="text-lg">🐾</span>
+        {/* --- LOGO TRUNG TÂM --- */}
+        <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2">
+          
+          <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
+             
+             {/* 1. VÒNG QUỸ ĐẠO & ANIMATION CHẠY */}
+             <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
+               
+               {/* --- CODE SVG MÈO CHẠY THẬT (Thay cho Emoji) --- */}
+               <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 text-pink-400 drop-shadow-sm">
+                 <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
+                   <g className="cat-body-group">
+                      {/* Đuôi */}
+                      <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round"/>
+                      {/* Chân sau */}
+                      <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round"/>
+                      <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
+                      {/* Chân trước */}
+                      <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round"/>
+                      <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
+                      {/* Thân */}
+                      <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
+                      {/* Đầu */}
+                      <circle cx="75" cy="35" r="14" className="stroke-none" />
+                      {/* Tai */}
+                      <polygon points="68,25 65,10 78,25" className="stroke-none" />
+                      <polygon points="82,25 85,10 72,25" className="stroke-none" />
+                   </g>
+                 </svg>
+               </div>
+
+               {/* Dấu chân bám theo quỹ đạo */}
+               <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[10px] opacity-60">🐾</div>
+               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[10px] opacity-30">🐾</div>
              </div>
+             
+             {/* 2. LOGO HÌNH ẢNH Ở GIỮA */}
+             <div className={`absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 transition-all duration-300 ${logoSize}`}>
+               <Image 
+                 src="/images/logo.jpg" 
+                 alt="KinVie Logo" 
+                 fill
+                 className="object-cover" 
+                 sizes="(max-width: 768px) 100vw, 33vw"
+                 priority
+               />
+             </div>
+             
           </div>
-          <span className="font-serif italic font-bold text-lg text-pink-500 mt-1">KinVie</span>
-        </div>
+          
+          {isShopPage && (
+            <span className="font-serif italic font-bold text-sm text-pink-500 -mt-1 whitespace-nowrap">
+              {pathname === '/cattery' ? 'KinVie Cattery' : 'Beam Petshop'}
+            </span>
+          )}
+        </Link>
 
-        {/* Menu Phải */}
-        <nav className="hidden md:flex gap-8 font-medium text-stone-600 items-center">
-          <a href="#blog" className="hover:text-pink-400 transition-colors">Blog / Kiến Thức</a>
-          <button className="bg-pink-50 w-9 h-9 flex items-center justify-center rounded-full hover:bg-pink-100 transition-colors">
-            <span className="text-pink-500 text-sm">Oke</span>
-          </button>
-          <button className="flex items-center gap-2 bg-pink-400 text-white px-5 py-2.5 rounded-full hover:bg-pink-500 transition-colors shadow-lg shadow-pink-200/50 font-medium">
-            <span>🛍️</span> Giỏ Hàng
-          </button>
+        {/* --- MENU PHẢI --- */}
+        <nav className="hidden md:flex gap-6 font-medium text-stone-600 items-center justify-end w-1/3">
+          {pathname === '/blog' ? (
+            <span className="text-pink-500 font-bold border-b-2 border-pink-500 pb-1 cursor-default mr-2">Blog</span>
+          ) : (
+            <Link href="/blog" className="hover:text-pink-400 transition-colors pb-1 mr-2">Blog</Link>
+          )}
+
+          {IS_LOGGED_IN && USER_ROLE === 'admin' && (
+            <Link href="/admin" className="flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
+              <span>⚙️</span> Quản lý
+            </Link>
+          )}
+          
+          {IS_LOGGED_IN && USER_ROLE === 'customer' && (
+            <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
+              <span className="text-2xl">🛒</span>
+              {CART_ITEM_COUNT > 0 && (
+                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                  {CART_ITEM_COUNT > 99 ? '99+' : CART_ITEM_COUNT}
+                </span>
+              )}
+            </Link>
+          )}
+
+          {IS_LOGGED_IN ? (
+            <Link href="/profile" className="bg-pink-50 w-10 h-10 flex items-center justify-center rounded-full hover:bg-pink-100 transition-colors shadow-sm border border-pink-100">
+              <span className="text-pink-500 text-sm">👤</span>
+            </Link>
+          ) : (
+            <Link href="/login" className="text-sm font-bold text-pink-500 hover:text-pink-600 transition-colors ml-2">
+              Đăng nhập
+            </Link>
+          )}
         </nav>
-
       </div>
     </header>
   );

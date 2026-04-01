@@ -1,4 +1,5 @@
 import React from 'react';
+import Link from 'next/link';
 import { Cat } from '@/types';
 
 export default function CatteryList({ cats }: { cats: Cat[] }) {
@@ -36,9 +37,12 @@ export default function CatteryList({ cats }: { cats: Cat[] }) {
         ))}
       </div>
       <div className="text-center mt-12">
-        <button className="text-pink-500 font-bold hover:text-pink-600 inline-flex items-center gap-2 px-6 py-3 rounded-full hover:bg-pink-50 transition-colors">
+        <Link 
+          href="/cattery" 
+          className="text-pink-500 font-bold hover:text-pink-600 inline-flex items-center gap-2 px-6 py-3 rounded-full hover:bg-pink-50 transition-colors"
+        >
           Xem tất cả các bé <span className="font-sans">➔</span>
-        </button>
+        </Link>
       </div>
     </section>
   );
