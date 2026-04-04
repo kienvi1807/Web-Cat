@@ -1,19 +1,81 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
+import { supabase } from '@/lib/supabase'; // 👈 BẮT BUỘC IMPORT SUPABASE
 
 export default function Header() {
   const pathname = usePathname();
   
   // ========================================================
-  // BIẾN GIẢ LẬP TRẠNG THÁI
+  // STATE QUẢN LÝ ĐĂNG NHẬP & AVATAR
   // ========================================================
-  const IS_LOGGED_IN = false;       
-  const USER_ROLE: string = 'customer';    
-  const CART_ITEM_COUNT = 3;       
+  const [isLoggedIn, setIsLoggedIn] = useState(false);       
+  const [userRole, setUserRole] = useState('customer');    
+  const [cartItemCount, setCartItemCount] = useState(0);       
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // 👈 Thêm state chứa ảnh
+
+  // Hook kiểm tra đăng nhập và lấy Avatar
+  useEffect(() => {
+    // 1. Lấy dữ liệu nhanh từ LocalStorage để render UI ngay lập tức
+    const userData = localStorage.getItem('kinvie_user');
+    if (userData) {
+      setIsLoggedIn(true);
+      const parsedData = JSON.parse(userData);
+      setUserRole(parsedData.type === 'Boss' ? 'admin' : 'customer');
+      setCartItemCount(3); 
+    } else {
+      setIsLoggedIn(false);
+    }
+
+    // 2. Kéo ngầm Avatar chất lượng cao từ Database
+    const fetchAvatar = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        setIsLoggedIn(true); // Backup check an toàn
+        
+        // Ưu tiên lấy ảnh từ DB (vì có thể khách vừa tải ảnh mới ở trang Edit Profile)
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('avatarurl')
+          .eq('email', user.email)
+          .single();
+
+        let finalUrl = dbUser?.avatarurl || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
+        if (finalUrl) {
+          // Áp dụng "Ma thuật" tẩy mờ ảnh cho Facebook/Google
+          if (finalUrl.includes('fbcdn.net')) {
+            finalUrl = finalUrl.replace(/\/[sp]\d+x\d+\//, '/');
+          } else if (finalUrl.includes('graph.facebook.com')) {
+            const separator = finalUrl.includes('?') ? '&' : '?';
+            finalUrl = `${finalUrl}${separator}width=400&height=400`;
+          } else if (finalUrl.includes('googleusercontent.com')) {
+            finalUrl = finalUrl.replace('s96-c', 's400-c');
+          }
+          setAvatarUrl(finalUrl);
+        }
+      }
+    };
+
+    fetchAvatar();
+
+    // 3. Lắng nghe thay đổi (Khách vừa login/logout là Header tự cập nhật ngay)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
+        fetchAvatar();
+      } else if (event === 'SIGNED_OUT') {
+        setIsLoggedIn(false);
+        setAvatarUrl(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [pathname]); // Vẫn giữ pathname để nó load lại khi nhảy trang
 
   // Logic check xem đang ở trang nào để đổi size logo
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
@@ -26,7 +88,7 @@ export default function Header() {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-pink-50">
       
-      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY (Chỉ chạy trong Header này) --- */}
+      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY --- */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
         @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
@@ -68,30 +130,22 @@ export default function Header() {
              {/* 1. VÒNG QUỸ ĐẠO & ANIMATION CHẠY */}
              <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
                
-               {/* --- CODE SVG MÈO CHẠY THẬT (Thay cho Emoji) --- */}
                <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 text-pink-400 drop-shadow-sm">
                  <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
                    <g className="cat-body-group">
-                      {/* Đuôi */}
                       <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round"/>
-                      {/* Chân sau */}
                       <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round"/>
                       <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
-                      {/* Chân trước */}
                       <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round"/>
                       <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
-                      {/* Thân */}
                       <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
-                      {/* Đầu */}
                       <circle cx="75" cy="35" r="14" className="stroke-none" />
-                      {/* Tai */}
                       <polygon points="68,25 65,10 78,25" className="stroke-none" />
                       <polygon points="82,25 85,10 72,25" className="stroke-none" />
                    </g>
                  </svg>
                </div>
 
-               {/* Dấu chân bám theo quỹ đạo */}
                <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[10px] opacity-60">🐾</div>
                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[10px] opacity-30">🐾</div>
              </div>
@@ -125,26 +179,32 @@ export default function Header() {
             <Link href="/blog" className="hover:text-pink-400 transition-colors pb-1 mr-2">Blog</Link>
           )}
 
-          {IS_LOGGED_IN && USER_ROLE === 'admin' && (
+          {/* HIỂN THỊ DỰA TRÊN STATE ĐÃ ĐĂNG NHẬP */}
+          {isLoggedIn && userRole === 'admin' && (
             <Link href="/admin" className="flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
               <span>⚙️</span> Quản lý
             </Link>
           )}
           
-          {IS_LOGGED_IN && USER_ROLE === 'customer' && (
+          {isLoggedIn && userRole === 'customer' && (
             <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
               <span className="text-2xl">🛒</span>
-              {CART_ITEM_COUNT > 0 && (
+              {cartItemCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[10px] font-black px-1.5 min-w-[20px] h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
-                  {CART_ITEM_COUNT > 99 ? '99+' : CART_ITEM_COUNT}
+                  {cartItemCount > 99 ? '99+' : cartItemCount}
                 </span>
               )}
             </Link>
           )}
 
-          {IS_LOGGED_IN ? (
-            <Link href="/profile" className="bg-pink-50 w-10 h-10 flex items-center justify-center rounded-full hover:bg-pink-100 transition-colors shadow-sm border border-pink-100">
-              <span className="text-pink-500 text-sm">👤</span>
+          {isLoggedIn ? (
+            <Link href="/profile" className="w-10 h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
+              {/* 👈 LOGIC HIỂN THỊ ẢNH HD Ở ĐÂY */}
+              {avatarUrl ? (
+                <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-xl text-stone-400">👤</span>
+              )}
             </Link>
           ) : (
             <Link href="/login" className="text-sm font-bold text-pink-500 hover:text-pink-600 transition-colors ml-2">
