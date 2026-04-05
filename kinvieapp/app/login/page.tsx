@@ -40,6 +40,7 @@ export default function LoginPage() {
     e.preventDefault(); 
 
     const cleanPhone = phone.trim();
+    const fakeEmail = `sen_${cleanPhone}@kinvie.com`;
 
     // 1. Kiểm tra rỗng SĐT & Mật khẩu
     if (!cleanPhone || !password) {
@@ -81,13 +82,18 @@ export default function LoginPage() {
         return;
       }
 
+      // BƯỚC 3: ĐĂNG NHẬP
+      // Lấy email thật từ Database, lỡ Database trống thì dùng tạm email ảo
+      const loginEmail = existingUser.email || fakeEmail; 
+
       const { error: loginError } = await supabase.auth.signInWithPassword({
-        email: `${cleanPhone}@kinvie.com`, // 👈 Hack: Ép SĐT thành Email ảo
+        email: loginEmail, 
         password: password,
       });
 
       if (loginError) {
-        alert("Sai mật khẩu rồi Sen ơi! Hãy thử lại nhé.");
+        // 👈 QUAN TRỌNG NHẤT NẰM Ở ĐÂY: Hiển thị lỗi THẬT của Supabase để bắt bệnh
+        alert(`Không vào được cửa! Lỗi hệ thống báo: ${loginError.message}`);
         setPassword(''); 
       } else {
         alert("Đăng nhập thành công! Chào mừng trở lại Beam Petshop.");
@@ -123,8 +129,8 @@ export default function LoginPage() {
       }
 
       // Bắn lệnh tạo Auth cho Supabase bằng Email ảo
-      const { error: signUpError } = await supabase.auth.signUp({
-        email: `${cleanPhone}@kinvie.com`, // 👈 Hack: Ép SĐT thành Email ảo
+      const { data: authData, error: signUpError } = await supabase.auth.signUp({
+        email: fakeEmail, // 👈 Dùng biến vừa tạo
         password: password,
       });
 
@@ -134,15 +140,15 @@ export default function LoginPage() {
         return;
       }
 
-      // Lưu thông tin vào bảng Users của ông
+      // Lưu thông tin vào bảng Users
       const { error: insertError } = await supabase
         .from('users')
         .insert([
           {
-            phone: cleanPhone,
+            phone: cleanPhone, // Số điện thoại xịn vẫn lưu vào cột phone để shop gọi
             fullname: cleanName,
             type_id: 4, 
-            email: `${cleanPhone}@kinvie.com` 
+            email: fakeEmail // 👈 Lưu cái email ảo có chữ "sen_" vào đây
           }
         ]);
 

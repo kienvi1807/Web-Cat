@@ -274,9 +274,9 @@ export default function ProfilePage() {
                   </Link>
                 ))}
                 {/* Nút Thêm Boss */}
-                <button className="border-2 border-dashed border-stone-200 rounded-2xl p-4 text-stone-400 font-bold hover:bg-stone-50 hover:border-pink-200 hover:text-pink-400 transition-all min-h-[80px]">
+                <Link href="/profile/add-pet" className="border-2 border-dashed border-stone-200 rounded-2xl p-4 text-stone-400 font-bold hover:bg-stone-50 hover:border-pink-200 hover:text-pink-400 transition-all min-h-[80px] flex items-center justify-center">
                   + Thêm Boss mới
-                </button>
+                </Link>
               </div>
             </section>
 
