@@ -17,11 +17,25 @@ export default function ProfilePage() {
     rank: 'Đồng',
     phone: 'Chưa cập nhật',
     age: 'Chưa cập nhật', 
+    birthdate: '', // 👈 THÊM biến này để hứng ngày sinh từ DB
     address: 'Chưa cập nhật', 
     avatarUrl: '',
     pets: [] as any[], 
     orders: [] as any[] 
   });
+
+  // 🎯 HÀM TÍNH TUỔI TỪ CỘT NGÀY SINH (Chỉ thêm logic, không đụng layout)
+  const calculateAge = (dobString: string) => {
+    if (!dobString) return 'Chưa cập nhật';
+    const dob = new Date(dobString);
+    const now = new Date();
+    let age = now.getFullYear() - dob.getFullYear();
+    const m = now.getMonth() - dob.getMonth();
+    if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) {
+        age--;
+    }
+    return age > 0 ? `${age} tuổi` : 'Dưới 1 tuổi';
+  };
 
   // HÀM KÉO DỮ LIỆU TỪ DATABASE SUPABASE LÊN
   useEffect(() => {
@@ -85,6 +99,7 @@ export default function ProfilePage() {
           rank: dbUser.type_users?.rank_name || 'Đồng', 
           phone: dbUser.phone || 'Chưa cập nhật',
           age: dbUser.age || 'Chưa cập nhật', 
+          birthdate: dbUser.birthdate || '', // 👈 Kéo ngày sinh từ DB về
           address: dbUser.address || 'Chưa cập nhật',
 
           // 👇👇👇 ÔNG CHÚ Ý CHỖ NÀY !!! 👇👇👇
@@ -233,7 +248,10 @@ export default function ProfilePage() {
                 </div>
                 <div>
                   <label className="text-xs font-bold text-stone-400 uppercase">Tuổi</label>
-                  <p className="text-stone-700 font-medium border-b border-stone-50 pb-2">{userData.age}</p>
+                  {/* 👈 CẬP NHẬT ĐÚNG CHỖ NÀY: NẾU CÓ NGÀY SINH THÌ TÍNH TUỔI, KHÔNG THÌ HIỆN TUỔI CŨ */}
+                  <p className="text-stone-700 font-medium border-b border-stone-50 pb-2">
+                    {userData.birthdate ? calculateAge(userData.birthdate) : userData.age}
+                  </p>
                 </div>
                 <div>
                   <label className="text-xs font-bold text-stone-400 uppercase">Số điện thoại</label>

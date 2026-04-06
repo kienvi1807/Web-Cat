@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
@@ -23,10 +23,12 @@ const ALL_BREEDS = [
   'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
 ];
 
-export default function AddPetPage() {
+export default function EditPetPage() {
+  const { id } = useParams(); 
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoading, setIsLoading] = useState(true); 
+  const [isSaving, setIsSaving] = useState(false); 
   const [ownerId, setOwnerId] = useState<number | null>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
@@ -45,8 +47,11 @@ export default function AddPetPage() {
 
   const [birthdate, setBirthdate] = useState('');
   const [hasPedigree, setHasPedigree] = useState(false);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
-  const [imageFile, setImageFile] = useState<File | null>(null);
+  
+  const [existingImageUrl, setExistingImageUrl] = useState(''); 
+  const [imagePreviewUrl, setImagePreviewUrl] = useState(''); 
+  const [imageFile, setImageFile] = useState<File | null>(null); 
+  
   const [neutered, setNeutered] = useState(false);
 
   const [baseColor, setBaseColor] = useState<string | null>(null);
@@ -58,16 +63,22 @@ export default function AddPetPage() {
   const [fatherId, setFatherId] = useState('');
   const [motherId, setMotherId] = useState('');
 
+  const formatDateForInput = (dbDate: string | null) => {
+    if (!dbDate) return '';
+    const [y, m, d] = dbDate.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   useEffect(() => {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
       const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).single();
-      
       if (dbUser) {
         setOwnerId(dbUser.userid);
-        // Kéo danh sách mèo của sếp về làm Option chọn Bố Mẹ
-        const { data: userPets } = await supabase.from('pets').select('petid, petname, gender').eq('ownerid', dbUser.userid);
+        // Kéo danh sách mèo của sếp về làm Option chọn Bố Mẹ.
+        // Dùng .neq('petid', id) để loại bỏ chính nó ra khỏi danh sách
+        const { data: userPets } = await supabase.from('pets').select('petid, petname, gender').eq('ownerid', dbUser.userid).neq('petid', id);
         if (userPets) setMyPets(userPets);
       }
 
@@ -75,14 +86,54 @@ export default function AddPetPage() {
       if (colors) setDbBaseColors(colors);
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      if (id) {
+        const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).single();
+        if (petData) {
+          setPetname(petData.petname || '');
+          setGender(petData.gender);
+          setDescription(petData.description || '');
+          setHasPedigree(petData.has_pedigree || false);
+          setNeutered(petData.neutered || false);
+          
+          setBirthdate(formatDateForInput(petData.birthdate));
+
+          if (petData.breed && petData.breed.startsWith('Lai: ')) {
+            setBreed('Giống lai khác');
+            const mixParts = petData.breed.replace('Lai: ', '').split(' x ');
+            if (mixParts.length === 2) {
+              setMix1(mixParts[0]);
+              setMix2(mixParts[1]);
+            }
+          } else {
+            setBreed(petData.breed || 'Maine Coon');
+          }
+
+          setBaseColor(petData.ems_base_code);
+          setHasSilver(petData.ems_silver || false);
+          setPattern(petData.ems_pattern_code);
+          setSimpleColor(petData.simple_color || '');
+
+          setExistingImageUrl(petData.imageurl || '');
+          setImagePreviewUrl(petData.imageurl || '');
+
+          // Đọc dữ liệu Bố Mẹ cũ đắp vào form
+          if (petData.father_id) setFatherId(petData.father_id.toString());
+          if (petData.mother_id) setMotherId(petData.mother_id.toString());
+        } else {
+          alert("Không tìm thấy dữ liệu Boss!");
+          router.push('/profile');
+        }
+      }
+      setIsLoading(false);
     };
     initData();
-  }, [router]);
+  }, [id, router]);
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setImageFile(file);
+      setImageFile(file); 
       setImagePreviewUrl(URL.createObjectURL(file)); 
     }
   };
@@ -90,13 +141,9 @@ export default function AddPetPage() {
   const handleDateInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
     let val = e.target.value.replace(/\D/g, ''); 
     if (val.length > 8) val = val.slice(0, 8); 
-    if (val.length >= 5) {
-      setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`);
-    } else if (val.length >= 3) {
-      setter(`${val.slice(0, 2)}/${val.slice(2)}`);
-    } else {
-      setter(val);
-    }
+    if (val.length >= 5) { setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`); } 
+    else if (val.length >= 3) { setter(`${val.slice(0, 2)}/${val.slice(2)}`); } 
+    else { setter(val); }
   };
 
   const handleNativeDateChange = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -118,21 +165,26 @@ export default function AddPetPage() {
 
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleUpdate = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!petname) { alert("Sen ơi nhập tên cho Boss đi nào!"); return; }
     if (!ownerId) { alert("Đang tải dữ liệu, vui lòng đợi!"); return; }
 
-    setIsLoading(true);
+    setIsSaving(true);
 
-    let uploadedImageUrl = ''; 
+    let finalImageUrl = existingImageUrl; 
+
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
-      const fileName = `${ownerId}-${Date.now()}.${fileExt}`;
-      const { error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, imageFile);
+      const fileName = `${ownerId}-update-${Date.now()}.${fileExt}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('pet-images')
+        .upload(fileName, imageFile);
+
       if (!uploadError) {
         const { data: publicUrlData } = supabase.storage.from('pet-images').getPublicUrl(fileName);
-        uploadedImageUrl = publicUrlData.publicUrl; 
+        finalImageUrl = publicUrlData.publicUrl; 
       }
     }
 
@@ -140,50 +192,51 @@ export default function AddPetPage() {
 
     const { error } = await supabase
       .from('pets')
-      .insert([
-        {
-          ownerid: ownerId, 
-          petname: petname.trim(),
-          breed: finalBreed,
-          gender: gender,
-          birthdate: formatDBDate(birthdate),
-          has_pedigree: isPurebred ? hasPedigree : false,
-          ems_base_code: isPurebred ? baseColor : null,      
-          ems_silver: isPurebred ? hasSilver : false,         
-          ems_pattern_code: isPurebred ? pattern : null,     
-          simple_color: !isPurebred ? simpleColor : null,
-          neutered: neutered, 
-          description: description,
-          status: 'Khỏe mạnh', 
-          imageurl: uploadedImageUrl,
-          price: 0,
-          
-          // LƯU THÊM ID CỦA MÈO BỐ / MẸ VÀO DATABASE
-          father_id: fatherId ? parseInt(fatherId) : null,
-          mother_id: motherId ? parseInt(motherId) : null
-        }
-      ]);
+      .update({
+        petname: petname.trim(),
+        breed: finalBreed,
+        gender: gender,
+        birthdate: formatDBDate(birthdate),
+        has_pedigree: isPurebred ? hasPedigree : false,
+        ems_base_code: isPurebred ? baseColor : null,      
+        ems_silver: isPurebred ? hasSilver : false,         
+        ems_pattern_code: isPurebred ? pattern : null,     
+        simple_color: !isPurebred ? simpleColor : null,
+        neutered: neutered, 
+        description: description,
+        imageurl: finalImageUrl,
+        
+        // Lưu thông tin Bố Mẹ vào DB
+        father_id: fatherId ? parseInt(fatherId) : null,
+        mother_id: motherId ? parseInt(motherId) : null
+      })
+      .eq('petid', id); 
 
-    setIsLoading(false);
+    setIsSaving(false);
 
     if (error) {
-      alert("Lỗi thêm Boss: " + error.message);
+      alert("Lỗi cập nhật: " + error.message);
     } else {
-      alert("Thêm Boss thành công!");
-      router.push('/profile');
+      alert("Cập nhật hồ sơ Boss thành công!");
+      router.push(`/pet/${id}`); 
     }
   };
+
+  if (isLoading) {
+    return <div className="min-h-screen pt-32 text-center text-stone-400">Đang tải hồ sơ cũ...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-700">
       <Header />
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10 max-w-3xl">
-        <Link href="/profile" className="inline-flex items-center gap-2 text-sm font-bold text-stone-400 hover:text-pink-500 transition-colors mb-6">
-          <span>❮</span> Quay lại Hồ sơ
+        <Link href={`/pet/${id}`} className="inline-flex items-center gap-2 text-sm font-bold text-stone-400 hover:text-pink-500 transition-colors mb-6">
+          <span>❮</span> Hủy & Quay lại
         </Link>
 
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden p-8 sm:p-12 relative">
-          <form onSubmit={handleSubmit} className="space-y-8">
+          <form onSubmit={handleUpdate} className="space-y-8">
+            
             <div className="text-center mb-8 relative">
               <div onClick={() => fileInputRef.current?.click()} className="w-32 h-32 bg-pink-100 rounded-full flex flex-col items-center justify-center text-sm mx-auto mb-4 shadow-inner border-4 border-white cursor-pointer hover:bg-pink-200 transition-all overflow-hidden relative group">
                 {imagePreviewUrl ? (
@@ -191,18 +244,19 @@ export default function AddPetPage() {
                 ) : (
                   <>
                     <span className="text-4xl text-pink-300 mb-1 group-hover:scale-110 transition-transform">📷</span>
-                    <span className="text-pink-600 font-bold text-[10px] uppercase tracking-wide">Thêm Ảnh</span>
+                    <span className="text-pink-600 font-bold text-[10px] uppercase tracking-wide">Đổi Ảnh</span>
                   </>
                 )}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center text-white text-xs font-bold rounded-full opacity-0 group-hover:opacity-100 transition-opacity">Cập nhật ảnh</div>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleImageChange} accept="image/*" className="hidden" />
-              <h1 className="text-3xl font-sans font-bold text-stone-800 mb-2">Thông Tin Boss Mới</h1>
+              <h1 className="text-3xl font-sans font-bold text-stone-800 mb-2">Chỉnh Sửa Hồ Sơ</h1>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tên của Boss <span className="text-rose-500">*</span></label>
-                <input type="text" value={petname} onChange={(e) => setPetname(e.target.value)} placeholder="VD: Miu Miu..." className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                <input type="text" value={petname} onChange={(e) => setPetname(e.target.value)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
               </div>
               
               <div>
@@ -260,7 +314,6 @@ export default function AddPetPage() {
                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-2">Mèo Bố</label>
                    <select value={fatherId} onChange={(e) => setFatherId(e.target.value)} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-xl text-sm text-stone-700 font-medium focus:outline-none focus:border-blue-400">
                      <option value="">-- Không rõ / Nhập từ ngoài --</option>
-                     {/* Lọc ra những con mèo là giống Đực (gender = true) */}
                      {myPets.filter(p => p.gender === true).map(p => (
                        <option key={p.petid} value={p.petid}>♂ {p.petname}</option>
                      ))}
@@ -270,7 +323,6 @@ export default function AddPetPage() {
                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-2">Mèo Mẹ</label>
                    <select value={motherId} onChange={(e) => setMotherId(e.target.value)} className="w-full bg-white border border-pink-200 px-4 py-3 rounded-xl text-sm text-stone-700 font-medium focus:outline-none focus:border-pink-400">
                      <option value="">-- Không rõ / Nhập từ ngoài --</option>
-                     {/* Lọc ra những con mèo là giống Cái (gender = false) */}
                      {myPets.filter(p => p.gender === false).map(p => (
                        <option key={p.petid} value={p.petid}>♀ {p.petname}</option>
                      ))}
@@ -349,7 +401,6 @@ export default function AddPetPage() {
               </div>
             )}
 
-            {/* SỨC KHỎE (ĐÃ XÓA 2 Ô NGÀY THÁNG, CHỈ GIỮ LẠI TRIỆT SẢN) */}
             <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100 space-y-4">
                <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
                <div>
@@ -366,8 +417,8 @@ export default function AddPetPage() {
               <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={2} className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 resize-none"></textarea>
             </div>
 
-            <button type="submit" disabled={isLoading} className={`w-full text-white font-bold py-4 rounded-xl shadow-md transition-all flex items-center justify-center ${isLoading ? 'bg-pink-300 cursor-not-allowed shadow-none' : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200 hover:-translate-y-0.5'}`}>
-              {isLoading ? 'Đang lưu vào sổ...' : 'Hoàn Tất Hồ Sơ Boss'}
+            <button type="submit" disabled={isSaving} className={`w-full text-white font-bold py-4 rounded-xl shadow-md transition-all flex items-center justify-center ${isSaving ? 'bg-pink-300 cursor-not-allowed shadow-none' : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200 hover:-translate-y-0.5'}`}>
+              {isSaving ? 'Đang lưu cập nhật...' : 'Lưu Thay Đổi'}
             </button>
           </form>
         </div>

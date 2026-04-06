@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; // 👈 BẮT BUỘC IMPORT SUPABASE
+import { supabase } from '@/lib/supabase'; 
 
 export default function Header() {
   const pathname = usePathname();
@@ -13,74 +13,91 @@ export default function Header() {
   // STATE QUẢN LÝ ĐĂNG NHẬP & AVATAR
   // ========================================================
   const [isLoggedIn, setIsLoggedIn] = useState(false);       
-  const [userRole, setUserRole] = useState('customer');    
+  const [isAdmin, setIsAdmin] = useState(false); // 👈 Tối ưu: Chỉ cần biết có phải Admin không thôi 
   const [cartItemCount, setCartItemCount] = useState(0);       
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null); // 👈 Thêm state chứa ảnh
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
-  // Hook kiểm tra đăng nhập và lấy Avatar
   useEffect(() => {
-    // 1. Lấy dữ liệu nhanh từ LocalStorage để render UI ngay lập tức
+    // 1. Kiểm tra nhanh LocalStorage để mồi UI
     const userData = localStorage.getItem('kinvie_user');
     if (userData) {
       setIsLoggedIn(true);
       const parsedData = JSON.parse(userData);
-      setUserRole(parsedData.type === 'Boss' ? 'admin' : 'customer');
-      setCartItemCount(3); 
+      // Fallback tạm thời
+      if (parsedData.type === 'Boss' || parsedData.type === 'Staff' || parsedData.type === 'admin') {
+        setIsAdmin(true);
+      }
     } else {
       setIsLoggedIn(false);
     }
 
-    // 2. Kéo ngầm Avatar chất lượng cao từ Database
-    const fetchAvatar = async () => {
+    // 2. Kéo ngầm Dữ liệu chuẩn từ Database
+    const fetchUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (user) {
-        setIsLoggedIn(true); // Backup check an toàn
+        setIsLoggedIn(true); 
         
-        // Ưu tiên lấy ảnh từ DB (vì có thể khách vừa tải ảnh mới ở trang Edit Profile)
+        // 🎯 Lôi thẳng type_id ra cho chắc cốp
         const { data: dbUser } = await supabase
           .from('users')
-          .select('avatarurl')
+          .select('userid, avatarurl, type_id')
           .eq('email', user.email)
           .single();
 
-        let finalUrl = dbUser?.avatarurl || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+        if (dbUser) {
+          // 🎯 1. CHỐT QUYỀN ADMIN (type_id 1 là Boss, 2 là Staff)
+          const isStaffOrBoss = dbUser.type_id === 1 || dbUser.type_id === 2;
+          setIsAdmin(isStaffOrBoss);
 
-        if (finalUrl) {
-          // Áp dụng "Ma thuật" tẩy mờ ảnh cho Facebook/Google
-          if (finalUrl.includes('fbcdn.net')) {
-            finalUrl = finalUrl.replace(/\/[sp]\d+x\d+\//, '/');
-          } else if (finalUrl.includes('graph.facebook.com')) {
-            const separator = finalUrl.includes('?') ? '&' : '?';
-            finalUrl = `${finalUrl}${separator}width=400&height=400`;
-          } else if (finalUrl.includes('googleusercontent.com')) {
-            finalUrl = finalUrl.replace('s96-c', 's400-c');
+          // 🎯 2. ĐẾM GIỎ HÀNG (Nếu là Khách/Breeder)
+          if (!isStaffOrBoss) {
+            const { count } = await supabase
+              .from('cart_items')
+              .select('*', { count: 'exact', head: true })
+              .eq('user_id', dbUser.userid);
+            setCartItemCount(count || 0);
+          } else {
+            setCartItemCount(0); // Admin thì giỏ hàng trống bốc
           }
-          setAvatarUrl(finalUrl);
+
+          // 🎯 3. LÀM NÉT AVATAR
+          let finalUrl = dbUser.avatarurl || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+
+          if (finalUrl) {
+            if (finalUrl.includes('fbcdn.net')) {
+              finalUrl = finalUrl.replace(/\/[sp]\d+x\d+\//, '/');
+            } else if (finalUrl.includes('graph.facebook.com')) {
+              const separator = finalUrl.includes('?') ? '&' : '?';
+              finalUrl = `${finalUrl}${separator}width=400&height=400`;
+            } else if (finalUrl.includes('googleusercontent.com')) {
+              finalUrl = finalUrl.replace('s96-c', 's400-c');
+            }
+            setAvatarUrl(finalUrl);
+          }
         }
       }
     };
 
-    fetchAvatar();
+    fetchUserData();
 
-    // 3. Lắng nghe thay đổi (Khách vừa login/logout là Header tự cập nhật ngay)
+    // 3. Lắng nghe thay đổi Auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        fetchAvatar();
+        fetchUserData();
       } else if (event === 'SIGNED_OUT') {
         setIsLoggedIn(false);
         setAvatarUrl(null);
+        setCartItemCount(0);
+        setIsAdmin(false);
       }
     });
 
     return () => {
       subscription.unsubscribe();
     };
-  }, [pathname]); // Vẫn giữ pathname để nó load lại khi nhảy trang
+  }, [pathname]);
 
-  // Logic check xem đang ở trang nào để đổi size logo
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
-  
-  // Kích thước vòng ngoài và logo thay đổi linh hoạt (TO RÕ RÀNG)
   const wrapperSize = isShopPage ? 'w-24 h-24' : 'w-32 h-32';
   const spinRingSize = isShopPage ? 'w-20 h-20' : 'w-28 h-28';
   const logoSize = isShopPage ? 'w-18 h-18' : 'w-24 h-24';
@@ -88,7 +105,6 @@ export default function Header() {
   return (
     <header className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-md border-b border-pink-50">
       
-      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY --- */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
         @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
@@ -124,12 +140,8 @@ export default function Header() {
 
         {/* --- LOGO TRUNG TÂM --- */}
         <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2">
-          
           <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
-             
-             {/* 1. VÒNG QUỸ ĐẠO & ANIMATION CHẠY */}
              <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
-               
                <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 text-pink-400 drop-shadow-sm">
                  <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
                    <g className="cat-body-group">
@@ -145,12 +157,9 @@ export default function Header() {
                    </g>
                  </svg>
                </div>
-
                <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[10px] opacity-60">🐾</div>
                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[10px] opacity-30">🐾</div>
              </div>
-             
-             {/* 2. LOGO HÌNH ẢNH Ở GIỮA */}
              <div className={`absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 transition-all duration-300 ${logoSize}`}>
                <Image 
                  src="/images/logo.jpg" 
@@ -161,9 +170,7 @@ export default function Header() {
                  priority
                />
              </div>
-             
           </div>
-          
           {isShopPage && (
             <span className="font-serif italic font-bold text-sm text-pink-500 -mt-1 whitespace-nowrap">
               {pathname === '/cattery' ? 'KinVie Cattery' : 'Beam Petshop'}
@@ -179,14 +186,15 @@ export default function Header() {
             <Link href="/blog" className="hover:text-pink-400 transition-colors pb-1 mr-2">Blog</Link>
           )}
 
-          {/* HIỂN THỊ DỰA TRÊN STATE ĐÃ ĐĂNG NHẬP */}
-          {isLoggedIn && userRole === 'admin' && (
-            <Link href="/admin" className="flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
+          {/* 🎯 NÚT QUẢN LÝ CHO ADMIN (BOSS/STAFF) */}
+          {isLoggedIn && isAdmin && (
+            <Link href="/dashboard" className="flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
               <span>⚙️</span> Quản lý
             </Link>
           )}
           
-          {isLoggedIn && userRole === 'customer' && (
+          {/* 🎯 GIỎ HÀNG CHỈ HIỆN KHI KHÔNG PHẢI ADMIN */}
+          {isLoggedIn && !isAdmin && (
             <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
               <span className="text-2xl">🛒</span>
               {cartItemCount > 0 && (
@@ -197,9 +205,9 @@ export default function Header() {
             </Link>
           )}
 
+          {/* AVATAR LOGIN */}
           {isLoggedIn ? (
             <Link href="/profile" className="w-10 h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
-              {/* 👈 LOGIC HIỂN THỊ ẢNH HD Ở ĐÂY */}
               {avatarUrl ? (
                 <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
               ) : (

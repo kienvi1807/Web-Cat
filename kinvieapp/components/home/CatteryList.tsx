@@ -17,10 +17,11 @@ export default function CatteryList({ cats }: { cats: Cat[] }) {
         {cats.map((cat) => (
           <div key={cat.id} className="bg-white rounded-[2.5rem] p-4 shadow-sm hover:shadow-xl hover:shadow-pink-100/50 transition-all duration-300 border border-pink-50 group">
             <div className="aspect-[4/5] bg-gradient-to-br from-pink-50 to-rose-50 rounded-t-[50%] rounded-b-3xl flex items-center justify-center overflow-hidden relative mb-6 border-4 border-white shadow-inner">
-              <img 
-                src={cat.img} // <--- Nó sẽ lấy đường dẫn '/bemeo-1.jpg' từ file data
-                alt={`Mèo Maine Coon - ${cat.name}`} // <--- Text mô tả cho SEO
-                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500" // <--- Tailwind để ảnh khít khung và có hiệu ứng zoom nhẹ khi hover
+              <img
+                // Nếu cat.img rỗng, tự động lấy cái link ảnh xám xám hình chân mèo đắp vào
+                src={cat.img || "https://ui-avatars.com/api/?name=Cat&background=fbcfe8&color=be185d"} 
+                alt={`Mèo Maine Coon - ${cat.name}`}
+                className="w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-500"
               />
               {/* <div className="absolute top-4 right-4 bg-white/90 backdrop-blur px-3 py-1 rounded-full text-xs font-bold text-pink-500 shadow-sm">
                 Sẵn sàng về nhà

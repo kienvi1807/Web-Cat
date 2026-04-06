@@ -19,24 +19,29 @@ export default function EditProfilePage() {
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
 
+  // Đã thay 'age' thành 'birthdate'
   const [formData, setFormData] = useState({
     fullname: '',
     phone: '',
-    age: '',
+    birthdate: '', 
     specificAddress: '' 
   });
 
-  // 🎯 STATE LƯU TRỮ DATA TỪ API QUỐC GIA
   const [provinces, setProvinces] = useState<any[]>([]);
   const [districts, setDistricts] = useState<any[]>([]);
   const [wards, setWards] = useState<any[]>([]);
 
-  // State lưu giá trị khách đang chọn (cần cả mã code để gọi API con, và name để lưu Database)
   const [selectedProvince, setSelectedProvince] = useState({ code: '', name: '' });
   const [selectedDistrict, setSelectedDistrict] = useState({ code: '', name: '' });
   const [selectedWard, setSelectedWard] = useState({ code: '', name: '' });
 
-  // 1. LOAD DATA KHÁCH HÀNG TỪ SUPABASE
+  // HÀM FORMAT NGÀY TỪ DB LÊN FORM
+  const formatDateForInput = (dbDate: string | null) => {
+    if (!dbDate) return '';
+    const [y, m, d] = dbDate.split('-');
+    return `${d}/${m}/${y}`;
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -50,8 +55,8 @@ export default function EditProfilePage() {
         setFormData({
           fullname: dbUser.fullname || dbUser.name || user.user_metadata?.full_name || '',
           phone: dbUser.phone || '',
-          age: dbUser.age || '',
-          specificAddress: '' // Khách sẽ chọn lại địa chỉ chuẩn theo form mới
+          birthdate: formatDateForInput(dbUser.birthdate), // Đọc ngày sinh từ DB
+          specificAddress: '' 
         });
         setPreviewUrl(dbUser.avatarurl || user.user_metadata?.avatar_url || '');
       }
@@ -61,7 +66,6 @@ export default function EditProfilePage() {
     fetchUserData();
   }, [router]);
 
-  // 2. KÉO DANH SÁCH 63 TỈNH THÀNH (Ngay khi mở trang)
   useEffect(() => {
     fetch('https://provinces.open-api.vn/api/p/')
       .then(res => res.json())
@@ -69,7 +73,6 @@ export default function EditProfilePage() {
       .catch(err => console.error("Lỗi kéo API Tỉnh:", err));
   }, []);
 
-  // 3. KÉO QUẬN/HUYỆN (Khi khách chọn xong Tỉnh)
   useEffect(() => {
     if (selectedProvince.code) {
       fetch(`https://provinces.open-api.vn/api/p/${selectedProvince.code}?depth=2`)
@@ -81,7 +84,6 @@ export default function EditProfilePage() {
     }
   }, [selectedProvince.code]);
 
-  // 4. KÉO PHƯỜNG/XÃ (Khi khách chọn xong Quận)
   useEffect(() => {
     if (selectedDistrict.code) {
       fetch(`https://provinces.open-api.vn/api/d/${selectedDistrict.code}?depth=2`)
@@ -100,6 +102,31 @@ export default function EditProfilePage() {
     }
   };
 
+  // CÁC HÀM XỬ LÝ GÕ NGÀY THÁNG THÔNG MINH
+  const handleDateInput = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let val = e.target.value.replace(/\D/g, ''); 
+    if (val.length > 8) val = val.slice(0, 8); 
+    
+    let newDate = val;
+    if (val.length >= 5) newDate = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`;
+    else if (val.length >= 3) newDate = `${val.slice(0, 2)}/${val.slice(2)}`;
+    
+    setFormData({ ...formData, birthdate: newDate });
+  };
+
+  const handleNativeDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.value) {
+      const [y, m, d] = e.target.value.split('-');
+      setFormData({ ...formData, birthdate: `${d}/${m}/${y}` });
+    }
+  };
+
+  const formatDBDate = (dateStr: string) => {
+    if (!dateStr || dateStr.length < 10) return null;
+    const [dd, mm, yyyy] = dateStr.split('/');
+    return `${yyyy}-${mm}-${dd}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -112,7 +139,6 @@ export default function EditProfilePage() {
 
       let finalAvatarUrl = previewUrl;
 
-      // UP ẢNH LÊN STORAGE
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const fileName = `${user.id}-${Math.random()}.${fileExt}`;
@@ -121,13 +147,12 @@ export default function EditProfilePage() {
           .from('avatars')
           .upload(fileName, avatarFile);
 
-        if (uploadError) throw new Error('Không thể tải ảnh lên.');
+        if (uploadError) throw new Error(`Lỗi tải ảnh: ${uploadError.message}`);
 
         const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(fileName);
         finalAvatarUrl = publicUrl;
       }
 
-      // GỘP ĐỊA CHỈ (Chỉ lấy Tên để lưu DB, không lưu mã Code)
       const fullAddress = [
         formData.specificAddress, 
         selectedWard.name, 
@@ -140,7 +165,7 @@ export default function EditProfilePage() {
         .update({
           fullname: formData.fullname,
           phone: formData.phone,
-          age: formData.age,
+          birthdate: formatDBDate(formData.birthdate), // Lưu ngày sinh chuẩn YYYY-MM-DD
           address: fullAddress,
           avatarurl: finalAvatarUrl
         })
@@ -177,7 +202,6 @@ export default function EditProfilePage() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             
-            {/* AVATAR UPLOAD */}
             <div className="flex flex-col items-center justify-center p-6 bg-pink-50/50 rounded-3xl border border-pink-100 border-dashed mb-8">
               <div className="relative group">
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border-4 border-white overflow-hidden">
@@ -202,17 +226,20 @@ export default function EditProfilePage() {
               </div>
             </div>
 
+            {/* Ô NGÀY SINH LÀM MỚI */}
             <div>
-              <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tuổi</label>
-              <input type="number" name="age" className="w-full md:w-1/2 bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.age} onChange={(e) => setFormData({...formData, age: e.target.value})} />
+              <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày sinh</label>
+              <div className="relative md:w-1/2">
+                <input type="text" value={formData.birthdate} onChange={handleDateInput} placeholder="dd/mm/yyyy" className="w-full bg-stone-50 border border-stone-200 pl-4 pr-10 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 font-medium tracking-wide" />
+                <input type="date" onChange={handleNativeDateChange} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 cursor-pointer w-7 h-full z-10" />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
+              </div>
             </div>
 
-            {/* ĐỊA CHỈ API */}
             <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
               <h4 className="text-sm font-bold text-stone-700 mb-4 flex items-center gap-2"><span>📍</span> Địa chỉ nhận hàng</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                 
-                {/* Chọn Tỉnh */}
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Tỉnh / Thành phố</label>
                   <select 
@@ -231,7 +258,6 @@ export default function EditProfilePage() {
                   </select>
                 </div>
 
-                {/* Chọn Quận */}
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Quận / Huyện</label>
                   <select 
@@ -250,7 +276,6 @@ export default function EditProfilePage() {
                   </select>
                 </div>
 
-                {/* Chọn Phường */}
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Phường / Xã</label>
                   <select 
