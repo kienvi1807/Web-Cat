@@ -15,15 +15,31 @@ export default function KinVieCatteryPage() {
 
   const fetchCats = async () => {
     setIsLoading(true);
-    // Lấy mèo của KinVie Cattery (Giả sử breeder_id = 1)
+    
+    // BƯỚC 1: Lấy danh sách ID của Boss (KinVie) từ bảng users
+    const { data: bossUsers } = await supabase
+      .from('users')
+      .select('userid')
+      .eq('type_id', 1);
+
+    if (!bossUsers || bossUsers.length === 0) {
+      console.error("Không tìm thấy User nào là Boss (type_id = 1)");
+      setIsLoading(false);
+      return;
+    }
+
+    const bossIds = bossUsers.map(u => u.userid);
+
+    // BƯỚC 2: Lấy mèo có breeder_id nằm trong danh sách bossIds
     const { data, error } = await supabase
       .from('cats')
       .select('*')
-      .eq('breeder_id', 1)
+      .in('breeder_id', bossIds)
       .order('created_at', { ascending: false });
 
     if (error) console.error("Lỗi tải dữ liệu mèo:", error);
     else setCatsList(data || []);
+    
     setIsLoading(false);
   };
 
@@ -47,11 +63,9 @@ export default function KinVieCatteryPage() {
     return `${day}/${month}/${year}`;
   };
 
-  // 🎯 HÀM DỊCH MÃ EMS THÀNH TÊN MÀU FULL ENGLISH SANG CHẢNH
+  // 🎯 HÀM DỊCH MÀU EMS
   const formatEmsCode = (code: string) => {
     if (!code) return 'Chưa rõ';
-    
-    // Nếu độ dài lớn hơn 5 hoặc chứa khoảng trắng -> Là màu dân dã, trả về luôn
     if (code.includes(' ') || code.length > 5) return code;
 
     const baseColors: Record<string, string> = {
@@ -112,6 +126,11 @@ export default function KinVieCatteryPage() {
         <div className="text-center py-20">
            <span className="text-4xl animate-bounce inline-block mb-4">🐈</span>
            <p className="text-orange-500 font-bold animate-pulse uppercase tracking-widest text-sm">Đang tải dữ liệu đàn mèo...</p>
+        </div>
+      ) : catsList.length === 0 ? (
+        <div className="text-center py-20 bg-white rounded-[2rem] border border-stone-100 shadow-sm">
+           <span className="text-5xl inline-block mb-4 opacity-50">🐾</span>
+           <p className="text-stone-400 font-bold text-lg">Trại KinVie hiện chưa có bé mèo nào.</p>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8">
