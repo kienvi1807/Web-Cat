@@ -44,7 +44,7 @@ export default function OperationsHubPage() {
       name: 'Báo cáo & Phân tích',
       icon: '📈',
       description: 'Biểu đồ trực quan thống kê doanh thu, tỷ lệ chuyển đổi khách hàng, top sản phẩm.',
-      path: '/dashboard/operations/analytics',
+      path: '/dashboard/operations/reports',
       color: 'amber',
       colorFrom: 'from-amber-400',
       colorHoverFrom: 'group-hover:from-amber-500',

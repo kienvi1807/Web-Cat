@@ -18,11 +18,14 @@ const getAvatarColor = (name: string) => {
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [expandedOrderId, setExpandedOrderId] = useState<any>(null);
   
+  // Các state cho bộ lọc
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilterStatus, setSelectedFilterStatus] = useState('Tất cả');
-
+  // 🎯 State lọc theo Ngày giao hàng (Pate)
+  const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
+  
+  const [expandedOrderId, setExpandedOrderId] = useState<any>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [newStatus, setNewStatus] = useState('');
@@ -33,6 +36,7 @@ export default function OrderManagementPage() {
 
   const fetchOrders = async () => {
     setIsLoading(true);
+    // Dùng select('*') để lấy luôn cột delivery_date sếp vừa thêm
     const { data, error } = await supabase
       .from('orders')
       .select('*')
@@ -62,27 +66,53 @@ export default function OrderManagementPage() {
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm";
     switch (status) {
-      case 'Đã đặt hàng': 
-        return <span className={`${baseClasses} bg-blue-100/80 text-blue-700 border border-blue-200/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]`}>{status}</span>;
-      case 'Đã thanh toán': 
-        return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50 shadow-[0_0_10px_rgba(168,85,247,0.2)]`}>{status}</span>;
-      case 'Đang vận chuyển': 
-        return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]`}>{status}</span>;
-      case 'Đã giao hàng': 
-        return <span className={`${baseClasses} bg-emerald-100/80 text-emerald-700 border border-emerald-200/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]`}>{status}</span>;
-      case 'Đã hủy': 
-        return <span className={`${baseClasses} bg-rose-100/80 text-rose-700 border border-rose-200/50 shadow-[0_0_10px_rgba(244,63,94,0.2)]`}>{status}</span>;
-      default: 
-        return <span className={`${baseClasses} bg-stone-100/80 text-stone-600 border border-stone-200/50`}>{status || 'Chưa rõ'}</span>;
+      case 'Đã đặt hàng': return <span className={`${baseClasses} bg-blue-100/80 text-blue-700 border border-blue-200/50`}>{status}</span>;
+      case 'Đã thanh toán': return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50`}>{status}</span>;
+      case 'Đang vận chuyển': return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50`}>{status}</span>;
+      case 'Đã giao hàng': return <span className={`${baseClasses} bg-emerald-100/80 text-emerald-700 border border-emerald-200/50`}>{status}</span>;
+      case 'Đã hủy': return <span className={`${baseClasses} bg-rose-100/80 text-rose-700 border border-rose-200/50`}>{status}</span>;
+      default: return <span className={`${baseClasses} bg-stone-100/80 text-stone-600 border border-stone-200/50`}>{status || 'Chưa rõ'}</span>;
     }
   };
 
+  // 🎯 LOGIC LỌC ĐƠN HÀNG
   const filteredOrders = orders.filter(o => {
     const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (o.customer_phone || '').includes(searchQuery);
+                          (o.customer_phone || '').includes(searchQuery) ||
+                          (o.orderid?.toString() || '').includes(searchQuery);
+    
     const matchesStatus = selectedFilterStatus === 'Tất cả' || o.orderstatus === selectedFilterStatus;
     
-    return matchesSearch && matchesStatus;
+    // Logic lọc theo Ngày giao hàng
+    let matchesDeliveryDate = true;
+    if (deliveryDateFilter) {
+      const orderDelDate = o.delivery_date || o.deliverydate;
+      if (!orderDelDate) {
+        matchesDeliveryDate = false;
+      } else {
+        matchesDeliveryDate = orderDelDate.startsWith(deliveryDateFilter);
+      }
+    }
+    
+    return matchesSearch && matchesStatus && matchesDeliveryDate;
+  });
+
+  // 🎯 LOGIC TỔNG HỢP PATE TỪ CÁC ĐƠN HÀNG ĐÃ LỌC
+  const pateSummary: Record<string, number> = {};
+  let totalPateBoxes = 0;
+
+  filteredOrders.forEach(order => {
+    // Chỉ tính pate cho những đơn chưa Hủy
+    if (order.orderstatus !== 'Đã hủy' && order.items && Array.isArray(order.items)) {
+      order.items.forEach((item: any) => {
+        // Quét các sản phẩm có chữ "Pate" trong tên
+        if (item.name && item.name.toLowerCase().includes('pate')) {
+          const qty = Number(item.quantity || 1);
+          pateSummary[item.name] = (pateSummary[item.name] || 0) + qty;
+          totalPateBoxes += qty;
+        }
+      });
+    }
   });
 
   return (
@@ -95,7 +125,7 @@ export default function OrderManagementPage() {
         {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
           <div>
-            <Link href="/dashboard/operations" className="group inline-flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-5 py-2.5 rounded-full font-bold text-sm mb-4 transition-all duration-300 hover:shadow-md hover:-translate-x-1 active:scale-95 w-fit shadow-sm">
+            <Link href="/dashboard/operations" className="group inline-flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-5 py-2.5 rounded-full font-bold text-sm mb-4 transition-all duration-300 hover:shadow-md hover:-translate-x-1 active:scale-95 w-fit shadow-sm cursor-pointer">
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> 
               Quay lại Beam Petshop
             </Link>
@@ -104,8 +134,9 @@ export default function OrderManagementPage() {
             </h1>
           </div>
           
-          <div className="flex gap-4 w-full lg:w-auto">
-            <div className="relative flex-1 lg:w-80 group">
+          <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
+            {/* Thanh tìm kiếm Text */}
+            <div className="relative flex-1 lg:w-72 group">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </span>
@@ -114,22 +145,39 @@ export default function OrderManagementPage() {
                 placeholder="Tìm mã đơn, tên, SĐT..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-stone-700 shadow-sm transition-all"
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-text"
               />
             </div>
-            <Link href="/dashboard/operations/orders/add" className="bg-stone-900 hover:bg-black text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
+
+            {/* 🎯 BỘ LỌC TÌM NGÀY GIAO HÀNG */}
+            <div className="relative lg:w-48 group">
+               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-orange-500 transition-colors">
+                  🗓️
+               </span>
+               <input 
+                  type="date" 
+                  value={deliveryDateFilter}
+                  onChange={(e) => setDeliveryDateFilter(e.target.value)}
+                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
+               />
+               {deliveryDateFilter && (
+                  <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>
+               )}
+            </div>
+
+            <Link href="/dashboard/operations/orders/add" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(37,99,235,0.25)] hover:shadow-[0_8px_25px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
               <span>+</span> Tạo đơn thủ công
             </Link>
           </div>
         </div>
 
         {/* LỌC TRẠNG THÁI */}
-        <div className="flex items-center gap-2 p-1.5 bg-white border border-stone-200/60 rounded-2xl shadow-sm mb-8 overflow-x-auto custom-scrollbar w-fit">
+        <div className="flex items-center gap-2 p-1.5 bg-white border border-stone-200/60 rounded-2xl shadow-sm mb-6 overflow-x-auto custom-scrollbar w-fit">
           {ORDER_STATUSES.map(status => (
             <button
               key={status}
               onClick={() => setSelectedFilterStatus(status)}
-              className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+              className={`cursor-pointer px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
                 selectedFilterStatus === status 
                   ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20' 
                   : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
@@ -139,6 +187,35 @@ export default function OrderManagementPage() {
             </button>
           ))}
         </div>
+
+        {/* 🎯 BẢNG TỔNG HỢP PATE TƯƠI */}
+        {(totalPateBoxes > 0 || deliveryDateFilter) && (
+           <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 to-rose-50 rounded-[2rem] border border-orange-100 shadow-[0_8px_30px_rgb(249,115,22,0.06)] flex flex-col md:flex-row items-start md:items-center gap-6 animate-fade-in">
+              <div className="w-16 h-16 bg-white border-2 border-orange-100 text-orange-500 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">🥫</div>
+              <div className="flex-1">
+                 <h3 className="text-xl font-black text-stone-800 mb-3 flex items-center gap-2">
+                    Tổng hợp Pate cần làm 
+                    {deliveryDateFilter && <span className="text-sm font-bold bg-orange-100 text-orange-700 px-3 py-1 rounded-lg">Ngày giao: {new Date(deliveryDateFilter).toLocaleDateString('vi-VN')}</span>}
+                 </h3>
+                 
+                 {totalPateBoxes === 0 ? (
+                    <p className="text-stone-500 font-bold text-sm">Không có đơn Pate nào trong khoảng thời gian này.</p>
+                 ) : (
+                    <div className="flex flex-wrap items-center gap-3">
+                       <span className="px-4 py-2 bg-orange-500 text-white font-black text-sm rounded-xl shadow-md">
+                         Tổng cộng: {totalPateBoxes} hộp
+                       </span>
+                       <span className="text-stone-300">|</span>
+                       {Object.entries(pateSummary).map(([name, qty]) => (
+                          <span key={name} className="px-4 py-2 bg-white border border-orange-200 text-orange-700 font-bold text-sm rounded-xl shadow-sm">
+                            {name}: <span className="font-black text-lg">{qty}</span>
+                          </span>
+                       ))}
+                    </div>
+                 )}
+              </div>
+           </div>
+        )}
 
         {/* DANH SÁCH ĐƠN HÀNG */}
         {isLoading ? (
@@ -157,9 +234,17 @@ export default function OrderManagementPage() {
             {filteredOrders.map((order) => {
               const rawDate = order.orderdate || order.created_at;
               const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }) : '---';
+              
+              // Lấy ngày giao hàng để hiển thị
+              const rawDeliveryDate = order.delivery_date || order.deliverydate;
+              const displayDeliveryDate = rawDeliveryDate ? new Date(rawDeliveryDate).toLocaleDateString('vi-VN') : null;
+
               const amount = order.totalamount || 0;
               const isExpanded = expandedOrderId === order.orderid;
               const customerInitial = (order.customer_name || '?').charAt(0).toUpperCase();
+
+              // Kiểm tra xem đơn này có Pate không để highlight icon
+              const hasPate = order.items?.some((item: any) => item.name?.toLowerCase().includes('pate'));
 
               return (
                 <div 
@@ -173,8 +258,9 @@ export default function OrderManagementPage() {
                     className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 cursor-pointer gap-4"
                   >
                     <div className="flex items-center gap-5 w-full md:w-auto">
-                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-inner ${getAvatarColor(order.customer_name)}`}>
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-inner relative ${getAvatarColor(order.customer_name)}`}>
                         {customerInitial}
+                        {hasPate && <span className="absolute -top-2 -right-2 text-xl filter drop-shadow-md">🥫</span>}
                       </div>
                       <div>
                         <div className="flex items-center gap-3 mb-1">
@@ -184,12 +270,21 @@ export default function OrderManagementPage() {
                         <div className="flex items-center gap-2 text-sm text-stone-500">
                           <span className="font-medium">{order.customer_phone}</span>
                           <span className="w-1 h-1 rounded-full bg-stone-300"></span>
-                          <span>{displayDate}</span>
+                          <span>Đặt: {displayDate}</span>
                         </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between w-full md:w-auto gap-8 pl-17 md:pl-0">
+                    <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full md:w-auto gap-4 md:gap-8 pl-17 md:pl-0">
+                      
+                      {/* Hiển thị ngày hẹn giao nếu có */}
+                      {displayDeliveryDate && (
+                         <div className="bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-xl">
+                            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Ngày hẹn giao</p>
+                            <p className="font-bold text-orange-700 text-sm">{displayDeliveryDate}</p>
+                         </div>
+                      )}
+
                       <div className="text-left md:text-right">
                         <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Tổng tiền</p>
                         <p className="font-black text-stone-800 text-lg">{amount.toLocaleString()} <span className="text-stone-400 text-sm font-bold">VNĐ</span></p>
@@ -219,7 +314,10 @@ export default function OrderManagementPage() {
                                     {idx + 1}
                                   </div>
                                   <div>
-                                    <p className="font-bold text-stone-700">{item.name}</p>
+                                    <p className="font-bold text-stone-700">
+                                       {item.name}
+                                       {item.name?.toLowerCase().includes('pate') && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md font-black">PATE</span>}
+                                    </p>
                                     <p className="text-xs text-stone-500 font-medium">SL: {item.quantity} x {item.price.toLocaleString()}đ</p>
                                   </div>
                                 </div>
@@ -247,7 +345,7 @@ export default function OrderManagementPage() {
                                 setNewStatus(order.orderstatus || 'Đã đặt hàng');
                                 setIsStatusModalOpen(true);
                               }} 
-                              className="col-span-2 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 border border-blue-200/50"
+                              className="cursor-pointer col-span-2 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 border border-blue-200/50"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                               Cập nhật trạng thái
@@ -255,12 +353,12 @@ export default function OrderManagementPage() {
                             
                             <Link 
                               href={`/dashboard/operations/orders/${order.orderid}/edit`}
-                              className="py-3.5 bg-white border border-stone-200 text-stone-700 rounded-2xl font-bold hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
+                              className="cursor-pointer py-3.5 bg-white border border-stone-200 text-stone-700 rounded-2xl font-bold hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
                             >
                               Sửa đơn
                             </Link>
 
-                            <button className="py-3.5 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-md flex items-center justify-center gap-2">
+                            <button className="cursor-pointer py-3.5 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-md flex items-center justify-center gap-2">
                               In Hóa Đơn
                             </button>
                           </div>
@@ -291,7 +389,6 @@ export default function OrderManagementPage() {
                 {ORDER_STATUSES.filter(s => s !== 'Tất cả').map(status => (
                   <label 
                     key={status} 
-                    // 🎯 ĐÂY CHÍNH LÀ DÒNG LỆNH EM QUÊN LÚC NÃY ĐÂY SẾP
                     onClick={() => setNewStatus(status)}
                     className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
                       newStatus === status 
@@ -310,13 +407,13 @@ export default function OrderManagementPage() {
               <div className="flex gap-4">
                 <button 
                   onClick={() => setIsStatusModalOpen(false)}
-                  className="flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+                  className="cursor-pointer flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
                 >
                   Đóng
                 </button>
                 <button 
                   onClick={handleUpdateStatus}
-                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
+                  className="cursor-pointer flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
                 >
                   Xác nhận lưu
                 </button>
