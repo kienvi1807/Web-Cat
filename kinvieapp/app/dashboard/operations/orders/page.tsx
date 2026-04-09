@@ -4,11 +4,28 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
+const ORDER_STATUSES = ['Tất cả', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
+
+const getAvatarColor = (name: string) => {
+  const colors = [
+    'bg-rose-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 
+    'bg-purple-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500'
+  ];
+  const charCode = (name || 'A').charCodeAt(0);
+  return colors[charCode % colors.length];
+};
+
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
-  const [expandedOrderId, setExpandedOrderId] = useState<string | null>(null);
+  const [expandedOrderId, setExpandedOrderId] = useState<any>(null);
+  
+  const [selectedFilterStatus, setSelectedFilterStatus] = useState('Tất cả');
+
+  const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
+  const [activeOrder, setActiveOrder] = useState<any>(null);
+  const [newStatus, setNewStatus] = useState('');
 
   useEffect(() => {
     fetchOrders();
@@ -19,136 +36,305 @@ export default function OrderManagementPage() {
     const { data, error } = await supabase
       .from('orders')
       .select('*')
-      .order('orderdate', { ascending: false }); // Đổi created_at thành orderdate
+      .order('orderdate', { ascending: false, nullsFirst: false }); 
+      
     if (!error) setOrders(data || []);
     setIsLoading(false);
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'Đã đặt hàng': return 'bg-blue-500 text-white';
-      case 'Đang vận chuyển': return 'bg-amber-500 text-white';
-      case 'Đã giao': return 'bg-emerald-500 text-white';
-      default: return 'bg-stone-500 text-white';
+  const handleUpdateStatus = async () => {
+    if (!activeOrder) return;
+    
+    const { error } = await supabase
+      .from('orders')
+      .update({ orderstatus: newStatus })
+      .eq('orderid', activeOrder.orderid);
+
+    if (!error) {
+      setOrders(orders.map(o => o.orderid === activeOrder.orderid ? { ...o, orderstatus: newStatus } : o));
+      setIsStatusModalOpen(false);
+      alert("✅ Đã cập nhật trạng thái đơn hàng!");
+    } else {
+      alert("Lỗi khi cập nhật: " + error.message);
     }
   };
 
-  const filteredOrders = orders.filter(o => 
-    o.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    o.customer_phone?.includes(searchQuery)
-  );
+  const getStatusBadge = (status: string) => {
+    const baseClasses = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm";
+    switch (status) {
+      case 'Đã đặt hàng': 
+        return <span className={`${baseClasses} bg-blue-100/80 text-blue-700 border border-blue-200/50 shadow-[0_0_10px_rgba(59,130,246,0.2)]`}>{status}</span>;
+      case 'Đã thanh toán': 
+        return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50 shadow-[0_0_10px_rgba(168,85,247,0.2)]`}>{status}</span>;
+      case 'Đang vận chuyển': 
+        return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50 shadow-[0_0_10px_rgba(245,158,11,0.2)]`}>{status}</span>;
+      case 'Đã giao hàng': 
+        return <span className={`${baseClasses} bg-emerald-100/80 text-emerald-700 border border-emerald-200/50 shadow-[0_0_10px_rgba(16,185,129,0.2)]`}>{status}</span>;
+      case 'Đã hủy': 
+        return <span className={`${baseClasses} bg-rose-100/80 text-rose-700 border border-rose-200/50 shadow-[0_0_10px_rgba(244,63,94,0.2)]`}>{status}</span>;
+      default: 
+        return <span className={`${baseClasses} bg-stone-100/80 text-stone-600 border border-stone-200/50`}>{status || 'Chưa rõ'}</span>;
+    }
+  };
+
+  const filteredOrders = orders.filter(o => {
+    const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
+                          (o.customer_phone || '').includes(searchQuery);
+    const matchesStatus = selectedFilterStatus === 'Tất cả' || o.orderstatus === selectedFilterStatus;
+    
+    return matchesSearch && matchesStatus;
+  });
 
   return (
-    <div className="animate-fade-in max-w-[1600px] mx-auto pb-24 px-4 pt-10">
-      {/* BACKGROUND GLOW TÔNG XANH BLUE VẬN HÀNH */}
-      <div className="fixed top-0 left-0 w-[600px] h-[600px] bg-blue-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
+    <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-24 relative overflow-hidden">
+      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-gradient-to-br from-blue-400/20 to-purple-400/20 blur-[100px] pointer-events-none z-0"></div>
+      <div className="fixed bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-gradient-to-tl from-emerald-400/10 to-cyan-400/10 blur-[120px] pointer-events-none z-0"></div>
 
-      {/* HEADER */}
-      <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6">
-        <div className="flex items-center gap-4">
-          <Link href="/dashboard/operations" className="p-3 bg-white rounded-2xl shadow-sm border border-stone-100 hover:bg-blue-50 text-blue-600 transition-all">
-            ←
-          </Link>
-          <h1 className="text-4xl font-black text-stone-800">Quản lý Đơn hàng 📦</h1>
-        </div>
+      <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
         
-        <div className="flex gap-4 w-full md:w-auto">
-          <div className="relative flex-1 md:w-80">
-            <span className="absolute left-4 top-1/2 -translate-y-1/2 opacity-40">🔍</span>
-            <input 
-              type="text" 
-              placeholder="Tìm tên khách, số điện thoại..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-12 pr-4 py-3 bg-white/80 backdrop-blur-md border border-stone-200 rounded-2xl focus:ring-2 focus:ring-blue-400 outline-none font-bold text-stone-700"
-            />
+        {/* HEADER SECTION */}
+        <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
+          <div>
+            <Link href="/dashboard/operations" className="group inline-flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-5 py-2.5 rounded-full font-bold text-sm mb-4 transition-all duration-300 hover:shadow-md hover:-translate-x-1 active:scale-95 w-fit shadow-sm">
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> 
+              Quay lại Beam Petshop
+            </Link>
+            <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-800 to-stone-500 tracking-tight">
+              Đơn Hàng & Vận Chuyển
+            </h1>
           </div>
-          <button className="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black shadow-lg shadow-blue-200 hover:scale-105 transition-all">
-            + Đơn mới
-          </button>
-        </div>
-      </div>
-
-      {/* DANH SÁCH ĐƠN HÀNG (DẠNG NGANG - HORIZONTAL LIST) */}
-      {isLoading ? (
-        <div className="text-center py-20 animate-pulse text-blue-500 font-black">Đang quét vận đơn...</div>
-      ) : (
-        <div className="flex flex-col gap-4">
-          {filteredOrders.map((order) => (
-            <div key={order.id} className="group flex flex-col bg-white/70 backdrop-blur-2xl border border-white rounded-[2rem] shadow-sm overflow-hidden transition-all">
-              
-              {/* PHẦN THANH NGANG (MAIN BAR) */}
-              <div 
-                onClick={() => setExpandedOrderId(expandedOrderId === order.id ? null : order.id)}
-                className="flex flex-wrap items-center justify-between p-6 cursor-pointer hover:bg-blue-50/50 transition-colors"
-              >
-                <div className="flex items-center gap-6">
-                  <div className="w-12 h-12 bg-blue-100 rounded-2xl flex items-center justify-center text-xl">👤</div>
-                  <div>
-                    <h3 className="font-black text-stone-800 text-lg">{order.customer_name}</h3>
-                    <p className="text-xs font-bold text-stone-400">{order.customer_phone} • {new Date(order.created_at).toLocaleString('vi-VN')}</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-10">
-                  <div className="text-center hidden md:block">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Tổng tiền</p>
-                    <p className="font-black text-blue-600">{order.total_price?.toLocaleString()}đ</p>
-                  </div>
-
-                  <div className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest ${getStatusColor(order.status)}`}>
-                    {order.status}
-                  </div>
-
-                  <span className={`text-2xl transition-transform duration-300 ${expandedOrderId === order.id ? 'rotate-180' : ''}`}>
-                    ▼
-                  </span>
-                </div>
-              </div>
-
-              {/* PHẦN CHI TIẾT SỔ XUỐNG (EXPANDABLE) */}
-              {expandedOrderId === order.id && (
-                <div className="p-8 bg-stone-50/50 border-t border-dashed border-stone-200 animate-slide-down">
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                    {/* Danh sách sản phẩm */}
-                    <div>
-                      <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-4">Chi tiết giỏ hàng</h4>
-                      <div className="space-y-3">
-                        {order.items?.map((item: any, idx: number) => (
-                          <div key={idx} className="flex justify-between items-center bg-white p-4 rounded-2xl border border-stone-100">
-                            <div className="flex items-center gap-4">
-                              <span className="w-8 h-8 bg-stone-100 rounded-lg flex items-center justify-center text-xs font-bold">{idx + 1}</span>
-                              <p className="font-bold text-stone-700">{item.name} <span className="text-stone-400">x{item.quantity}</span></p>
-                            </div>
-                            <p className="font-black text-stone-800">{(item.price * item.quantity).toLocaleString()}đ</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Thông tin giao hàng & Hành động */}
-                    <div className="flex flex-col gap-6">
-                      <div className="bg-white p-6 rounded-[2rem] border border-stone-100">
-                        <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">📍 Địa chỉ nhận hàng</h4>
-                        <p className="font-bold text-stone-700">{order.address || 'Tại cửa hàng'}</p>
-                      </div>
-
-                      <div className="flex gap-4">
-                        <button className="flex-1 py-4 bg-white border-2 border-blue-500 text-blue-600 rounded-2xl font-black hover:bg-blue-50 transition-all">
-                          Cập nhật Trạng thái
-                        </button>
-                        <button className="flex-1 py-4 bg-stone-900 text-white rounded-2xl font-black hover:bg-black transition-all">
-                          In Hóa Đơn 📄
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+          
+          <div className="flex gap-4 w-full lg:w-auto">
+            <div className="relative flex-1 lg:w-80 group">
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+              </span>
+              <input 
+                type="text" 
+                placeholder="Tìm mã đơn, tên, SĐT..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-medium text-stone-700 shadow-sm transition-all"
+              />
             </div>
+            <Link href="/dashboard/operations/orders/add" className="bg-stone-900 hover:bg-black text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2 whitespace-nowrap">
+              <span>+</span> Tạo đơn thủ công
+            </Link>
+          </div>
+        </div>
+
+        {/* LỌC TRẠNG THÁI */}
+        <div className="flex items-center gap-2 p-1.5 bg-white border border-stone-200/60 rounded-2xl shadow-sm mb-8 overflow-x-auto custom-scrollbar w-fit">
+          {ORDER_STATUSES.map(status => (
+            <button
+              key={status}
+              onClick={() => setSelectedFilterStatus(status)}
+              className={`px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
+                selectedFilterStatus === status 
+                  ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20' 
+                  : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
+              }`}
+            >
+              {status}
+            </button>
           ))}
         </div>
-      )}
+
+        {/* DANH SÁCH ĐƠN HÀNG */}
+        {isLoading ? (
+          <div className="flex flex-col items-center justify-center py-32 opacity-60">
+            <div className="w-10 h-10 border-4 border-blue-500/20 border-t-blue-600 rounded-full animate-spin mb-4"></div>
+            <p className="font-bold text-stone-500 tracking-widest text-sm uppercase">Đang đồng bộ dữ liệu...</p>
+          </div>
+        ) : filteredOrders.length === 0 ? (
+          <div className="text-center py-32 bg-white/50 backdrop-blur-sm rounded-[2.5rem] border border-stone-200/50 shadow-sm">
+             <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📭</div>
+             <h3 className="text-xl font-black text-stone-700 mb-2">Chưa có đơn hàng nào</h3>
+             <p className="text-stone-500">Hãy thử thay đổi bộ lọc hoặc tạo đơn hàng mới.</p>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-5">
+            {filteredOrders.map((order) => {
+              const rawDate = order.orderdate || order.created_at;
+              const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }) : '---';
+              const amount = order.totalamount || 0;
+              const isExpanded = expandedOrderId === order.orderid;
+              const customerInitial = (order.customer_name || '?').charAt(0).toUpperCase();
+
+              return (
+                <div 
+                  key={order.orderid} 
+                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${
+                    isExpanded ? 'border-blue-300 shadow-[0_20px_40px_rgba(59,130,246,0.08)]' : 'border-stone-200/60 shadow-sm hover:border-blue-200 hover:shadow-md'
+                  }`}
+                >
+                  <div 
+                    onClick={() => setExpandedOrderId(isExpanded ? null : order.orderid)}
+                    className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 cursor-pointer gap-4"
+                  >
+                    <div className="flex items-center gap-5 w-full md:w-auto">
+                      <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-black text-lg shadow-inner ${getAvatarColor(order.customer_name)}`}>
+                        {customerInitial}
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-3 mb-1">
+                          <h3 className="font-bold text-stone-800 text-lg">{order.customer_name}</h3>
+                          <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">ID: #{String(order.orderid).substring(0,6).toUpperCase()}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-sm text-stone-500">
+                          <span className="font-medium">{order.customer_phone}</span>
+                          <span className="w-1 h-1 rounded-full bg-stone-300"></span>
+                          <span>{displayDate}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between w-full md:w-auto gap-8 pl-17 md:pl-0">
+                      <div className="text-left md:text-right">
+                        <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mb-0.5">Tổng tiền</p>
+                        <p className="font-black text-stone-800 text-lg">{amount.toLocaleString()} <span className="text-stone-400 text-sm font-bold">VNĐ</span></p>
+                      </div>
+                      <div className="flex items-center gap-6">
+                        {getStatusBadge(order.orderstatus)}
+                        <div className={`w-8 h-8 rounded-full bg-stone-50 flex items-center justify-center text-stone-400 transition-transform duration-300 ${isExpanded ? 'rotate-180 bg-blue-50 text-blue-600' : ''}`}>
+                          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className={`overflow-hidden transition-all duration-500 ease-in-out ${isExpanded ? 'max-h-[1000px] opacity-100' : 'max-h-0 opacity-0'}`}>
+                    <div className="p-6 pt-0 border-t border-stone-100 bg-stone-50/50 rounded-b-[2rem] mt-2">
+                      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 pt-6">
+                        <div className="lg:col-span-7">
+                          <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"></path></svg>
+                            Sản phẩm đặt mua
+                          </h4>
+                          <div className="space-y-3 bg-white p-2 rounded-3xl border border-stone-200/60 shadow-sm">
+                            {order.items?.map((item: any, idx: number) => (
+                              <div key={idx} className="flex justify-between items-center p-3 rounded-2xl hover:bg-stone-50 transition-colors">
+                                <div className="flex items-center gap-4">
+                                  <div className="w-10 h-10 bg-stone-100 rounded-xl flex items-center justify-center text-sm font-bold text-stone-500">
+                                    {idx + 1}
+                                  </div>
+                                  <div>
+                                    <p className="font-bold text-stone-700">{item.name}</p>
+                                    <p className="text-xs text-stone-500 font-medium">SL: {item.quantity} x {item.price.toLocaleString()}đ</p>
+                                  </div>
+                                </div>
+                                <p className="font-black text-stone-800">{(item.price * item.quantity).toLocaleString()}đ</p>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="lg:col-span-5 flex flex-col gap-6">
+                          <div className="bg-white p-6 rounded-3xl border border-stone-200/60 shadow-sm">
+                            <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                              Địa chỉ nhận hàng
+                            </h4>
+                            <p className="font-bold text-stone-700 leading-relaxed">
+                              {order.address ? order.address : <span className="text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg">Nhận tại Shop</span>}
+                            </p>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 mt-auto">
+                            <button 
+                              onClick={() => {
+                                setActiveOrder(order);
+                                setNewStatus(order.orderstatus || 'Đã đặt hàng');
+                                setIsStatusModalOpen(true);
+                              }} 
+                              className="col-span-2 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 border border-blue-200/50"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                              Cập nhật trạng thái
+                            </button>
+                            
+                            <Link 
+                              href={`/dashboard/operations/orders/${order.orderid}/edit`}
+                              className="py-3.5 bg-white border border-stone-200 text-stone-700 rounded-2xl font-bold hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
+                            >
+                              Sửa đơn
+                            </Link>
+
+                            <button className="py-3.5 bg-stone-900 text-white rounded-2xl font-bold hover:bg-stone-800 transition-all shadow-md flex items-center justify-center gap-2">
+                              In Hóa Đơn
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* 🎯 MODAL CẬP NHẬT TRẠNG THÁI */}
+        {isStatusModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
+            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md" onClick={() => setIsStatusModalOpen(false)}></div>
+            
+            <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
+              <div className="mb-8">
+                <h3 className="text-2xl font-black text-stone-800 tracking-tight">Cập nhật đơn hàng</h3>
+                <p className="text-stone-500 font-medium mt-1">
+                  Khách hàng: <span className="text-blue-600 font-bold">{activeOrder?.customer_name}</span>
+                </p>
+              </div>
+
+              <div className="space-y-3 mb-8">
+                {ORDER_STATUSES.filter(s => s !== 'Tất cả').map(status => (
+                  <label 
+                    key={status} 
+                    // 🎯 ĐÂY CHÍNH LÀ DÒNG LỆNH EM QUÊN LÚC NÃY ĐÂY SẾP
+                    onClick={() => setNewStatus(status)}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
+                      newStatus === status 
+                        ? 'border-blue-500 bg-blue-50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] transform scale-[1.02]' 
+                        : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50'
+                    }`}
+                  >
+                    <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${newStatus === status ? 'border-blue-500' : 'border-stone-300'}`}>
+                      {newStatus === status && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>}
+                    </div>
+                    <span className={`font-bold ${newStatus === status ? 'text-blue-700' : 'text-stone-600'}`}>{status}</span>
+                  </label>
+                ))}
+              </div>
+
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => setIsStatusModalOpen(false)}
+                  className="flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
+                >
+                  Đóng
+                </button>
+                <button 
+                  onClick={handleUpdateStatus}
+                  className="flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
+                >
+                  Xác nhận lưu
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+      </div>
+
+      <style dangerouslySetInnerHTML={{__html: `
+        .custom-scrollbar::-webkit-scrollbar { height: 4px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+      `}} />
     </div>
   );
 }
