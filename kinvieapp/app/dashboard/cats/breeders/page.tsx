@@ -61,17 +61,20 @@ export default function BreedersCatsPage() {
     e.preventDefault();
     if (!window.confirm(`Duyệt hiển thị bé mèo ${catName} lên cửa hàng?`)) return;
 
-    const { error } = await supabase.from('cats').update({ approval_status: 'Đã duyệt' }).eq('id', catId);
+    // Cập nhật cùng lúc Approval và Status
+    const { error } = await supabase.from('cats').update({ 
+      approval_status: 'Đã duyệt',
+      status: 'Sẵn sàng' // Tự động chuyển trạng thái
+    }).eq('id', catId);
     
     if (!error) {
       alert('Đã phê duyệt thành công!');
-      // Bắn thông báo cho Đối tác
       await supabase.from('notifications').insert([{
         user_id: breederId,
         title: 'Mèo đã được duyệt',
         content: `Hồ sơ bé mèo ${catName} của trại bạn đã được kiểm duyệt và hiển thị lên cửa hàng.`
       }]);
-      fetchCats();
+      fetchCats(); // Refresh lại danh sách
     } else {
       alert('Lỗi phê duyệt: ' + error.message);
     }
@@ -108,6 +111,16 @@ export default function BreedersCatsPage() {
 
   const formatPrice = (price: number) => new Intl.NumberFormat('vi-VN').format(price);
 
+  // 🎯 HÀM LẤY MÀU TRẠNG THÁI CHO CARD
+  const getStatusStyle = (status: string) => {
+    switch(status) {
+      case 'Sẵn sàng': return 'bg-emerald-500 text-white shadow-md'; // Xanh
+      case 'Đã cọc': return 'bg-amber-500 text-white shadow-md';     // Vàng
+      case 'Đã về nhà mới': return 'bg-rose-500 text-white shadow-md';// Đỏ
+      case 'Chưa sẵn sàng': default: return 'bg-stone-800 text-white shadow-md'; // Đen
+    }
+  };
+
   const formatEmsCode = (code: string) => {
     if (!code) return 'Chưa rõ';
     if (code.includes(' ') || code.length > 5) return code;
@@ -130,11 +143,11 @@ export default function BreedersCatsPage() {
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-16 relative">
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <Link href="/dashboard/cats" className="text-blue-500 font-bold hover:underline mb-2 inline-block text-sm cursor-pointer">
-            ← Quay lại Trung tâm Cattery
+          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-2xl text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-500 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-stone-100 mb-4 hover:-translate-y-0.5 cursor-pointer">
+            <span className="text-lg leading-none">←</span> Quay lại Trung tâm Cattery
           </Link>
           {/* Đã gõ chuẩn unicode chống lỗi tách dấu */}
-          <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center gap-3">
+          <h1 className="text-4xl font-sans font-black text-stone-800 flex items-center gap-3">
             Kiểm duyệt Đối tác <span className="text-3xl">⚖️</span>
           </h1>
           <p className="text-stone-500 mt-2">Quản lý và phê duyệt hồ sơ mèo từ các trại giống đối tác.</p>
@@ -179,8 +192,8 @@ export default function BreedersCatsPage() {
                 />
                 
                 <div className="absolute top-4 left-4 z-10">
-                  <span className="px-3 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest bg-stone-900/80 text-white backdrop-blur-md">
-                    {cat.status || 'Chưa rõ'}
+                  <span className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest backdrop-blur-md ${getStatusStyle(cat.status)}`}>
+                    {cat.status || 'Chưa sẵn sàng'}
                   </span>
                 </div>
 

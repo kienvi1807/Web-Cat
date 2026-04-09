@@ -98,8 +98,8 @@ export default function KinVieCatteryPage() {
       {/* HEADER & NÚT THÊM MÈO */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <Link href="/dashboard/cats" className="text-orange-500 font-bold hover:underline mb-2 inline-block text-sm cursor-pointer">
-            ← Quay lại Cattery
+          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-2xl text-sm font-bold text-orange-600 hover:bg-orange-50 hover:text-orange-500 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-stone-100 mb-4 hover:-translate-y-0.5 cursor-pointer">
+            <span className="text-lg leading-none">←</span> Quay lại Trung tâm Cattery
           </Link>
           <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center gap-3">
             Đàn Mèo KinVie <span className="text-3xl">🦁</span>
@@ -150,8 +150,8 @@ export default function KinVieCatteryPage() {
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-[800ms]" 
                 />
                 <div className="absolute top-4 left-4 z-10">
-                  <span className={`px-4 py-2 rounded-xl text-[10px] uppercase font-black tracking-widest backdrop-blur-md border border-white/20 ${getStatusStyle(cat.status)}`}>
-                    {cat.status}
+                  <span className={`px-3 py-1.5 rounded-lg text-[10px] uppercase font-black tracking-widest backdrop-blur-md ${getStatusStyle(cat.status)}`}>
+                    {cat.status || 'Chưa sẵn sàng'}
                   </span>
                 </div>
               </div>

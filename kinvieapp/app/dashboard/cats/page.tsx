@@ -42,7 +42,7 @@ export default function CatsHubPage() {
     },
     {
       name: 'Sức khỏe & Sinh sản',
-      icon: '🩺',
+      icon: '🏥',
       description: 'Theo dõi lịch tiêm, phối giống, sức khỏe bầy đàn và ca phối giống dự kiến.',
       path: '/dashboard/cats/health',
       color: 'rose',
