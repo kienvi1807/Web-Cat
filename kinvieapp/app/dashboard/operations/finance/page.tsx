@@ -132,25 +132,32 @@ export default function FinancePage() {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-24 relative overflow-hidden">
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-gradient-to-br from-emerald-400/20 to-teal-400/20 blur-[100px] pointer-events-none z-0"></div>
-      <div className="fixed bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-gradient-to-tl from-rose-400/10 to-orange-400/10 blur-[120px] pointer-events-none z-0"></div>
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-emerald-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
           <div>
-            <Link href="/dashboard/operations" className="group inline-flex items-center gap-2 bg-emerald-50 text-emerald-600 hover:bg-emerald-100 px-5 py-2.5 rounded-full font-bold text-sm mb-4 transition-all duration-300 hover:shadow-md hover:-translate-x-1 active:scale-95 w-fit shadow-sm">
-              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> 
-              Quay lại Beam Petshop
+            <Link 
+              href="/dashboard/operations" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-emerald-600 hover:bg-white hover:text-emerald-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
             </Link>
-            <h1 className="text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-800 to-stone-500 tracking-tight">
+            <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-emerald-900 to-stone-800 tracking-tight drop-shadow-sm">
               Quản lý Thu/Chi 💸
             </h1>
             <p className="font-medium text-stone-500 mt-2">Theo dõi dòng tiền từ Beam Petshop & KinVie Cattery</p>
           </div>
           
-          <button onClick={() => setIsExpenseModalOpen(true)} className="bg-stone-900 hover:bg-black text-white px-6 py-3.5 rounded-2xl font-bold shadow-lg hover:shadow-xl hover:-translate-y-0.5 transition-all flex items-center gap-2">
-            <span className="text-rose-400 font-black text-xl">-</span> Ghi nhận Chi phí
+          <button 
+            onClick={() => setIsExpenseModalOpen(true)} 
+            className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer"
+          >
+            Thêm chi phí 💸
           </button>
         </div>
 

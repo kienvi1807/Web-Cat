@@ -225,7 +225,7 @@ export default function ReportsPage() {
               href="/dashboard/operations" 
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-orange-600 hover:bg-white hover:text-orange-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(249,115,22,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
-              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Vận Hành
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận Hành
             </Link>
             
             <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-orange-800 to-amber-700 tracking-tight drop-shadow-sm flex items-center gap-3">

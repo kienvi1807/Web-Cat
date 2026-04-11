@@ -110,13 +110,13 @@ export default function PedigreeExplorerPage() {
     const hasMother = level < 5 && (cat.mother_id || true);
 
     const isRoot = level === 1;
-    const borderClass = isRoot ? 'border-emerald-400 ring-4 ring-emerald-50 shadow-[0_0_20px_rgba(251,191,36,0.3)]' : cat.gender ? 'border-blue-200 hover:border-blue-400' : 'border-rose-200 hover:border-rose-400';
-    const textThemeClass = isRoot ? 'text-emerald-600' : cat.gender ? 'text-blue-500' : 'text-rose-500';
+    const borderClass = isRoot ? 'border-teal-400 ring-4 ring-teal-50 shadow-[0_0_20px_rgba(251,191,36,0.3)]' : cat.gender ? 'border-blue-200 hover:border-blue-400' : 'border-rose-200 hover:border-rose-400';
+    const textThemeClass = isRoot ? 'text-teal-600' : cat.gender ? 'text-blue-500' : 'text-rose-500';
 
     return (
       <div className="flex items-center relative group/tree">
         {/* Đường nối ngang */}
-        {level > 1 && <div className="w-12 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-emerald-300"></div>}
+        {level > 1 && <div className="w-12 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>}
         
         {/* CARD THÔNG TIN NODE */}
         <Link 
@@ -146,14 +146,14 @@ export default function PedigreeExplorerPage() {
         {/* NHÁNH CHA MẸ */}
         {level < 5 && (
           <div className="flex items-center relative">
-            <div className="w-8 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-emerald-300"></div>
-            <div className="flex flex-col justify-center border-l-2 border-stone-300 py-6 my-2 relative transition-colors group-hover/tree:border-emerald-300">
+            <div className="w-8 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>
+            <div className="flex flex-col justify-center border-l-2 border-stone-300 py-6 my-2 relative transition-colors group-hover/tree:border-teal-300">
                <div className="flex items-center relative -left-[2px] mb-8">
-                  <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-emerald-300"></div>
+                  <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
                   <FamilyTreeNode catId={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} />
                </div>
                <div className="flex items-center relative -left-[2px]">
-                  <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-emerald-300"></div>
+                  <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
                   <FamilyTreeNode catId={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} />
                </div>
             </div>
@@ -165,21 +165,27 @@ export default function PedigreeExplorerPage() {
 
   return (
     <div className="animate-fade-in min-h-screen pb-24 relative overflow-hidden bg-stone-50/50">
-      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-emerald-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-teal-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-teal-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
+
+      <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-teal-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 right-0 w-[800px] h-[800px] bg-blue-500/5 rounded-full blur-[150px] pointer-events-none -z-10"></div>
 
       <div className="max-w-[1600px] mx-auto px-6 pt-10">
         
         {/* 🎯 NÚT BACK VỀ TRUNG TÂM MÈO */}
-        <div className="mb-6 relative z-20">
-          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-md rounded-xl text-sm font-bold text-emerald-600 hover:bg-white hover:text-emerald-500 transition-all shadow-sm border border-white/50">
-            <span>←</span> Quay lại Trung tâm Cattery
-          </Link>
-        </div>
+        <Link 
+              href="/dashboard/cats" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-teal-600 hover:bg-white hover:text-teal-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(20,184,166,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+            <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Cattery
+        </Link>
 
         {/* HEADER & THANH TÌM KIẾM RADAR */}
         <div className="flex flex-col items-center text-center mb-16 relative z-20">
-          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-emerald-400 to-teal-600 text-white shadow-2xl shadow-emerald-500/30 mb-6 transform -rotate-3">
+          <div className="inline-flex items-center justify-center w-20 h-20 rounded-3xl bg-gradient-to-br from-teal-400 to-teal-600 text-white shadow-2xl shadow-teal-500/30 mb-6 transform -rotate-3">
              <span className="text-4xl">🧬</span>
           </div>
           <h1 className="text-5xl md:text-6xl font-serif font-black text-stone-800 mb-4 tracking-tight">
@@ -190,7 +196,7 @@ export default function PedigreeExplorerPage() {
           </p>
 
           <div className="relative w-full max-w-3xl group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-500 rounded-[2.5rem] blur opacity-25 group-focus-within:opacity-60 transition duration-500"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-teal-400 to-teal-500 rounded-[2.5rem] blur opacity-25 group-focus-within:opacity-60 transition duration-500"></div>
             <div className="relative flex items-center bg-white/90 backdrop-blur-xl border border-white rounded-[2rem] p-3 shadow-xl">
                <span className="text-3xl ml-4 mr-2">🔍</span>
                <input 
@@ -217,17 +223,17 @@ export default function PedigreeExplorerPage() {
                        <div 
                          key={cat.id} 
                          onClick={() => { setSelectedCatId(cat.id); setSearchQuery(''); setSearchResults([]); }}
-                         className="flex items-center gap-4 p-3 rounded-2xl hover:bg-emerald-50 cursor-pointer transition-colors group/item"
+                         className="flex items-center gap-4 p-3 rounded-2xl hover:bg-teal-50 cursor-pointer transition-colors group/item"
                        >
-                          <img src={cat.images?.[0] || 'https://via.placeholder.com/100'} className="w-14 h-14 rounded-xl object-cover shadow-sm border border-stone-200 group-hover/item:border-emerald-300" />
+                          <img src={cat.images?.[0] || 'https://via.placeholder.com/100'} className="w-14 h-14 rounded-xl object-cover shadow-sm border border-stone-200 group-hover/item:border-teal-300" />
                           <div className="flex-1">
-                            <h4 className="text-lg font-black text-stone-800 group-hover/item:text-emerald-600">{cat.name} <span className="text-sm">{cat.gender !== false ? '♂' : '♀'}</span></h4>
+                            <h4 className="text-lg font-black text-stone-800 group-hover/item:text-teal-600">{cat.name} <span className="text-sm">{cat.gender !== false ? '♂' : '♀'}</span></h4>
                             <div className="flex items-center gap-3 mt-1">
-                               <span className="text-xs font-bold text-stone-500 flex items-center gap-1"><span className="text-emerald-500">🏠</span> {getUserDisplayName(cat.breeder_id)}</span>
+                               <span className="text-xs font-bold text-stone-500 flex items-center gap-1"><span className="text-teal-500">🏠</span> {getUserDisplayName(cat.breeder_id)}</span>
                                <span className="text-xs font-bold text-stone-500 flex items-center gap-1"><span className="text-blue-500">🧬</span> {cat.breed}</span>
                             </div>
                           </div>
-                          <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-emerald-500 group-hover/item:bg-emerald-500 group-hover/item:text-white transition-colors">➜</div>
+                          <div className="w-10 h-10 rounded-full bg-white shadow-sm flex items-center justify-center text-teal-500 group-hover/item:bg-teal-500 group-hover/item:text-white transition-colors">➜</div>
                        </div>
                      ))}
                    </div>
@@ -242,12 +248,12 @@ export default function PedigreeExplorerPage() {
         {/* ========================================================= */}
         
         {isLoading ? (
-           <div className="text-center py-20 text-emerald-500 animate-pulse"><span className="text-6xl">📖</span><p className="font-bold mt-4">Đang tra cứu kho lưu trữ...</p></div>
+           <div className="text-center py-20 text-teal-500 animate-pulse"><span className="text-6xl">📖</span><p className="font-bold mt-4">Đang tra cứu kho lưu trữ...</p></div>
         ) : selectedCatId ? (
           <div className="relative">
             <div className="flex items-center justify-between mb-6">
                <h2 className="text-2xl font-black text-stone-800 flex items-center gap-3">
-                  Cây Gia Tộc Phả Hệ (5 Đời) <span className="text-emerald-500">⚜️</span>
+                  Cây Gia Tộc Phả Hệ (5 Đời) <span className="text-teal-500">⚜️</span>
                </h2>
                <div className="flex gap-4">
                  <span className="text-xs font-bold text-stone-500 flex items-center gap-2"><div className="w-3 h-3 rounded-full bg-blue-400"></div> Đực</span>

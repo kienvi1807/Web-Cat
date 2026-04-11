@@ -94,15 +94,22 @@ export default function KinVieCatteryPage() {
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-16 relative">
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-red-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-red-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-red-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
       
       {/* HEADER & NÚT THÊM MÈO */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-2xl text-sm font-bold text-orange-600 hover:bg-orange-50 hover:text-orange-500 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-stone-100 mb-4 hover:-translate-y-0.5 cursor-pointer">
-            <span className="text-lg leading-none">←</span> Quay lại Trung tâm Cattery
-          </Link>
-          <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center gap-3">
-            Đàn Mèo KinVie <span className="text-3xl">🦁</span>
+          <Link 
+              href="/dashboard/cats" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-red-600 hover:bg-white hover:text-red-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(239,68,68,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Cattery
+            </Link>
+          <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-red-900 to-stone-800 tracking-tight drop-shadow-sm">
+              Đàn mèo nhà KinVie
           </h1>
           <p className="text-stone-500 mt-2">Quản lý, thêm mới và cập nhật trạng thái các bé Maine Coon.</p>
         </div>
@@ -110,7 +117,7 @@ export default function KinVieCatteryPage() {
         {/* 🎯 NÚT LINK THẲNG SANG TRANG /add */}
         <Link 
           href="/dashboard/cats/kinvie/add"
-          className="relative group overflow-hidden bg-orange-500 text-white font-black px-8 py-4 rounded-2xl shadow-[0_0_20px_rgba(249,115,22,0.4)] hover:shadow-[0_0_30px_rgba(249,115,22,0.6)] transition-all duration-300 hover:-translate-y-1 cursor-pointer block"
+          className="relative group overflow-hidden bg-red-500 text-white font-black px-8 py-4 rounded-2xl shadow-[0_0_20px_rgba(239,68,68,0.4)] hover:shadow-[0_0_30px_rgba(239,68,68,0.6)] transition-all duration-300 hover:-translate-y-1 cursor-pointer block"
         >
           <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/30 to-transparent -translate-x-full group-hover:animate-[shimmer_1s_infinite]"></div>
           <span className="relative z-10 flex items-center gap-2">
@@ -125,7 +132,7 @@ export default function KinVieCatteryPage() {
       {isLoading ? (
         <div className="text-center py-20">
            <span className="text-4xl animate-bounce inline-block mb-4">🐈</span>
-           <p className="text-orange-500 font-bold animate-pulse uppercase tracking-widest text-sm">Đang tải dữ liệu đàn mèo...</p>
+           <p className="text-red-500 font-bold animate-pulse uppercase tracking-widest text-sm">Đang tải dữ liệu đàn mèo...</p>
         </div>
       ) : catsList.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-[2rem] border border-stone-100 shadow-sm">
@@ -138,9 +145,9 @@ export default function KinVieCatteryPage() {
             <Link 
               href={`/dashboard/cats/kinvie/${cat.id}`} 
               key={cat.id} 
-              className="group block relative bg-white p-3 rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(249,115,22,0.15)] hover:border-orange-200 transition-all duration-500 hover:-translate-y-1 cursor-pointer overflow-hidden"
+              className="group block relative bg-white p-3 rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(249,115,22,0.15)] hover:border-red-200 transition-all duration-500 hover:-translate-y-1 cursor-pointer overflow-hidden"
             >
-              <div className="absolute inset-0 bg-gradient-to-b from-orange-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0"></div>
+              <div className="absolute inset-0 bg-gradient-to-b from-red-50/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0"></div>
 
               {/* 1. KHU VỰC ẢNH & TRẠNG THÁI */}
               <div className="relative h-64 rounded-[2rem] overflow-hidden mb-5 bg-stone-100 z-10 shadow-inner">
@@ -158,7 +165,7 @@ export default function KinVieCatteryPage() {
 
               {/* 2. KHU VỰC THÔNG TIN */}
               <div className="px-3 pb-3 relative z-10">
-                <h3 className="text-2xl font-black text-stone-800 mb-4 group-hover:text-orange-600 transition-colors truncate" title={cat.name}>
+                <h3 className="text-2xl font-black text-stone-800 mb-4 group-hover:text-red-600 transition-colors truncate" title={cat.name}>
                   {cat.name}
                 </h3>
                 
@@ -178,12 +185,12 @@ export default function KinVieCatteryPage() {
                 <div className="flex justify-between items-end pt-4 border-t border-dashed border-stone-200">
                   <div>
                     <p className="text-[10px] uppercase font-black text-stone-400 tracking-widest mb-1">Giá chuyển nhượng</p>
-                    <p className="text-[26px] font-black bg-gradient-to-r from-orange-500 to-rose-500 bg-clip-text text-transparent tracking-tighter">
-                      {formatPrice(cat.price)}<span className="text-sm font-bold text-orange-500 ml-1">đ</span>
+                    <p className="text-[26px] font-black bg-gradient-to-r from-red-500 to-rose-500 bg-clip-text text-transparent tracking-tighter">
+                      {formatPrice(cat.price)}<span className="text-sm font-bold text-red-500 ml-1">đ</span>
                     </p>
                   </div>
                   
-                  <div className="w-12 h-12 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center group-hover:bg-orange-500 group-hover:text-white transition-all duration-300 shadow-sm -rotate-45 group-hover:rotate-0">
+                  <div className="w-12 h-12 rounded-2xl bg-red-50 text-red-500 flex items-center justify-center group-hover:bg-red-500 group-hover:text-white transition-all duration-300 shadow-sm -rotate-45 group-hover:rotate-0">
                     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                     </svg>

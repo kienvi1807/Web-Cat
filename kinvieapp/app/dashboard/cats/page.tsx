@@ -12,10 +12,10 @@ export default function CatsHubPage() {
       icon: '🦁',
       description: 'Quản lý đàn mèo thuần chủng của trại giống. Thêm mèo mới, cập nhật giá, trạng thái.',
       path: '/dashboard/cats/kinvie',
-      color: 'orange',
-      colorFrom: 'from-orange-400',
-      colorHoverFrom: 'group-hover:from-orange-500',
-      labelColor: 'text-orange-600 bg-orange-50 border-orange-200',
+      color: 'red',
+      colorFrom: 'from-red-400',
+      colorHoverFrom: 'group-hover:from-red-500',
+      labelColor: 'text-red-600 bg-red-50 border-red-200',
       labelText: '08 bé'
     },
     {
@@ -23,10 +23,10 @@ export default function CatsHubPage() {
       icon: '🤝',
       description: 'Kiểm duyệt bài đăng bán mèo của các trại nhân giống đối tác liên kết.',
       path: '/dashboard/cats/breeders',
-      color: 'cyan',
-      colorFrom: 'from-cyan-400',
-      colorHoverFrom: 'group-hover:from-cyan-500',
-      labelColor: 'text-rose-500 bg-rose-50 border-rose-200 animate-pulse',
+      color: 'orange',
+      colorFrom: 'from-orange-400',
+      colorHoverFrom: 'group-hover:from-orange-500',
+      labelColor: 'text-orange-500 bg-orange-50 border-orange-200 animate-pulse',
       labelText: '3 bài chờ duyệt'
     },
     {
@@ -34,10 +34,10 @@ export default function CatsHubPage() {
       icon: '🌳',
       description: 'Cập nhật, tra cứu phả hệ (Pedigree) cho từng bé mèo trong trại.',
       path: '/dashboard/cats/pedigree',
-      color: 'emerald',
-      colorFrom: 'from-emerald-400',
-      colorHoverFrom: 'group-hover:from-emerald-500',
-      labelColor: 'text-stone-500 bg-stone-50 border-stone-200',
+      color: 'teal',
+      colorFrom: 'from-teal-400',
+      colorHoverFrom: 'group-hover:from-teal-500',
+      labelColor: 'text-teal-500 bg-teal-50 border-teal-200 animate-pulse',
       labelText: 'Cập nhật'
     },
     {
@@ -68,17 +68,17 @@ export default function CatsHubPage() {
       <div className="relative group/section">
         
         {/* Lớp Hào Quang Tỏa Ra Phía Sau */}
-        <div className="absolute -inset-4 bg-gradient-to-r from-orange-500/0 via-orange-400/10 to-amber-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-red-500/0 via-red-400/10 to-amber-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-orange-200/80 hover:shadow-[0_8px_50px_rgba(249,115,22,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-red-200/80 hover:shadow-[0_8px_50px_rgba(249,115,22,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-orange-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-red-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
@@ -100,7 +100,7 @@ export default function CatsHubPage() {
                   </div>
                   
                   {/* Tiêu đề */}
-                  <h3 className={`text-[16px] font-black ${item.name === 'Mèo của Breeder' ? 'text-cyan-700' : `text-${item.color}-600`} mb-2 tracking-wide`}>
+                  <h3 className={`text-[16px] font-black ${item.name === 'Mèo của Breeder' ? 'text-orange-700' : `text-${item.color}-600`} mb-2 tracking-wide`}>
                     {item.name}
                   </h3>
                   

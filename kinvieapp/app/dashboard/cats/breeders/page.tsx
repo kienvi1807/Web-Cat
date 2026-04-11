@@ -141,14 +141,22 @@ export default function BreedersCatsPage() {
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-16 relative">
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-orange-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-orange-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-orange-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
+
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">
         <div>
-          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-5 py-2.5 bg-white rounded-2xl text-sm font-bold text-blue-600 hover:bg-blue-50 hover:text-blue-500 transition-all shadow-[0_2px_10px_rgba(0,0,0,0.04)] border border-stone-100 mb-4 hover:-translate-y-0.5 cursor-pointer">
-            <span className="text-lg leading-none">←</span> Quay lại Trung tâm Cattery
+          <Link 
+              href="/dashboard/cats" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-orange-600 hover:bg-white hover:text-orange-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(249,115,22,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+            <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Cattery
           </Link>
           {/* Đã gõ chuẩn unicode chống lỗi tách dấu */}
-          <h1 className="text-4xl font-sans font-black text-stone-800 flex items-center gap-3">
-            Kiểm duyệt Đối tác <span className="text-3xl">⚖️</span>
+          <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-red-900 to-stone-800 tracking-tight drop-shadow-sm">
+              Kiểm duyệt đối tác
           </h1>
           <p className="text-stone-500 mt-2">Quản lý và phê duyệt hồ sơ mèo từ các trại giống đối tác.</p>
         </div>
@@ -158,7 +166,7 @@ export default function BreedersCatsPage() {
             <button
               key={status}
               onClick={() => setFilterStatus(status)}
-              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${filterStatus === status ? 'bg-stone-800 text-white shadow-md' : 'text-stone-500 hover:bg-stone-50'}`}
+              className={`px-5 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${filterStatus === status ? 'bg-orange-800 text-white shadow-md' : 'text-stone-500 hover:bg-stone-50'}`}
             >
               {status}
             </button>
@@ -169,7 +177,7 @@ export default function BreedersCatsPage() {
       {isLoading ? (
         <div className="text-center py-20">
            <span className="text-4xl animate-spin inline-block mb-4">⚙️</span>
-           <p className="text-blue-500 font-bold animate-pulse uppercase tracking-widest text-sm">Đang tải dữ liệu kiểm duyệt...</p>
+           <p className="text-orange-500 font-bold animate-pulse uppercase tracking-widest text-sm">Đang tải dữ liệu kiểm duyệt...</p>
         </div>
       ) : filteredCats.length === 0 ? (
         <div className="text-center py-20 bg-white rounded-[2rem] border border-stone-100 shadow-sm">
@@ -182,7 +190,7 @@ export default function BreedersCatsPage() {
             <Link 
               href={`/dashboard/cats/breeders/${cat.id}`} 
               key={cat.id} 
-              className="group block relative bg-white p-3 rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(59,130,246,0.15)] hover:border-blue-200 transition-all duration-500 hover:-translate-y-1 cursor-pointer overflow-hidden flex flex-col"
+              className="group block relative bg-white p-3 rounded-[2.5rem] border border-stone-100 shadow-[0_8px_30px_rgba(0,0,0,0.03)] hover:shadow-[0_20px_50px_rgba(251,146,60,0.2)] hover:border-orange-300 transition-all duration-500 hover:-translate-y-1 cursor-pointer overflow-hidden flex flex-col"
             >
               <div className="relative h-56 rounded-[2rem] overflow-hidden mb-4 bg-stone-100 z-10 shadow-inner shrink-0">
                 <img 
@@ -206,11 +214,11 @@ export default function BreedersCatsPage() {
 
               <div className="px-3 flex-1 flex flex-col relative z-10">
                 <div className="mb-3">
-                   <h3 className="text-xl font-black text-stone-800 group-hover:text-blue-600 transition-colors truncate" title={cat.name}>
+                   <h3 className="text-xl font-black text-stone-800 group-hover:text-orange-600 transition-colors truncate" title={cat.name}>
                      {cat.name} <span className="text-sm">{cat.gender === false ? '♀' : '♂'}</span>
                    </h3>
                    <p className="text-xs font-bold text-stone-500 mt-1 flex items-center gap-1.5 truncate">
-                     <span className="text-blue-500">🏠</span> Trại: {getBreederDisplayName(cat.users)}
+                     <span className="text-orange-500">🏠</span> Trại: {getBreederDisplayName(cat.users)}
                    </p>
                 </div>
                 

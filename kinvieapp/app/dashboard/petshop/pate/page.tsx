@@ -70,7 +70,7 @@ export default function PateFreshPage() {
     if (diffDays < 0) return { label: 'Hết hạn', color: 'bg-rose-500 text-white animate-pulse' };
     if (diffDays === 0) return { label: 'Hết hạn hôm nay', color: 'bg-rose-500 text-white animate-pulse' };
     if (diffDays <= 2) return { label: `Còn ${diffDays} ngày`, color: 'bg-amber-500 text-white' };
-    return { label: `Còn ${diffDays} ngày`, color: 'bg-emerald-500 text-white' };
+    return { label: `Còn ${diffDays} ngày`, color: 'bg-pink-500 text-white' };
   };
 
   // 🎯 Mở Modal và nạp dữ liệu
@@ -136,21 +136,25 @@ export default function PateFreshPage() {
   );
 
   return (
-    <div className="animate-fade-in min-h-screen bg-[#F8F9FA] pb-16 relative overflow-hidden selection:bg-emerald-200">
-      {/* 🎨 BACKGROUND EMERALD */}
-      <div className="fixed top-[-10%] right-[-5%] w-[600px] h-[600px] bg-emerald-400/20 mix-blend-multiply filter blur-[150px] animate-blob pointer-events-none z-0"></div>
-      <div className="fixed bottom-[-20%] left-[-10%] w-[500px] h-[500px] bg-teal-400/15 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-2000 pointer-events-none z-0"></div>
+    <div className="animate-fade-in min-h-screen bg-[#F8F9FA] pb-16 relative overflow-hidden selection:bg-pink-200">
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-pink-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-pink-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-pink-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 relative z-10 animate-fade-in-up pt-12">
         
         {/* HEADER SECTION */}
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
-            <Link href="/dashboard/petshop" className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-emerald-600 hover:bg-white hover:text-emerald-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit">
+            <Link 
+              href="/dashboard/petshop" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-pink-600 hover:bg-white hover:text-pink-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(236,72,153,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Beam Petshop
             </Link>
             
-            <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-emerald-800 to-teal-700 tracking-tight drop-shadow-sm flex items-center gap-3">
+            <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-pink-800 to-teal-700 tracking-tight drop-shadow-sm flex items-center gap-3">
               Quản lý Pate Tươi <span className="text-3xl drop-shadow-md transform -rotate-12">🥫</span>
             </h1>
             <p className="font-bold text-stone-500 mt-2">Kiểm soát chất lượng, số lượng và vòng đời các mẻ pate thủ công.</p>
@@ -159,7 +163,7 @@ export default function PateFreshPage() {
           <div className="flex flex-col sm:flex-row gap-4 w-full md:w-auto">
             {/* THANH TÌM KIẾM */}
             <div className="relative flex-1 md:w-80 group">
-              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-emerald-500 transition-colors">
+              <span className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-pink-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="3" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </span>
               <input 
@@ -167,19 +171,19 @@ export default function PateFreshPage() {
                 placeholder="Tìm mẻ Pate theo tên..." 
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="cursor-text w-full pl-14 pr-5 py-4 bg-white/70 backdrop-blur-xl border-2 border-white/80 rounded-2xl focus:border-emerald-400 focus:bg-white outline-none font-bold text-stone-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all placeholder:font-medium placeholder:text-stone-400"
+                className="cursor-text w-full pl-14 pr-5 py-4 bg-white/70 backdrop-blur-xl border-2 border-white/80 rounded-2xl focus:border-pink-400 focus:bg-white outline-none font-bold text-stone-800 shadow-[0_8px_30px_rgb(0,0,0,0.04)] transition-all placeholder:font-medium placeholder:text-stone-400"
               />
             </div>
             
             {/* NÚT THÊM MỚI */}
             <div className="flex gap-3">
               {/* 🎯 NÚT QUẢN LÝ LOẠI PATE (MỚI) */}
-              <Link href="/dashboard/petshop/pate-types" className="cursor-pointer bg-white border-2 border-emerald-500 text-emerald-600 hover:bg-emerald-50 font-black px-6 py-4 rounded-2xl shadow-[0_8px_20px_rgba(16,185,129,0.1)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.2)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
+              <Link href="/dashboard/petshop/pate-types" className="cursor-pointer bg-white border-2 border-pink-500 text-pink-600 hover:bg-pink-50 font-black px-6 py-4 rounded-2xl shadow-[0_8px_20px_rgba(16,185,129,0.1)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.2)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                 ⚙️ Danh mục
               </Link>
               
               {/* NÚT NẤU MẺ MỚI */}
-              <Link href="/dashboard/petshop/pate/add" className="cursor-pointer bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-600 hover:to-teal-600 text-white font-black px-8 py-4 rounded-2xl shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_10px_40px_rgba(16,185,129,0.4)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
+              <Link href="/dashboard/petshop/pate/add" className="cursor-pointer bg-gradient-to-r from-pink-500 to-rose-500 hover:from-pink-600 hover:to-rose-600 text-white font-black px-8 py-4 rounded-2xl shadow-[0_10px_30px_rgba(236,72,153,0.3)] hover:shadow-[0_10px_40px_rgba(236,72,153,0.4)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 whitespace-nowrap">
                 <span>+</span> Nấu mẻ mới
               </Link>
             </div>
@@ -189,7 +193,7 @@ export default function PateFreshPage() {
         {/* GRID HIỂN THỊ */}
         {isLoading ? (
           <div className="flex flex-col items-center justify-center py-40">
-            <div className="w-12 h-12 border-4 border-emerald-200 border-t-emerald-600 rounded-full animate-spin mb-4"></div>
+            <div className="w-12 h-12 border-4 border-pink-200 border-t-pink-600 rounded-full animate-spin mb-4"></div>
             <p className="font-black text-stone-400 tracking-widest text-sm uppercase animate-pulse">Đang quét kho lạnh...</p>
           </div>
         ) : filteredPate.length === 0 ? (
@@ -213,12 +217,12 @@ export default function PateFreshPage() {
                     {status.label}
                   </div>
 
-                  <div className="w-24 h-24 mx-auto bg-gradient-to-br from-emerald-50 to-teal-50 rounded-[1.5rem] flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 border border-white">
+                  <div className="w-24 h-24 mx-auto bg-gradient-to-br from-pink-50 to-teal-50 rounded-[1.5rem] flex items-center justify-center text-5xl mb-6 shadow-inner group-hover:scale-110 group-hover:rotate-6 transition-all duration-500 border border-white">
                     {p.images?.[0] ? <img src={p.images[0]} className="w-full h-full object-contain rounded-[1.5rem] drop-shadow-sm" /> : '🥫'}
                   </div>
 
                   <div className="text-center flex-1">
-                    <h3 className="text-xl font-black text-stone-800 mb-2 line-clamp-2 group-hover:text-emerald-600 transition-colors flex items-center justify-center gap-2">
+                    <h3 className="text-xl font-black text-stone-800 mb-2 line-clamp-2 group-hover:text-pink-600 transition-colors flex items-center justify-center gap-2">
                       {p.name} 
                       <span className="text-2xl drop-shadow-sm">{getPateIcons(p.name)}</span>
                     </h3>
@@ -233,12 +237,12 @@ export default function PateFreshPage() {
                   <div className="flex justify-between items-center pt-5 border-t border-dashed border-stone-200 mt-auto">
                     <div>
                       <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-0.5">Còn lại</p>
-                      <p className="text-2xl font-black text-emerald-600 drop-shadow-sm">{p.stock}<span className="text-xs ml-1 font-bold text-emerald-400 uppercase">hộp</span></p>
+                      <p className="text-2xl font-black text-pink-600 drop-shadow-sm">{p.stock}<span className="text-xs ml-1 font-bold text-pink-400 uppercase">hộp</span></p>
                     </div>
                     {/* 🎯 Sửa Link thành Button Mở Modal */}
                     <button 
                       onClick={() => openEditModal(p)}
-                      className="cursor-pointer w-12 h-12 rounded-2xl bg-white border border-stone-100 shadow-sm flex items-center justify-center text-stone-400 hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 transition-all group/btn"
+                      className="cursor-pointer w-12 h-12 rounded-2xl bg-white border border-stone-100 shadow-sm flex items-center justify-center text-stone-400 hover:bg-pink-50 hover:text-pink-600 hover:border-pink-200 transition-all group/btn"
                     >
                       <svg className="w-5 h-5 group-hover/btn:rotate-12 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
                     </button>
@@ -260,7 +264,7 @@ export default function PateFreshPage() {
               
               <div className="flex items-center justify-between mb-8 pb-6 border-b border-stone-100">
                 <h3 className="text-2xl font-black text-stone-800 tracking-tight flex items-center gap-3">
-                  <span className="p-2.5 bg-emerald-100 text-emerald-600 rounded-2xl text-xl">⚙️</span>
+                  <span className="p-2.5 bg-pink-100 text-pink-600 rounded-2xl text-xl">⚙️</span>
                   Sửa mẻ Pate
                 </h3>
                 <button onClick={() => setIsEditModalOpen(false)} className="cursor-pointer w-10 h-10 bg-stone-50 rounded-full flex items-center justify-center text-stone-400 hover:bg-rose-50 hover:text-rose-500 transition-colors">
@@ -276,7 +280,7 @@ export default function PateFreshPage() {
                     type="text" 
                     value={editForm.name}
                     onChange={(e) => setEditForm({...editForm, name: e.target.value})}
-                    className="cursor-text w-full bg-white border-2 border-stone-100 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 transition-all shadow-sm"
+                    className="cursor-text w-full bg-white border-2 border-stone-100 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-400/10 transition-all shadow-sm"
                   />
                 </div>
 
@@ -288,7 +292,7 @@ export default function PateFreshPage() {
                       type="number" 
                       value={editForm.stock}
                       onChange={(e) => setEditForm({...editForm, stock: Number(e.target.value)})}
-                      className="cursor-text w-full bg-emerald-50/50 border-2 border-emerald-100 text-emerald-700 rounded-2xl px-5 py-4 font-black text-xl outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 transition-all shadow-sm"
+                      className="cursor-text w-full bg-pink-50/50 border-2 border-pink-100 text-pink-700 rounded-2xl px-5 py-4 font-black text-xl outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-400/10 transition-all shadow-sm"
                     />
                   </div>
                   
@@ -299,7 +303,7 @@ export default function PateFreshPage() {
                       type="date" 
                       value={editForm.expiry_date}
                       onChange={(e) => setEditForm({...editForm, expiry_date: e.target.value})}
-                      className="cursor-pointer w-full bg-white border-2 border-stone-100 rounded-2xl px-5 py-4 font-bold text-stone-700 outline-none focus:border-emerald-400 focus:ring-4 focus:ring-emerald-400/10 transition-all shadow-sm"
+                      className="cursor-pointer w-full bg-white border-2 border-stone-100 rounded-2xl px-5 py-4 font-bold text-stone-700 outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-400/10 transition-all shadow-sm"
                     />
                   </div>
                 </div>
@@ -319,7 +323,7 @@ export default function PateFreshPage() {
                 <button 
                   onClick={handleUpdatePate}
                   disabled={isSaving}
-                  className="cursor-pointer flex-1 py-4 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_10px_40px_rgba(16,185,129,0.4)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
+                  className="cursor-pointer flex-1 py-4 bg-gradient-to-r from-pink-500 to-teal-500 text-white rounded-2xl font-black text-lg shadow-[0_10px_30px_rgba(16,185,129,0.3)] hover:shadow-[0_10px_40px_rgba(16,185,129,0.4)] hover:-translate-y-1 active:scale-95 transition-all flex items-center justify-center gap-2 disabled:opacity-70"
                 >
                   {isSaving ? (
                     <div className="w-6 h-6 border-2 border-white/20 border-t-white rounded-full animate-spin"></div>

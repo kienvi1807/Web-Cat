@@ -81,18 +81,21 @@ export default function HealthAndBreedingPage() {
 
   return (
     <div className="animate-fade-in min-h-screen pb-24 relative overflow-hidden bg-stone-50/50">
-      {/* KHỐI SÁNG BACKGROUND NEON */}
-      <div className="fixed top-0 left-0 w-[800px] h-[800px] bg-rose-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
-      <div className="fixed bottom-0 right-0 w-[800px] h-[800px] bg-rose-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
+
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-rose-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-rose-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-rose-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 pt-10">
         
-        {/* 🎯 NÚT BACK */}
-        <div className="mb-6 relative z-20">
-          <Link href="/dashboard/cats" className="inline-flex items-center gap-2 px-4 py-2 bg-white/60 backdrop-blur-md rounded-xl text-sm font-bold text-rose-600 hover:bg-white hover:text-rose-500 transition-all shadow-sm border border-white/50">
-            <span>←</span> Quay lại Trung tâm Cattery
-          </Link>
-        </div>
+        {/* 🎯 NÚT BACK VỀ TRUNG TÂM MÈO */}
+        <Link 
+              href="/dashboard/cats" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-rose-600 hover:bg-white hover:text-rose-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(225,29,72,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+            <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Cattery
+        </Link>
 
         {/* HEADER & THANH TÌM KIẾM */}
         <div className="flex flex-col items-center text-center mb-12 relative z-30">

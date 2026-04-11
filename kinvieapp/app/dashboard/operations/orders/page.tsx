@@ -8,7 +8,7 @@ const ORDER_STATUSES = ['Tất cả', 'Đã đặt hàng', 'Đã thanh toán', '
 
 const getAvatarColor = (name: string) => {
   const colors = [
-    'bg-rose-500', 'bg-blue-500', 'bg-emerald-500', 'bg-amber-500', 
+    'bg-rose-500', 'bg-lime-500', 'bg-emerald-500', 'bg-amber-500', 
     'bg-purple-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500'
   ];
   const charCode = (name || 'A').charCodeAt(0);
@@ -66,7 +66,7 @@ export default function OrderManagementPage() {
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm";
     switch (status) {
-      case 'Đã đặt hàng': return <span className={`${baseClasses} bg-blue-100/80 text-blue-700 border border-blue-200/50`}>{status}</span>;
+      case 'Đã đặt hàng': return <span className={`${baseClasses} bg-lime-100/80 text-lime-700 border border-lime-200/50`}>{status}</span>;
       case 'Đã thanh toán': return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50`}>{status}</span>;
       case 'Đang vận chuyển': return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50`}>{status}</span>;
       case 'Đã giao hàng': return <span className={`${baseClasses} bg-emerald-100/80 text-emerald-700 border border-emerald-200/50`}>{status}</span>;
@@ -117,20 +117,24 @@ export default function OrderManagementPage() {
 
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-24 relative overflow-hidden">
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-gradient-to-br from-blue-400/20 to-purple-400/20 blur-[100px] pointer-events-none z-0"></div>
-      <div className="fixed bottom-[-10%] right-[-5%] w-[50%] h-[50%] rounded-full bg-gradient-to-tl from-emerald-400/10 to-cyan-400/10 blur-[120px] pointer-events-none z-0"></div>
+      {/* HIỆU ỨNG NỀN */}
+      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
+      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
+      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-blue-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
         
         {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
           <div>
-            <Link href="/dashboard/operations" className="group inline-flex items-center gap-2 bg-blue-50 text-blue-600 hover:bg-blue-100 px-5 py-2.5 rounded-full font-bold text-sm mb-4 transition-all duration-300 hover:shadow-md hover:-translate-x-1 active:scale-95 w-fit shadow-sm cursor-pointer">
-              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> 
-              Quay lại Beam Petshop
+            <Link 
+              href="/dashboard/operations" 
+              className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-blue-600 hover:bg-white hover:text-blue-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(37,99,235,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
+            >
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
             </Link>
-            <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-800 to-stone-500 tracking-tight">
-              Đơn Hàng & Vận Chuyển
+            <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-blue-900 to-stone-800 tracking-tight drop-shadow-sm">
+              Đơn hàng & vận chuyển
             </h1>
           </div>
           
@@ -151,14 +155,14 @@ export default function OrderManagementPage() {
 
             {/* 🎯 BỘ LỌC TÌM NGÀY GIAO HÀNG */}
             <div className="relative lg:w-48 group">
-               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-orange-500 transition-colors">
+               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
                   🗓️
                </span>
                <input 
                   type="date" 
                   value={deliveryDateFilter}
                   onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-orange-500/10 focus:border-orange-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
+                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
                />
                {deliveryDateFilter && (
                   <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>

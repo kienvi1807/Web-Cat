@@ -12,10 +12,10 @@ export default function PetshopHubPage() {
       icon: '🧸',
       description: 'Quản lý kho hạt, cát, đồ chơi, phụ kiện. Thêm sản phẩm mới, cập nhật giá, tồn kho và danh mục.',
       path: '/dashboard/petshop/products',
-      color: 'pink',
-      colorFrom: 'from-pink-400',
-      colorHoverFrom: 'group-hover:from-pink-500',
-      labelColor: 'text-pink-600 bg-pink-50 border-pink-200',
+      color: 'fuchsia',
+      colorFrom: 'from-fuchsia-400',
+      colorHoverFrom: 'group-hover:from-fuchsia-500',
+      labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200 animate-pulse',
       labelText: '156 Sản phẩm'
     },
     {
@@ -23,10 +23,10 @@ export default function PetshopHubPage() {
       icon: '🥫',
       description: 'Theo dõi các mẻ Pate tươi thủ công. Cập nhật ngày sản xuất, hạn sử dụng và cảnh báo xả kho cận date.',
       path: '/dashboard/petshop/pate',
-      color: 'emerald',
-      colorFrom: 'from-emerald-400',
-      colorHoverFrom: 'group-hover:from-emerald-500',
-      labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse',
+      color: 'pink',
+      colorFrom: 'from-pink-400',
+      colorHoverFrom: 'group-hover:from-pink-500',
+      labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse',
       labelText: '2 mẻ cận date'
     }
   ];
@@ -46,17 +46,17 @@ export default function PetshopHubPage() {
       <div className="relative group/section">
         
         {/* Lớp Hào Quang Tỏa Ra Phía Sau (Màu Hồng) */}
-        <div className="absolute -inset-4 bg-gradient-to-r from-pink-500/0 via-pink-400/10 to-rose-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
+        <div className="absolute -inset-4 bg-gradient-to-r from-fuchsia-500/0 via-fuchsia-400/10 to-rose-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-pink-200/80 hover:shadow-[0_8px_50px_rgba(236,72,153,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-slate-200/80 hover:shadow-[0_8px_50px_rgba(236,72,153,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-pink-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-fuchsia-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 2 THẺ (CARDS) */}

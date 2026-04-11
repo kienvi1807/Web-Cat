@@ -12,10 +12,10 @@ export default function SystemHubPage() {
       icon: '📝',
       description: 'Soạn thảo bài viết, quản lý danh mục tin tức. Chia sẻ kinh nghiệm nuôi mèo, dinh dưỡng và các sự kiện của Cattery.',
       path: '/dashboard/system/blog',
-      color: 'purple',
-      colorFrom: 'from-purple-400',
-      colorHoverFrom: 'group-hover:from-purple-500',
-      labelColor: 'text-purple-600 bg-purple-50 border-purple-200',
+      color: 'indigo',
+      colorFrom: 'from-indigo-400',
+      colorHoverFrom: 'group-hover:from-indigo-500',
+      labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200',
       labelText: '25 Bài viết'
     },
     {

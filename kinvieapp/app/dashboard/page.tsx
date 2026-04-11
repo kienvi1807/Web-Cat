@@ -11,9 +11,9 @@ export default function DashboardHubPage() {
       sectionTitle: 'Quản lý Mèo (Cattery)',
       sectionIcon: '🐱',
       items: [
-        { name: 'Mèo KinVie Cattery', icon: '🦁', path: '/dashboard/cats/kinvie', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: 'text-orange-600 bg-orange-50 border-orange-200', labelText: '08 bé' },
-        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-rose-500 bg-rose-50 border-rose-200 animate-pulse', labelText: '3 bài chờ duyệt' },
-        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'emerald', colorFrom: 'from-emerald-400', colorHoverFrom: 'group-hover:from-emerald-500', labelColor: 'text-stone-500 bg-stone-50 border-stone-200', labelText: 'Cập nhật' },
+        { name: 'Mèo KinVie Cattery', icon: '🦁', path: '/dashboard/cats/kinvie', color: 'red', colorFrom: 'from-red-400', colorHoverFrom: 'group-hover:from-red-500', labelColor: 'text-red-600 bg-red-50 border-red-200', labelText: '08 bé' },
+        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: 'text-orange-500 bg-orange-50 border-orange-200 animate-pulse', labelText: '3 bài chờ duyệt' },
+        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'teal', colorFrom: 'from-teal-400', colorHoverFrom: 'group-hover:from-teal-500', labelColor: 'text-teal-500 bg-teal-50 border-teal-200', labelText: 'Cập nhật' },
         { name: 'Sức khỏe & Sinh sản', icon: '🩺', path: '/dashboard/cats/health', color: 'rose', colorFrom: 'from-rose-400', colorHoverFrom: 'group-hover:from-rose-500', labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse', labelText: '2 cảnh báo' },
       ]
     },
@@ -21,8 +21,8 @@ export default function DashboardHubPage() {
       sectionTitle: 'Beam Petshop',
       sectionIcon: '🛍️',
       items: [
-        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: 'text-pink-600 bg-pink-50 border-pink-200', labelText: '156 Sản phẩm' },
-        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'emerald', colorFrom: 'from-emerald-400', colorHoverFrom: 'group-hover:from-emerald-500', labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse', labelText: '2 mẻ cận date' },
+        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: '156 Sản phẩm' },
+        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse', labelText: '2 mẻ cận date' },
       ]
     },
     {
@@ -36,13 +36,21 @@ export default function DashboardHubPage() {
       ]
     },
     {
-      sectionTitle: 'Tài khoản & Hệ thống',
+      sectionTitle: 'Tài khoản & Đối tác',
+      sectionIcon: '👥',
+      items: [
+        { name: 'Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: '128 User' },
+        { name: 'Duyệt Breeder', icon: '🛡️', path: '/dashboard/users/promotions', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: 'text-amber-600 bg-amber-50 border-amber-200', labelText: '5 Đang chạy' },
+        { name: 'Hạng & Tích điểm', icon: '💎', path: '/dashboard/system/blog', color: 'sky', colorFrom: 'from-sky-400', colorHoverFrom: 'group-hover:from-sky-500', labelColor: 'text-sky-600 bg-sky-50 border-sky-200', labelText: '25 Bài viết' },
+        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/system/settings', color: 'violet', colorFrom: 'from-violet-400', colorHoverFrom: 'group-hover:from-violet-500', labelColor: 'text-violet-600 bg-violet-50 border-violet-200', labelText: 'Cấu hình hệ thống' },
+      ]
+    },
+    {
+      sectionTitle: 'Hệ thống & Nội dung',
       sectionIcon: '⚙️',
       items: [
-        { name: 'DS Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: '128 User' },
-        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/users/promotions', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: '5 Đang chạy' },
-        { name: 'Quản lý Blog', icon: '📝', path: '/dashboard/system/blog', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: '25 Bài viết' },
-        { name: 'Giao diện', icon: '🎨', path: '/dashboard/system/settings', color: 'slate', colorFrom: 'from-slate-400', colorHoverFrom: 'group-hover:from-slate-500', labelColor: 'text-slate-600 bg-slate-50 border-slate-200', labelText: 'Cấu hình hệ thống' },
+        { name: 'Quản lý Blog & Tin tức', icon: '📝', path: '/dashboard/users/list', color: 'indigo', colorFrom: 'from-indigo-400', colorHoverFrom: 'group-hover:from-indigo-500', labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200', labelText: '128 User' },
+        { name: ' Cài đặt giao diện', icon: '🎨', path: '/dashboard/system/settings', color: 'slate', colorFrom: 'from-slate-400', colorHoverFrom: 'group-hover:from-slate-500', labelColor: 'text-slate-600 bg-slate-50 border-slate-200', labelText: 'Cấu hình hệ thống' },
       ]
     }
   ];

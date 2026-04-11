@@ -78,7 +78,7 @@ export default function HRManagementPage() {
               href="/dashboard/operations" 
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-purple-600 hover:bg-white hover:text-purple-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(147,51,234,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
-              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Beam Petshop
+              <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
             </Link>
             <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-purple-900 to-stone-800 tracking-tight drop-shadow-sm">
               Quản lý Nhân sự

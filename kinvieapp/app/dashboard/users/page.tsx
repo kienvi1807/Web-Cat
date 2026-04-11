@@ -23,10 +23,10 @@ export default function UsersHubPage() {
       icon: '🛡️',
       description: 'Kiểm tra hồ sơ, giấy tờ trại giống và phê duyệt cấp quyền đăng bán mèo cho đối tác mới.',
       path: '/dashboard/users/breeders',
-      titleColor: 'text-rose-600',
-      colorFrom: 'from-rose-400',
-      colorHoverFrom: 'group-hover:from-rose-500',
-      labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse',
+      titleColor: 'text-amber-600',
+      colorFrom: 'from-amber-400',
+      colorHoverFrom: 'group-hover:from-amber-500',
+      labelColor: 'text-amber-600 bg-amber-50 border-amber-200 animate-pulse',
       labelText: '2 Yêu cầu'
     },
     {
@@ -34,10 +34,10 @@ export default function UsersHubPage() {
       icon: '💎',
       description: 'Cấu hình tỷ lệ quy đổi điểm, điều kiện thăng hạng và đặc quyền cho từng cấp bậc VIP.',
       path: '/dashboard/users/ranks',
-      titleColor: 'text-amber-600',
-      colorFrom: 'from-amber-400',
-      colorHoverFrom: 'group-hover:from-amber-500',
-      labelColor: 'text-amber-600 bg-amber-50 border-amber-200',
+      titleColor: 'text-sky-600',
+      colorFrom: 'from-sky-400',
+      colorHoverFrom: 'group-hover:from-sky-500',
+      labelColor: 'text-sky-600 bg-sky-50 border-sky-200',
       labelText: 'Cấu hình VIP'
     },
     {
@@ -45,10 +45,10 @@ export default function UsersHubPage() {
       icon: '🎟️',
       description: 'Tạo mã Voucher, lên lịch các chương trình giảm giá Flash Sale hoặc Freeship kích cầu.',
       path: '/dashboard/users/promotions',
-      titleColor: 'text-fuchsia-600',
-      colorFrom: 'from-fuchsia-400',
-      colorHoverFrom: 'group-hover:from-fuchsia-500',
-      labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200',
+      titleColor: 'text-violet-600',
+      colorFrom: 'from-violet-400',
+      colorHoverFrom: 'group-hover:from-violet-500',
+      labelColor: 'text-violet-600 bg-violet-50 border-violet-200',
       labelText: '5 Đang chạy'
     }
   ];
