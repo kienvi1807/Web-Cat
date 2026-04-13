@@ -5,6 +5,8 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion vào
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
 const SIMPLE_COLORS = [
@@ -71,6 +73,11 @@ export default function CatDetailPage() {
   const [isFatherBreederOpen, setIsFatherBreederOpen] = useState(false);
   const [isMotherBreederOpen, setIsMotherBreederOpen] = useState(false);
 
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => {
+    setThemeColor('red'); // 👈 Set lại tone đỏ
+  }, [setThemeColor]);
+
   const getAvatarUrl = (path: string) => {
     if (!path) return 'https://ui-avatars.com/api/?name=Trại&background=E2E8F0&color=64748B&bold=true';
     
@@ -112,7 +119,7 @@ export default function CatDetailPage() {
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
 
-      const { data: breeders } = await supabase.from('users').select('userid, fullname, email, phone, avatarurl').in('type_id', [1, 3]);
+      const { data: breeders } = await supabase.from('users').select('userid, fullname, email, phone, avatarurl, cattery_name').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
 
       const { data: allCats } = await supabase.from('cats').select('id, name, gender, images, color, breeder_id, father_id, mother_id');
@@ -356,9 +363,8 @@ export default function CatDetailPage() {
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
       
-      {/* RED BACKGROUND BLURS */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-500/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
-      <div className="fixed top-[10%] right-[0%] w-[500px] h-[500px] bg-orange-400/10 rounded-full blur-[100px] pointer-events-none -z-10 animate-blob"></div>
+      {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
+      <BackgroundGlow />
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 backdrop-blur-md bg-white/40 p-6 rounded-[2rem] border border-white/60 shadow-sm sticky top-4 z-50">
@@ -534,7 +540,7 @@ export default function CatDetailPage() {
                           {fatherBreederId 
                             ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.userid === 1 
                                 ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.fullname || 'Tên trại chưa cập nhật')
+                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-blue-400 transition-transform duration-300 ${isFatherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -555,7 +561,7 @@ export default function CatDetailPage() {
                                       className="w-7 h-7 rounded-full object-cover border-2 border-blue-100 shadow-sm shrink-0" 
                                       alt="avatar" 
                                     />
-                                    <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.fullname || 'Chưa đặt tên'}</span>
+                                    <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
                                     
                                   </motion.div>
                                 ))}
@@ -609,7 +615,7 @@ export default function CatDetailPage() {
                           {motherBreederId 
                             ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.userid === 1 
                                 ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.fullname || 'Tên trại chưa cập nhật')
+                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-rose-400 transition-transform duration-300 ${isMotherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -630,7 +636,7 @@ export default function CatDetailPage() {
                                       className="w-7 h-7 rounded-full object-cover border-2 border-rose-100 shadow-sm shrink-0" 
                                       alt="avatar" 
                                     />
-                                    <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.fullname || 'Chưa đặt tên'}</span>
+                                    <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
                                     
                                   </motion.div>
                                 ))}

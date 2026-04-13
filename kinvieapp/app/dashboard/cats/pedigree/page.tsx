@@ -3,11 +3,18 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase'; 
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 export default function PedigreeExplorerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [allCats, setAllCats] = useState<any[]>([]);
   const [allUsers, setAllUsers] = useState<any[]>([]);
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+
+  useEffect(() => {
+    setThemeColor('teal'); // 👈 Chuyển tone Xanh Ngọc
+  }, [setThemeColor]);
   
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState<any[]>([]);
@@ -165,10 +172,8 @@ export default function PedigreeExplorerPage() {
 
   return (
     <div className="animate-fade-in min-h-screen pb-24 relative overflow-hidden bg-stone-50/50">
-      {/* HIỆU ỨNG NỀN */}
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-teal-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-teal-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-teal-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
+      {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
+      <BackgroundGlow />
 
       <div className="fixed top-0 left-1/2 -translate-x-1/2 w-[1000px] h-[600px] bg-teal-500/10 rounded-full blur-[150px] pointer-events-none -z-10"></div>
       <div className="fixed bottom-0 right-0 w-[800px] h-[800px] bg-blue-500/5 rounded-full blur-[150px] pointer-events-none -z-10"></div>

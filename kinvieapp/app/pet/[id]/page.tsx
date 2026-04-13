@@ -295,7 +295,7 @@ export default function PetDetailPage() {
             <form onSubmit={handleSaveLog} className="p-6 space-y-5">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Loại ghi chép</label>
-                <select value={logType} onChange={(e) => setLogType(e.target.value)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 font-bold text-stone-700 cursor-pointer">
+                <select value={logType} onChange={(e) => setLogType(e.target.value)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-xl text-sm focus:outline-none focus:bg-white focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all font-bold text-stone-700 cursor-pointer hover:border-pink-300 shadow-sm">
                   <option value="Tiêm chủng">💉 Tiêm chủng</option>
                   <option value="Sổ giun">💊 Sổ giun</option>
                   <option value="Khám bệnh">🩺 Khám bệnh</option>

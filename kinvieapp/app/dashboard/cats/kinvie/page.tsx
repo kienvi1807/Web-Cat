@@ -3,10 +3,17 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase'; 
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 export default function KinVieCatteryPage() {
   const [catsList, setCatsList] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+
+  useEffect(() => {
+    setThemeColor('red'); // 👈 Ra lệnh cho BackgroundGlow chuyển tone Đỏ
+  }, [setThemeColor]);
 
   // 🎯 FETCH DỮ LIỆU TỪ BACK-END SUPABASE
   useEffect(() => {
@@ -94,10 +101,8 @@ export default function KinVieCatteryPage() {
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-16 relative">
-      {/* HIỆU ỨNG NỀN */}
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-red-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-red-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-red-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
+      {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
+      <BackgroundGlow />
       
       {/* HEADER & NÚT THÊM MÈO */}
       <div className="flex flex-col md:flex-row justify-between items-end mb-10 gap-6">

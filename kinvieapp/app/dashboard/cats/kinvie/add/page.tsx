@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase'; 
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
 const SIMPLE_COLORS = [
@@ -15,12 +17,17 @@ const SIMPLE_COLORS = [
   { id: 'Tam thể', name: 'Tam thể (Calico)' },
   { id: 'Đồi mồi', name: 'Đồi mồi (Tortie)' },
   { id: 'Màu pha khác', name: 'Màu pha khác' }
-];
+];ý 
 
 export default function AddCatPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null); 
+
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => {
+    setThemeColor('red'); // 👈 Set lại tone đỏ
+  }, [setThemeColor]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false); 
@@ -49,6 +56,8 @@ export default function AddCatPage() {
   // 🎯 STATE BẬT TẮT CHO MENU CHỌN MÈO CÓ ẢNH
   const [isFatherDropdownOpen, setIsFatherDropdownOpen] = useState(false);
   const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
+  const [isFatherBreederDropdownOpen, setIsFatherBreederDropdownOpen] = useState(false);
+  const [isMotherBreederDropdownOpen, setIsMotherBreederDropdownOpen] = useState(false);
   
   const [mix1, setMix1] = useState('Anh lông ngắn (ALN)');
   const [mix2, setMix2] = useState('Mèo Ta');
@@ -61,6 +70,7 @@ export default function AddCatPage() {
   const [simpleColor, setSimpleColor] = useState<string>('');
 
   const [isEmsOpen, setIsEmsOpen] = useState<boolean>(true); // Mặc định mở ở trang Add
+  const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
 
   const [isMedicalModalOpen, setIsMedicalModalOpen] = useState(false);
   const [newRecord, setNewRecord] = useState({ vaccineName: '', dateGiven: '', nextDueDate: '' });
@@ -102,7 +112,8 @@ export default function AddCatPage() {
       if (patterns) setDbPatterns(patterns);
 
       // 3. Kéo danh sách Trại giống (Boss và Breeder)
-      const { data: breeders } = await supabase.from('users').select('userid, email, phone, type_id').in('type_id', [1, 3]);
+      // Bổ sung kéo thêm fullname và cattery_name để lấy thông tin hiển thị
+      const { data: breeders } = await supabase.from('users').select('userid, fullname, cattery_name, email, phone, type_id').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
 
       // 4. Kéo danh sách mèo để làm phả hệ
@@ -242,8 +253,8 @@ export default function AddCatPage() {
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
 
-      {/* KHỐI SÁNG NEON */}
-      <div className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[800px] bg-red-500/10 rounded-full blur-[120px] pointer-events-none -z-10"></div>
+      {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
+      <BackgroundGlow />
 
       {/* HEADER */}
       <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 backdrop-blur-md bg-white/40 p-6 rounded-[2rem] border border-white/60 shadow-sm sticky top-4 z-50">
@@ -330,11 +341,28 @@ export default function AddCatPage() {
 
               {/* GIỐNG MÈO & NGÀY SINH */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
+                <div className="relative z-30">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giống mèo</label>
-                  <select value={catData.breed} onChange={(e) => setCatData({...catData, breed: e.target.value})} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm appearance-none">
-                    {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                  </select>
+                  <button
+                    type="button"
+                    onClick={() => setIsBreedDropdownOpen(!isBreedDropdownOpen)}
+                    className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg flex items-center justify-between focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm h-[60px]"
+                  >
+                    <span>{catData.breed}</span>
+                    <span className="text-[10px] text-stone-400">▼</span>
+                  </button>
+                  {isBreedDropdownOpen && (
+                    <div className="absolute top-[85px] left-0 w-full bg-white border border-stone-200 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
+                      <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
+                      {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'].map(b => (
+                        <div key={b} onClick={() => { setCatData({...catData, breed: b}); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-red-50 hover:text-red-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                      ))}
+                      <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
+                      {['Mèo Ta', 'Giống lai khác', 'Chưa rõ'].map(b => (
+                        <div key={b} onClick={() => { setCatData({...catData, breed: b}); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-red-50 hover:text-red-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                      ))}
+                    </div>
+                  )}
 
                   {isMixed && (
                     <div className="mt-3 p-4 bg-stone-100 rounded-2xl border border-stone-200 flex items-center gap-3">
@@ -401,20 +429,49 @@ export default function AddCatPage() {
                   </div>
                   
                   {/* BỐ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 relative z-40">
+                    <div className="relative">
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Trại của Mèo Bố</label>
-                      <select value={fatherBreederId} onChange={(e) => { setFatherBreederId(e.target.value); setFatherId(null); }} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
-                        <option value="">-- Chọn Trại giống --</option>
-                        {breedersList.map(b => <option key={b.userid} value={b.userid}>{b.type_id === 1 ? 'KinVie Cattery' : (b.email || b.phone || `Đối tác #${b.userid}`)}</option>)}
-                      </select>
+                      <button
+                        type="button"
+                        onClick={() => { setIsFatherBreederDropdownOpen(!isFatherBreederDropdownOpen); setIsFatherDropdownOpen(false); setIsMotherDropdownOpen(false); setIsMotherBreederDropdownOpen(false); }}
+                        className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between cursor-pointer h-[46px]"
+                      >
+                        <span className="truncate">
+                          {fatherBreederId 
+                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.type_id === 1 
+                                ? 'KinVie Cattery' 
+                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === fatherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === fatherBreederId)?.email || `Đối tác #${fatherBreederId}`)
+                            : '-- Chọn Trại giống --'}
+                        </span>
+                        <span className="text-[10px] text-stone-400">▼</span>
+                      </button>
+                      {isFatherBreederDropdownOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white border border-blue-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
+                          <div 
+                            onClick={() => { setFatherBreederId(''); setFatherId(null); setIsFatherBreederDropdownOpen(false); }}
+                            className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100 rounded-lg"
+                          >
+                            -- Chọn Trại giống --
+                          </div>
+                          {breedersList.map(b => (
+                            <div 
+                              key={b.userid} 
+                              onClick={() => { setFatherBreederId(b.userid.toString()); setFatherId(null); setIsFatherBreederDropdownOpen(false); }}
+                              className="p-3 hover:bg-blue-50 hover:text-blue-600 cursor-pointer text-sm text-stone-700 font-bold rounded-lg transition-colors truncate"
+                            >
+                              {b.type_id === 1 ? 'KinVie Cattery' : (b.cattery_name || b.fullname || b.email || b.phone || `Đối tác #${b.userid}`)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="relative">
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Mèo Bố</label>
                       <button 
                         type="button" 
                         disabled={!fatherBreederId}
-                        onClick={() => { setIsFatherDropdownOpen(!isFatherDropdownOpen); setIsMotherDropdownOpen(false); }}
+                        onClick={() => { setIsFatherDropdownOpen(!isFatherDropdownOpen); setIsFatherBreederDropdownOpen(false); setIsMotherDropdownOpen(false); setIsMotherBreederDropdownOpen(false); }}
                         className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {fatherId ? (
@@ -457,13 +514,42 @@ export default function AddCatPage() {
                   </div>
 
                   {/* MẸ */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 relative z-30">
+                    <div className="relative">
                       <label className="block text-[10px] font-black text-rose-400 uppercase mb-2">Trại của Mèo Mẹ</label>
-                      <select value={motherBreederId} onChange={(e) => { setMotherBreederId(e.target.value); setMotherId(null); }} className="w-full bg-white border border-rose-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
-                        <option value="">-- Chọn Trại giống --</option>
-                        {breedersList.map(b => <option key={b.userid} value={b.userid}>{b.type_id === 1 ? 'KinVie Cattery' : (b.email || b.phone || `Đối tác #${b.userid}`)}</option>)}
-                      </select>
+                      <button
+                        type="button"
+                        onClick={() => { setIsMotherBreederDropdownOpen(!isMotherBreederDropdownOpen); setIsMotherDropdownOpen(false); setIsFatherDropdownOpen(false); setIsFatherBreederDropdownOpen(false); }}
+                        className="w-full bg-white border border-rose-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between cursor-pointer h-[46px]"
+                      >
+                        <span className="truncate">
+                          {motherBreederId 
+                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.type_id === 1 
+                                ? 'KinVie Cattery' 
+                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === motherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === motherBreederId)?.email || `Đối tác #${motherBreederId}`)
+                            : '-- Chọn Trại giống --'}
+                        </span>
+                        <span className="text-[10px] text-stone-400">▼</span>
+                      </button>
+                      {isMotherBreederDropdownOpen && (
+                        <div className="absolute top-full left-0 w-full mt-2 bg-white border border-rose-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
+                          <div 
+                            onClick={() => { setMotherBreederId(''); setMotherId(null); setIsMotherBreederDropdownOpen(false); }}
+                            className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100 rounded-lg"
+                          >
+                            -- Chọn Trại giống --
+                          </div>
+                          {breedersList.map(b => (
+                            <div 
+                              key={b.userid} 
+                              onClick={() => { setMotherBreederId(b.userid.toString()); setMotherId(null); setIsMotherBreederDropdownOpen(false); }}
+                              className="p-3 hover:bg-rose-50 hover:text-rose-600 cursor-pointer text-sm text-stone-700 font-bold rounded-lg transition-colors truncate"
+                            >
+                              {b.type_id === 1 ? 'KinVie Cattery' : (b.cattery_name || b.fullname || b.email || b.phone || `Đối tác #${b.userid}`)}
+                            </div>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     
                     <div className="relative">
@@ -471,7 +557,7 @@ export default function AddCatPage() {
                       <button 
                         type="button" 
                         disabled={!motherBreederId}
-                        onClick={() => { setIsMotherDropdownOpen(!isMotherDropdownOpen); setIsFatherDropdownOpen(false); }}
+                        onClick={() => { setIsMotherDropdownOpen(!isMotherDropdownOpen); setIsMotherBreederDropdownOpen(false); setIsFatherDropdownOpen(false); setIsFatherBreederDropdownOpen(false); }}
                         className="w-full bg-white border border-rose-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {motherId ? (

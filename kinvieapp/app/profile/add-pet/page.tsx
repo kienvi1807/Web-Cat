@@ -58,6 +58,10 @@ export default function AddPetPage() {
   const [fatherId, setFatherId] = useState('');
   const [motherId, setMotherId] = useState('');
 
+  const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
+  const [isFatherDropdownOpen, setIsFatherDropdownOpen] = useState(false);
+  const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
+
   useEffect(() => {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -214,21 +218,28 @@ export default function AddPetPage() {
                 </div>
               </div>
               
-              <div>
+              <div className="relative z-30">
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Giống mèo</label>
-                <select value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 font-bold text-stone-700 cursor-pointer">
-                  <optgroup label="🌟 Mèo Thuần Chủng (Tây)">
-                    <option value="Maine Coon">Maine Coon</option>
-                    <option value="Anh lông ngắn (ALN)">Anh lông ngắn (ALN)</option>
-                    <option value="Anh lông dài (ALD)">Anh lông dài (ALD)</option>
-                    <option value="Ba Tư">Mèo Ba Tư</option>
-                    <option value="Sphynx">Sphynx (Không lông)</option>
-                  </optgroup>
-                  <optgroup label="🐈 Mèo Dân Dã (Ta / Lai)">
-                    <option value="Mèo Ta">Mèo Ta / Mèo mướp</option>
-                    <option value="Giống lai khác">Giống lai khác</option>
-                  </optgroup>
-                </select>
+                <button
+                  type="button"
+                  onClick={() => setIsBreedDropdownOpen(!isBreedDropdownOpen)}
+                  className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-xl text-sm focus:outline-none focus:bg-white focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all font-bold text-stone-700 cursor-pointer hover:border-pink-300 shadow-sm flex items-center justify-between"
+                >
+                  <span>{breed}</span>
+                  <span className="text-[10px] text-stone-400">▼</span>
+                </button>
+                {isBreedDropdownOpen && (
+                  <div className="absolute top-[75px] left-0 w-full bg-white border border-pink-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-2">
+                    <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
+                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'].map(b => (
+                      <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-lg cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                    ))}
+                    <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
+                    {['Mèo Ta', 'Giống lai khác', 'Chưa rõ'].map(b => (
+                      <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-lg cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                    ))}
+                  </div>
+                )}
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
@@ -256,25 +267,43 @@ export default function AddPetPage() {
             <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100">
                <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🌳</span> Nguồn gốc gia đình (Phả hệ)</h3>
                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                 <div>
+                 <div className="relative z-20">
                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-2">Mèo Bố</label>
-                   <select value={fatherId} onChange={(e) => setFatherId(e.target.value)} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-xl text-sm text-stone-700 font-medium focus:outline-none focus:border-blue-400">
-                     <option value="">-- Không rõ / Nhập từ ngoài --</option>
-                     {/* Lọc ra những con mèo là giống Đực (gender = true) */}
-                     {myPets.filter(p => p.gender === true).map(p => (
-                       <option key={p.petid} value={p.petid}>♂ {p.petname}</option>
-                     ))}
-                   </select>
+                   <button
+                     type="button"
+                     onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)}
+                     className="w-full bg-white border border-blue-200 px-4 py-3.5 rounded-xl text-sm text-stone-700 font-bold focus:outline-none focus:border-blue-400 focus:ring-4 focus:ring-blue-500/10 transition-all cursor-pointer hover:border-blue-300 shadow-sm flex items-center justify-between"
+                   >
+                     <span className="truncate">{fatherId ? `♂ ${myPets.find(p => p.petid.toString() === fatherId)?.petname}` : '-- Không rõ / Nhập từ ngoài --'}</span>
+                     <span className="text-[10px] text-stone-400">▼</span>
+                   </button>
+                   {isFatherDropdownOpen && (
+                     <div className="absolute top-[75px] left-0 w-full bg-white border border-blue-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-2">
+                       <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="px-4 py-3 hover:bg-blue-50 text-sm font-bold text-stone-500 cursor-pointer rounded-lg border-b border-stone-100">-- Không rõ / Nhập từ ngoài --</div>
+                       {myPets.filter(p => p.gender === true).map(p => (
+                         <div key={p.petid} onClick={() => { setFatherId(p.petid.toString()); setIsFatherDropdownOpen(false); }} className="px-4 py-3 hover:bg-blue-50 hover:text-blue-600 text-sm font-bold text-stone-700 cursor-pointer rounded-lg transition-colors">♂ {p.petname}</div>
+                       ))}
+                     </div>
+                   )}
                  </div>
-                 <div>
+                 <div className="relative z-10">
                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-2">Mèo Mẹ</label>
-                   <select value={motherId} onChange={(e) => setMotherId(e.target.value)} className="w-full bg-white border border-pink-200 px-4 py-3 rounded-xl text-sm text-stone-700 font-medium focus:outline-none focus:border-pink-400">
-                     <option value="">-- Không rõ / Nhập từ ngoài --</option>
-                     {/* Lọc ra những con mèo là giống Cái (gender = false) */}
-                     {myPets.filter(p => p.gender === false).map(p => (
-                       <option key={p.petid} value={p.petid}>♀ {p.petname}</option>
-                     ))}
-                   </select>
+                   <button
+                     type="button"
+                     onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)}
+                     className="w-full bg-white border border-pink-200 px-4 py-3.5 rounded-xl text-sm text-stone-700 font-bold focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm flex items-center justify-between"
+                   >
+                     <span className="truncate">{motherId ? `♀ ${myPets.find(p => p.petid.toString() === motherId)?.petname}` : '-- Không rõ / Nhập từ ngoài --'}</span>
+                     <span className="text-[10px] text-stone-400">▼</span>
+                   </button>
+                   {isMotherDropdownOpen && (
+                     <div className="absolute top-[75px] left-0 w-full bg-white border border-pink-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto p-2">
+                       <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 text-sm font-bold text-stone-500 cursor-pointer rounded-lg border-b border-stone-100">-- Không rõ / Nhập từ ngoài --</div>
+                       {myPets.filter(p => p.gender === false).map(p => (
+                         <div key={p.petid} onClick={() => { setMotherId(p.petid.toString()); setIsMotherDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 text-sm font-bold text-stone-700 cursor-pointer rounded-lg transition-colors">♀ {p.petname}</div>
+                       ))}
+                     </div>
+                   )}
                  </div>
                </div>
                <p className="text-[10px] text-stone-400 mt-3 italic">* Chỉ hiển thị những Boss đang có trong hồ sơ của bạn.</p>
