@@ -17,7 +17,7 @@ const SIMPLE_COLORS = [
   { id: 'Tam thể', name: 'Tam thể (Calico)' },
   { id: 'Đồi mồi', name: 'Đồi mồi (Tortie)' },
   { id: 'Màu pha khác', name: 'Màu pha khác' }
-];ý 
+];
 
 export default function AddCatPage() {
   const router = useRouter();

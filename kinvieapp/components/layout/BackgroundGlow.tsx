@@ -13,13 +13,14 @@ export default function BackgroundGlow() {
     pink: { b1: 'bg-pink-400/20', b2: 'bg-pink-500/20', b3: 'bg-pink-300/20' },
     blue: { b1: 'bg-blue-400/20', b2: 'bg-blue-500/20', b3: 'bg-blue-300/20' },
     emerald: { b1: 'bg-emerald-400/20', b2: 'bg-emerald-500/20', b3: 'bg-emerald-300/20' },
-    purple: { b1: 'bg-purple-400/20', b2: 'bg-fuchsia-400/20', b3: 'bg-blue-300/20' }
+    purple: { b1: 'bg-purple-400/20', b2: 'bg-fuchsia-400/20', b3: 'bg-blue-300/20' },
+    amber: { b1: 'bg-amber-400/20', b2: 'bg-amber-400/20', b3: 'bg-amber-300/20' }
   };
 
   const current = colors[themeColor] || colors.red;
 
   return (
-    <div className="fixed inset-0 pointer-events-none -z-10 overflow-hidden">
+    <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {/* Blob 1 */}
       <div className={`absolute top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full ${current.b1} mix-blend-multiply filter blur-[120px] animate-blob z-0`}></div>
       {/* Blob 2 */}
