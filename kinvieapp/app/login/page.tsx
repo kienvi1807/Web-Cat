@@ -39,10 +39,11 @@ export default function LoginPage() {
           redirectTo: `${getURL()}/auth/callback`,
         },
       });
-      if (error) console.error(error);
-    };
-    
-    if (error) alert('Đăng nhập Google thất bại, vui lòng thử lại!');
+      if (error) {
+        console.error("Chi tiết lỗi Supabase:", error);
+        alert("Lỗi: " + error.message);
+      }
+    }; 
   };
 
   // HÀM ĐĂNG NHẬP FACEBOOK
@@ -61,7 +62,10 @@ export default function LoginPage() {
       }
     });
   
-    if (error) alert('Đăng nhập thất bại!');
+    if (error) {
+      console.error("Chi tiết lỗi Supabase:", error);
+      alert("Lỗi: " + error.message);
+    }
   };
 
   // HÀM XỬ LÝ SUBMIT (ĐĂNG NHẬP / ĐĂNG KÝ BẰNG SỐ ĐIỆN THOẠI)
