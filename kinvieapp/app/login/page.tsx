@@ -18,53 +18,35 @@ export default function LoginPage() {
   const [fullName, setFullName] = useState(''); // State lưu tên
   const [isLoading, setIsLoading] = useState(false);
 
-  // HÀM ĐĂNG NHẬP GOOGLE
-  const handleGoogleLogin = async () => {
-    const getURL = () => {
-      let url =
-        process.env.NEXT_PUBLIC_SITE_URL ?? // Biến sếp tự đặt trên Vercel
-        process.env.NEXT_PUBLIC_VERCEL_URL ?? // Biến mặc định của Vercel
-        'http://localhost:3000'; // Môi trường dev
-  
-      // Đảm bảo có https và không có dấu / ở cuối
-      url = url.includes('http') ? url : `https://${url}`;
-      return url;
-    };
+  // Hàm lấy URL tái sử dụng được
+  const getURL = () => {
+    let url =
+      process.env.NEXT_PUBLIC_SITE_URL ?? // Biến sếp tự đặt trên Vercel
+      process.env.NEXT_PUBLIC_VERCEL_URL ?? // Biến mặc định của Vercel
+      'http://localhost:3000'; // Môi trường dev
 
-    const handleLogin = async (provider: 'google' | 'facebook') => {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider,
-        options: {
-          // 🎯 Ép nó phải quay về đúng trang callback của môi trường hiện tại
-          redirectTo: `${getURL()}/auth/callback`,
-        },
-      });
-      if (error) {
-        console.error("Chi tiết lỗi Supabase:", error);
-        alert("Lỗi: " + error.message);
-      }
-    }; 
+    url = url.includes('http') ? url : `https://${url}`;
+    url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
+    return url;
   };
 
-  // HÀM ĐĂNG NHẬP FACEBOOK
-  const handleFacebookLogin = async () => {
-    const getURL = () => {
-      let url = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-      url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
-      return url;
-    };
-
+  // Hàm đăng nhập tổng (xử lý cả Google lẫn Facebook)
+  const handleLogin = async (provider: 'google' | 'facebook') => {
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { 
-        // 🎯 Trỏ về route callback để mình xử lý logic điều hướng
-        redirectTo: `${getURL()}/auth/callback` 
-      }
+      provider,
+      options: {
+        redirectTo: `${getURL()}/auth/callback`,
+        // Bổ sung queryParams riêng cho Google để nó luôn hỏi chọn tài khoản
+       queryParams: provider === 'google' ? {
+          access_type: 'offline',
+          prompt: 'consent',
+        } : undefined,
+      },
     });
-  
+
     if (error) {
-      console.error("Chi tiết lỗi Supabase:", error);
-      alert("Lỗi: " + error.message);
+      console.error(`Chi tiết lỗi ${provider}:`, error);
+      alert(`Lỗi đăng nhập: ${error.message}`);
     }
   };
 
