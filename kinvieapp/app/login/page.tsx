@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useState } from 'react';
+// 🎯 Bổ sung useEffect ở đây
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
-import error from 'next/dist/api/error';
+// Đã xóa cái import error bị thừa gây rác code
 
 export default function LoginPage() {
   // STATE CHUYỂN FORM
@@ -17,6 +18,37 @@ export default function LoginPage() {
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState(''); // State lưu tên
   const [isLoading, setIsLoading] = useState(false);
+
+  // ==========================================
+  // 📸 BƯỚC 1: CAMERA THEO DÕI TRẠNG THÁI (Xử lý vụ Google)
+  // ==========================================
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      // Nếu khách đăng nhập thành công (Kể cả bị văng ra dấu #access_token)
+      if (event === 'SIGNED_IN' && session?.user) {
+        
+        // 1. Kiểm tra xem user này đã có trong bảng users của sếp chưa
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('userid') // Đảm bảo cột này đúng tên trong DB của sếp
+          .eq('email', session.user.email)
+          .maybeSingle();
+
+        // 2. Điều hướng TỰ ĐỘNG
+        if (!dbUser) {
+          router.push('/register/complete-profile'); // Khách mới
+        } else {
+          router.push('/'); // Khách cũ về nhà
+        }
+        
+        router.refresh(); // Cập nhật Header
+      }
+    });
+
+    // Dọn dẹp camera khi chuyển trang
+    return () => subscription.unsubscribe();
+  }, [router]);
+
 
   // Hàm lấy URL tái sử dụng được
   const getURL = () => {
@@ -30,14 +62,17 @@ export default function LoginPage() {
     return url;
   };
 
-  // Hàm đăng nhập tổng (xử lý cả Google lẫn Facebook)
+  // ==========================================
+  // 🚀 BƯỚC 2: HÀM ĐĂNG NHẬP MẠNG XÃ HỘI
+  // ==========================================
   const handleLogin = async (provider: 'google' | 'facebook') => {
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
-        redirectTo: `${getURL()}/auth/callback`,
+        // 🎯 ĐÃ SỬA: Đá thẳng về /login để cái Camera ở trên nó tự bắt
+        redirectTo: `${getURL()}/login`,
         // Bổ sung queryParams riêng cho Google để nó luôn hỏi chọn tài khoản
-       queryParams: provider === 'google' ? {
+        queryParams: provider === 'google' ? {
           access_type: 'offline',
           prompt: 'consent',
         } : undefined,
@@ -107,12 +142,13 @@ export default function LoginPage() {
       });
 
       if (loginError) {
-        // 👈 QUAN TRỌNG NHẤT NẰM Ở ĐÂY: Hiển thị lỗi THẬT của Supabase để bắt bệnh
         alert(`Không vào được cửa! Lỗi hệ thống báo: ${loginError.message}`);
         setPassword(''); 
       } else {
         alert("Đăng nhập thành công! Chào mừng trở lại Beam Petshop.");
-        router.push('/profile');
+        // Lưu ý: Thằng Camera ở trên có thể sẽ chộp được sự kiện này trước và đá khách về '/'
+        // Nên dòng này có thể chạy hoặc không, nhưng cứ để đây cho chắc.
+        router.push('/');
       }
 
     } else {
@@ -145,7 +181,7 @@ export default function LoginPage() {
 
       // Bắn lệnh tạo Auth cho Supabase bằng Email ảo
       const { data: authData, error: signUpError } = await supabase.auth.signUp({
-        email: fakeEmail, // 👈 Dùng biến vừa tạo
+        email: fakeEmail, 
         password: password,
       });
 
@@ -160,10 +196,10 @@ export default function LoginPage() {
         .from('users')
         .insert([
           {
-            phone: cleanPhone, // Số điện thoại xịn vẫn lưu vào cột phone để shop gọi
+            phone: cleanPhone, 
             fullname: cleanName,
             type_id: 4, 
-            email: fakeEmail // 👈 Lưu cái email ảo có chữ "sen_" vào đây
+            email: fakeEmail
           }
         ]);
 
@@ -178,7 +214,7 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-pink-50/30 flex items-center justify-center font-sans relative overflow-hidden p-4">
-      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY (Copy từ Header) --- */}
+      {/* --- INLINE STYLE CHO ANIMATION MÈO CHẠY --- */}
       <style dangerouslySetInnerHTML={{__html: `
         @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
         @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
@@ -203,14 +239,9 @@ export default function LoginPage() {
              <span className="text-stone-600 text-sm">❮</span>
           </Link>
           
-          {/* 👇 👇 👇 THAY THẾ CHỖ NÀY !!! 👇 👇 👇 */}
-          {/* CONTAINER CHỨA LOGO MÈO CHẠY (Giữ nguyên kích thước w-48 h-48) */}
           <div className="w-48 h-48 relative flex items-center justify-center transition-all duration-300 mb-8 mt-12">
               
-              {/* 1. VÒNG QUỸ ĐẠO border-dashed & ANIMATION CHẠY */}
               <div className="absolute border-2 border-pink-300 border-dashed rounded-full animate-[spin_10s_linear_infinite] z-20 w-40 h-40">
-                
-                {/* SVG CON MÈO CHẠY Ở TRÊN CÙNG */}
                 <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 text-pink-500 drop-shadow-sm">
                   <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
                     <g className="cat-body-group">
@@ -226,13 +257,10 @@ export default function LoginPage() {
                     </g>
                   </svg>
                 </div>
-
-                {/* Dấu chân decor trên vòng tròn */}
                 <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[10px] opacity-60 text-pink-400">🐾</div>
                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[10px] opacity-30 text-pink-400">🐾</div>
               </div>
               
-              {/* 2. LOGO HÌNH ẢNH Ở GIỮA */}
               <div className="absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 w-32 h-32">
                 <Image 
                   src="/images/logo.jpg" 
@@ -243,9 +271,7 @@ export default function LoginPage() {
                   priority
                 />
               </div>
-              
           </div>
-          {/* 👆 👆 👆 THAY THẾ CHỖ NÀY !!! 👆 👆 👆 */}
           
           <h2 className="font-serif text-3xl font-bold text-stone-800 text-center mb-4 mt-2">
             Beam Petshop & <br/> KinVie Cattery
@@ -346,7 +372,6 @@ export default function LoginPage() {
             <button 
               onClick={() => {
                 setIsLoginView(!isLoginView);
-                // Reset form khi lật trang cho sạch
                 setPhone('');
                 setPassword('');
                 setFullName('');
