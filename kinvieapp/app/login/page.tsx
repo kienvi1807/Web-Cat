@@ -19,20 +19,45 @@ export default function LoginPage() {
 
   // HÀM ĐĂNG NHẬP GOOGLE
   const handleGoogleLogin = async () => {
+    const getURL = () => {
+      let url = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+      url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
+      return url;
+    };
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
-      options: { redirectTo: `${window.location.origin}/register/complete-profile` }
+      options: { 
+        // 🎯 Dùng chung route callback với Facebook để xử lý logic "người mới/người cũ"
+        redirectTo: `${getURL()}/auth/callback`,
+        // Thêm cái này để Google luôn hiện bảng chọn tài khoản nếu muốn
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      }
     });
+    
     if (error) alert('Đăng nhập Google thất bại, vui lòng thử lại!');
   };
 
   // HÀM ĐĂNG NHẬP FACEBOOK
   const handleFacebookLogin = async () => {
+    const getURL = () => {
+      let url = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+      url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
+      return url;
+    };
+
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
-      options: { redirectTo: `${window.location.origin}/register/complete-profile` }
+      options: { 
+        // 🎯 Trỏ về route callback để mình xử lý logic điều hướng
+        redirectTo: `${getURL()}/auth/callback` 
+      }
     });
-    if (error) alert('Đăng nhập Facebook thất bại, vui lòng thử lại!');
+  
+    if (error) alert('Đăng nhập thất bại!');
   };
 
   // HÀM XỬ LÝ SUBMIT (ĐĂNG NHẬP / ĐĂNG KÝ BẰNG SỐ ĐIỆN THOẠI)
