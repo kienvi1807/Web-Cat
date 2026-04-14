@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Image from 'next/image';
+import error from 'next/dist/api/error';
 
 export default function LoginPage() {
   // STATE CHUYỂN FORM
@@ -20,23 +21,26 @@ export default function LoginPage() {
   // HÀM ĐĂNG NHẬP GOOGLE
   const handleGoogleLogin = async () => {
     const getURL = () => {
-      let url = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
-      url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
+      let url =
+        process.env.NEXT_PUBLIC_SITE_URL ?? // Biến sếp tự đặt trên Vercel
+        process.env.NEXT_PUBLIC_VERCEL_URL ?? // Biến mặc định của Vercel
+        'http://localhost:3000'; // Môi trường dev
+  
+      // Đảm bảo có https và không có dấu / ở cuối
+      url = url.includes('http') ? url : `https://${url}`;
       return url;
     };
 
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: { 
-        // 🎯 Dùng chung route callback với Facebook để xử lý logic "người mới/người cũ"
-        redirectTo: `${getURL()}/auth/callback`,
-        // Thêm cái này để Google luôn hiện bảng chọn tài khoản nếu muốn
-        queryParams: {
-          access_type: 'offline',
-          prompt: 'consent',
+    const handleLogin = async (provider: 'google' | 'facebook') => {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+          // 🎯 Ép nó phải quay về đúng trang callback của môi trường hiện tại
+          redirectTo: `${getURL()}/auth/callback`,
         },
-      }
-    });
+      });
+      if (error) console.error(error);
+    };
     
     if (error) alert('Đăng nhập Google thất bại, vui lòng thử lại!');
   };
