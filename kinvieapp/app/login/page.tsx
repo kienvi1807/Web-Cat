@@ -291,10 +291,10 @@ export default function LoginPage() {
 
           {/* MẠNG XÃ HỘI */}
           <div className="flex flex-col gap-3 mb-8">
-            <button onClick={handleGoogleLogin} className="w-full border border-stone-200 hover:border-pink-300 hover:bg-pink-50 text-stone-600 font-medium py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
+            <button onClick={() => handleGoogleLogin()} className="w-full border border-stone-200 hover:border-pink-300 hover:bg-pink-50 text-stone-600 font-medium py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
               <span className="text-xl">🇬</span> Tiếp tục với Google (Gmail)
             </button>
-            <button onClick={handleFacebookLogin} className="w-full border border-stone-200 hover:border-blue-300 hover:bg-blue-50 text-stone-600 font-medium py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
+            <button onClick={() => handleFacebookLogin()} className="w-full border border-stone-200 hover:border-blue-300 hover:bg-blue-50 text-stone-600 font-medium py-3 rounded-xl flex items-center justify-center gap-3 transition-colors">
               <span className="text-xl text-blue-600">🇫</span> Tiếp tục với Facebook
             </button>
           </div>
