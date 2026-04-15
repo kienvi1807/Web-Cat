@@ -24,11 +24,12 @@ export default function Home() {
       try {
         const { data, error } = await supabase
           .from('cats')
-          .select('*')
-          .in('status', ['Sẵn sàng', 'Đã cọc']) // Vẫn giữ lọc trạng thái
-          .order('likes', { ascending: false }) // 🎯 MỚI: Sắp xếp theo cột likes (từ cao xuống thấp)
-          .order('created_at', { ascending: false }) // Nếu bằng like nhau thì ưu tiên bé mới đăng
-          .limit(6); // Vẫn chỉ lấy 6 bé
+          // 👇 BÍ QUYẾT Ở ĐÂY: Bảo Supabase móc luôn cattery_name từ bảng users ra
+          .select('*, users(cattery_name)') 
+          .in('status', ['Sẵn sàng', 'Đã cọc']) 
+          .order('likes', { ascending: false })
+          .order('created_at', { ascending: false })
+          .limit(6);
 
         if (error) throw error;
         if (data) setRealCats(data);
