@@ -9,11 +9,13 @@ import { supabase } from '@/lib/supabase';
 export default function Header() {
   const pathname = usePathname();
   
+  // 🎯 THÊM BIẾN NÀY ĐỂ CHỜ CHECK VÉ
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);       
   const [isAdmin, setIsAdmin] = useState(false); 
   const [cartItemCount, setCartItemCount] = useState(0);       
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
-  
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -21,29 +23,34 @@ export default function Header() {
   }, [pathname]);
 
   useEffect(() => {
-    const userData = localStorage.getItem('kinvie_user');
-    if (userData) {
-      setIsLoggedIn(true);
-      const parsedData = JSON.parse(userData);
-      if (parsedData.type === 'Boss' || parsedData.type === 'Staff' || parsedData.type === 'admin') {
-        setIsAdmin(true);
-      }
-    } else {
-      setIsLoggedIn(false);
-    }
+    let isMounted = true;
 
-    const fetchUserData = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        setIsLoggedIn(true); 
-        
+    const checkSession = async () => {
+      try {
+        if (isMounted) setIsLoadingAuth(true);
+
+        // 1. Dùng getSession() moi dữ liệu từ bộ nhớ đệm siêu nhanh
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError || !session) {
+          if (isMounted) {
+            setIsLoggedIn(false);
+            setIsLoadingAuth(false); // Check xong: Không có vé
+          }
+          return;
+        }
+
+        // 2. Có session -> Đã đăng nhập
+        if (isMounted) setIsLoggedIn(true);
+
+        // 3. Lấy thêm thông tin chi tiết từ bảng users
         const { data: dbUser } = await supabase
           .from('users')
           .select('userid, avatarurl, type_id')
-          .eq('email', user.email)
+          .eq('email', session.user.email)
           .single();
 
-        if (dbUser) {
+        if (dbUser && isMounted) {
           const isStaffOrBoss = dbUser.type_id === 1 || dbUser.type_id === 2;
           setIsAdmin(isStaffOrBoss);
 
@@ -57,7 +64,7 @@ export default function Header() {
             setCartItemCount(0); 
           }
 
-          let finalUrl = dbUser.avatarurl || user.user_metadata?.avatar_url || user.user_metadata?.picture;
+          let finalUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
           if (finalUrl) {
             if (finalUrl.includes('fbcdn.net')) {
               finalUrl = finalUrl.replace(/\/[sp]\d+x\d+\//, '/');
@@ -67,26 +74,36 @@ export default function Header() {
             } else if (finalUrl.includes('googleusercontent.com')) {
               finalUrl = finalUrl.replace('s96-c', 's400-c');
             }
-            setAvatarUrl(finalUrl);
+            
+            if (typeof finalUrl === 'string' && finalUrl.trim() !== '') {
+               setAvatarUrl(finalUrl);
+            }
           }
         }
+      } catch (error) {
+        console.error("Lỗi xác thực:", error);
+      } finally {
+        if (isMounted) setIsLoadingAuth(false); // Kết thúc quá trình check vé
       }
     };
 
-    fetchUserData();
+    checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    // Camera theo dõi sự kiện đăng nhập/đăng xuất
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
-        fetchUserData();
+        checkSession();
       } else if (event === 'SIGNED_OUT') {
         setIsLoggedIn(false);
         setAvatarUrl(null);
         setCartItemCount(0);
         setIsAdmin(false);
+        setIsLoadingAuth(false);
       }
     });
 
     return () => {
+      isMounted = false;
       subscription.unsubscribe();
     };
   }, [pathname]);
@@ -96,7 +113,8 @@ export default function Header() {
   const spinRingSize = isShopPage ? 'w-16 h-16 md:w-20 md:h-20' : 'w-20 h-20 md:w-28 md:h-28';
   const logoSize = isShopPage ? 'w-14 h-14 md:w-18 md:h-18' : 'w-16 h-16 md:w-24 md:h-24';
 
-  // 🎯 LƯU Ý: Em bọc toàn bộ bằng thẻ <> </> để tách riêng Header và Menu Mobile
+  const safeAvatarUrl = (avatarUrl && avatarUrl.trim() !== '') ? avatarUrl : 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+
   return (
     <>
       <header className="fixed top-0 w-full z-40 bg-white/70 backdrop-blur-md border-b border-pink-50">
@@ -115,7 +133,6 @@ export default function Header() {
 
         <div className="container mx-auto px-4 h-20 flex items-center justify-between relative">
           
-          {/* NÚT MENU ĐIỆN THOẠI */}
           <button 
             onClick={() => setIsMobileMenuOpen(true)}
             className="md:hidden z-20 w-10 h-10 flex items-center justify-center text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
@@ -123,14 +140,12 @@ export default function Header() {
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          {/* MENU TRÁI (DESKTOP) */}
           <nav className="hidden md:flex gap-8 font-medium text-stone-600 w-1/3">
             <Link href="/" className={`pb-1 transition-colors ${pathname === '/' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Trang Chủ</Link>
             <Link href="/cattery" className={`pb-1 transition-colors ${pathname === '/cattery' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>KinVie Cattery</Link>
             <Link href="/petshop" className={`pb-1 transition-colors ${pathname === '/petshop' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Beam Petshop</Link>
           </nav>
 
-          {/* LOGO TRUNG TÂM */}
           <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2 z-10">
             <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
                <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
@@ -163,18 +178,17 @@ export default function Header() {
             )}
           </Link>
 
-          {/* MENU PHẢI */}
           <nav className="flex gap-3 md:gap-6 font-medium text-stone-600 items-center justify-end w-1/3 z-20">
             <Link href="/blog" className={`hidden md:block pb-1 transition-colors ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
+            <Link href="/feed" className={`pb-1 transition-colors ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng Đồng</Link>
 
-            {isLoggedIn && isAdmin && (
+            {isLoggedIn && isAdmin && !isLoadingAuth && (
               <Link href="/dashboard" className="hidden md:flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
                 <span>⚙️</span> Quản lý
               </Link>
             )}
             
-            {/* GIỎ HÀNG */}
-            {isLoggedIn && !isAdmin && (
+            {isLoggedIn && !isAdmin && !isLoadingAuth && (
               <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
                 <span className="text-xl md:text-2xl">🛒</span>
                 {cartItemCount > 0 && (
@@ -185,16 +199,24 @@ export default function Header() {
               </Link>
             )}
 
-            {/* AVATAR LOGIN */}
-            {isLoggedIn ? (
+            {/* 🎯 LOGIC HIỂN THỊ CHUẨN XÁC */}
+            {isLoadingAuth ? (
+              // Đang check thì hiện cục nhấp nháy
+              <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-stone-200 animate-pulse border-2 border-white shadow-sm"></div>
+            ) : isLoggedIn ? (
+              // Có vé thì hiện Avatar
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
-                {avatarUrl ? (
-                  <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-                ) : (
-                  <span className="text-lg md:text-xl text-stone-400">👤</span>
-                )}
+                 <img 
+                    src={safeAvatarUrl} 
+                    alt="Avatar" 
+                    className="w-full h-full object-cover" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+                    }}
+                 />
               </Link>
             ) : (
+              // Đích thị là người lạ thì mới mời Đăng nhập
               <Link href="/login" className="text-xs md:text-sm font-bold text-pink-500 hover:text-pink-600 transition-colors">
                 Đăng nhập
               </Link>
@@ -203,35 +225,28 @@ export default function Header() {
         </div>
       </header>
 
-      {/* =======================================
-          📱 OVERLAY MENU ĐIỆN THOẠI (ĐÃ BẾ RA NGOÀI HEADER)
-          ======================================= */}
+      {/* OVERLAY MENU ĐIỆN THOẠI */}
       <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        
-        {/* Nền đen che tối mờ màn hình, ấn vào để đóng */}
         <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
         
-        {/* Khung Menu trắng tinh khôi full màn hình (100dvh chống lỗi lướt trên Safari) */}
         <div className={`absolute top-0 left-0 w-[85%] max-w-[360px] h-[100dvh] bg-white shadow-2xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col rounded-r-[2rem] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           
-          {/* Header Menu Mobile */}
           <div className="flex items-center justify-between p-6 border-b border-pink-50 bg-pink-50/20">
             <div className="flex flex-col">
               <span className="font-serif italic font-black text-2xl text-pink-500">KinVie</span>
               <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">Cattery & Petshop</span>
             </div>
-            {/* Nút X to đùng dễ bấm */}
             <button onClick={() => setIsMobileMenuOpen(false)} className="w-12 h-12 flex items-center justify-center bg-white text-pink-500 rounded-full shadow-sm border border-pink-100 transition-transform active:scale-90">
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M6 18L18 6M6 6l12 12" /></svg>
             </button>
           </div>
 
-          {/* Danh sách nút bấm (To, có box bao quanh dễ nhấp) */}
           <div className="flex flex-col p-6 gap-3 overflow-y-auto flex-grow bg-gradient-to-b from-white to-pink-50/20">
             {[
               { name: 'Trang Chủ', href: '/', icon: '🏠' },
               { name: 'KinVie Cattery', href: '/cattery', icon: '🐱' },
               { name: 'Beam Petshop', href: '/petshop', icon: '🏪' },
+              { name: 'Cộng Đồng Sen', href: '/feed', icon: '🌟' },
               { name: 'Blog Kiến Thức', href: '/blog', icon: '📖' }
             ].map((item) => (
               <Link 
@@ -244,8 +259,7 @@ export default function Header() {
               </Link>
             ))}
             
-            {/* Nút Quản lý nổi bần bật cho Admin */}
-            {isLoggedIn && isAdmin && (
+            {isLoggedIn && isAdmin && !isLoadingAuth && (
               <Link href="/dashboard" className="flex items-center gap-4 p-4 rounded-2xl bg-stone-900 border-stone-900 text-white shadow-lg shadow-stone-300 mt-2">
                 <span className="text-2xl">⚙️</span>
                 <span className="font-black text-[17px]">Quản lý hệ thống</span>
@@ -253,11 +267,22 @@ export default function Header() {
             )}
           </div>
 
-          {/* User Profile cắm chốt bên dưới */}
+          {/* AVATAR TRONG MENU MOBILE */}
           <div className="p-6 border-t border-pink-100 bg-white shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
-            {isLoggedIn ? (
+            {isLoadingAuth ? (
+               <div className="flex items-center justify-center py-4">
+                 <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+               </div>
+            ) : isLoggedIn ? (
               <div className="flex items-center gap-4">
-                <img src={avatarUrl || ''} className="w-12 h-12 rounded-full border-2 border-pink-200 object-cover shadow-sm" alt="user" />
+                <img 
+                    src={safeAvatarUrl} 
+                    className="w-12 h-12 rounded-full border-2 border-pink-200 object-cover shadow-sm" 
+                    alt="user" 
+                    onError={(e) => {
+                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+                    }}
+                />
                 <div className="flex flex-col">
                   <span className="font-bold text-stone-800 text-sm">Chào Boss!</span>
                   <Link href="/profile" className="text-xs font-bold text-pink-500 py-1 hover:underline">Quản lý tài khoản</Link>

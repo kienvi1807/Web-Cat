@@ -36,6 +36,9 @@ export default function CreateOrderPage() {
     delivery_date: ''
   });
 
+  // 🎯 Thêm biến này để nhớ ID khách hàng đã chọn
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
+
   useEffect(() => {
     fetchData();
     // Click ra ngoài để đóng Dropdown
@@ -70,6 +73,7 @@ export default function CreateOrderPage() {
 
   // Khi chọn khách từ Dropdown -> Tự fill data
   const handleSelectCustomer = (customer: any) => {
+    setSelectedUserId(customer.userid);
     setCustomerSearch(customer.fullname || customer.phone || '');
     setOrderForm({
       ...orderForm,
@@ -113,6 +117,7 @@ export default function CreateOrderPage() {
 
     setIsSaving(true);
     const { error } = await supabase.from('orders').insert([{
+      userid: selectedUserId,
       customer_name: orderForm.customer_name,
       customer_phone: orderForm.customer_phone,
       address: orderForm.address,
