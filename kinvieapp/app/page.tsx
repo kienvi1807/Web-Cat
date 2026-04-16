@@ -11,13 +11,15 @@ export default function Home() {
     <div className="min-h-screen bg-white text-stone-700 font-sans selection:bg-pink-200 selection:text-pink-900">
       <Header />
 
-      <main className="relative z-10 pt-16 overflow-hidden">
+      {/* Đã bỏ overflow-hidden ở thẻ main để tránh cắt mất hiệu ứng Sticky của Header nếu sếp có dùng */}
+      <main className="relative z-10 pt-16">
         
         {/* =========================================
             PHẦN 1: KINVIE CATTERY (MÀU HỒNG LOANG)
             ========================================= */}
         <section 
-          className="relative h-[60vh] flex items-center justify-center bg-fixed bg-cover bg-center"
+          // 🌟 SỬA LỖI ẢNH ĐIỆN THOẠI: Dùng bg-scroll cho ĐT, md:bg-fixed cho máy tính
+          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
         >
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
@@ -28,8 +30,8 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-32 bg-white relative">
-          {/* 🌟 HIỆU ỨNG MÀU LOANG: Đặt đằng sau lưới */}
+        {/* 🌟 SỬA LỖI MÀU LAN RA NGOÀI: Thêm overflow-hidden vào đúng thẻ section trắng này */}
+        <section className="py-32 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-[500px] h-[500px] bg-pink-200/70 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[600px] h-[600px] bg-rose-200/50 rounded-full blur-[120px] pointer-events-none"></div>
 
@@ -65,7 +67,7 @@ export default function Home() {
             PHẦN 2: BEAM PETSHOP (MÀU CAM LOANG)
             ========================================= */}
         <section 
-          className="relative h-[60vh] flex items-center justify-center bg-fixed bg-cover bg-center"
+          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
         >
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
@@ -76,8 +78,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-32 bg-white relative">
-           {/* 🌟 HIỆU ỨNG MÀU LOANG: Chuyển sang màu Cam, đặt bên trái */}
+        <section className="py-32 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-[600px] h-[600px] bg-orange-200/70 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[500px] h-[500px] bg-amber-200/50 rounded-full blur-[120px] pointer-events-none"></div>
 
@@ -113,7 +114,7 @@ export default function Home() {
             PHẦN 3: CỘNG ĐỒNG KINVIE (MÀU XANH DƯƠNG LOANG)
             ========================================= */}
         <section 
-          className="relative h-[60vh] flex items-center justify-center bg-fixed bg-cover bg-center"
+          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
         >
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
@@ -124,8 +125,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-32 bg-white relative">
-          {/* 🌟 HIỆU ỨNG MÀU LOANG: Màu Xanh Dương, đặt bên phải */}
+        <section className="py-32 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-[500px] h-[500px] bg-blue-200/70 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[600px] h-[600px] bg-cyan-200/50 rounded-full blur-[120px] pointer-events-none"></div>
 
@@ -159,7 +159,7 @@ export default function Home() {
             PHẦN 4: KHO BÁU KÝ ỨC (MÀU XANH LÁ LOANG)
             ========================================= */}
         <section 
-          className="relative h-[60vh] flex items-center justify-center bg-fixed bg-cover bg-center"
+          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
         >
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
@@ -170,8 +170,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section className="py-32 bg-white relative">
-          {/* 🌟 HIỆU ỨNG MÀU LOANG: Màu Xanh Ngọc, đặt bên trái */}
+        <section className="py-32 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-[600px] h-[600px] bg-emerald-200/70 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[500px] h-[500px] bg-teal-200/50 rounded-full blur-[120px] pointer-events-none"></div>
 

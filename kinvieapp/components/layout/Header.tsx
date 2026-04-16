@@ -180,7 +180,7 @@ export default function Header() {
 
           <nav className="flex gap-3 md:gap-6 font-medium text-stone-600 items-center justify-end w-1/3 z-20">
             <Link href="/blog" className={`hidden md:block pb-1 transition-colors ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
-            <Link href="/feed" className={`hidden md:block pb-1 transition-colors ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng Đồng</Link>
+            <Link href="/feed" className={`hidden md:block pb-1 transition-colors ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng đồng</Link>
 
             {isLoggedIn && isAdmin && !isLoadingAuth && (
               <Link href="/dashboard" className="hidden md:flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
