@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CarouselBanner from '@/components/home/CarouselBanner';
+// 🌟 BƯỚC 1: IMPORT HERO BANNER VÀO ĐÂY
+import HeroBanner from '@/components/home/HeroBanner';
 
 export default function Home() {
   return (
@@ -14,6 +16,9 @@ export default function Home() {
       {/* Đã bỏ overflow-hidden ở thẻ main để tránh cắt mất hiệu ứng Sticky của Header nếu sếp có dùng */}
       <main className="relative z-10 pt-16">
         
+        {/* 🌟 BƯỚC 2: THẢ HERO BANNER VÀO NGAY ĐÂY (TRÊN CÙNG) */}
+        <HeroBanner />
+
         {/* =========================================
             PHẦN 1: KINVIE CATTERY (MÀU HỒNG LOANG)
             ========================================= */}
