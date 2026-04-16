@@ -130,6 +130,26 @@ export default function ProfilePage() {
     'Đã hủy': { label: 'Đã hủy', class: 'bg-stone-200 text-stone-500' },
   };
 
+  // 🎯 LOGIC XÓA BÉ MÈO CỦA KHÁCH
+  const handleDeletePet = async (e: React.MouseEvent, petId: number, petName: string) => {
+    e.preventDefault(); // Ngăn không cho sự kiện click lan ra ngoài (không bị nhảy trang)
+    if (!window.confirm(`Sen chắc chắn muốn xóa hồ sơ của bé "${petName}" chứ?`)) return;
+
+    try {
+      const { error } = await supabase.from('pets').delete().eq('petid', petId);
+      if (error) throw error;
+      
+      // Xóa thành công thì đá bé mèo đó khỏi giao diện hiện tại
+      setUserData(prev => ({
+        ...prev,
+        pets: prev.pets.filter(p => p.petid !== petId)
+      }));
+      alert(`Đã xóa hồ sơ bé ${petName} thành công!`);
+    } catch (error) {
+      alert("Lỗi khi xóa hồ sơ bé mèo. Vui lòng thử lại!");
+    }
+  };
+
   // ==========================================
   // 🎯 LOGIC XỬ LÝ POSTS (GIỮ NGUYÊN NHƯ FILE CŨ)
   // ==========================================
@@ -232,19 +252,34 @@ export default function ProfilePage() {
               <h3 className="text-xl font-black mb-8 flex items-center gap-3">🐱 Boss nhà mình</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {userData.pets.map(pet => (
-                  <Link href={`/pet/${pet.petid}`} key={pet.petid}>
-                    <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all group">
-                      <div className="w-14 h-14 bg-pink-100 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                        {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                  <div key={pet.petid} className="relative group">
+                    {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
+                    <Link href={`/pet/${pet.petid}`} className="block h-full">
+                      <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">
+                        <div className="w-14 h-14 bg-pink-100 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm">
+                          {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" alt="pet" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                        </div>
+                        <div className="min-w-0 pr-6"> {/* Thêm padding right để chữ không chui vào nút xóa */}
+                          <h4 className="font-black text-stone-800 group-hover:text-pink-600 transition-colors truncate">{pet.petname}</h4>
+                          <p className="text-[11px] text-stone-400 font-bold uppercase">{pet.breed}</p>
+                        </div>
                       </div>
-                      <div className="min-w-0">
-                        <h4 className="font-black text-stone-800 group-hover:text-pink-600 transition-colors truncate">{pet.petname}</h4>
-                        <p className="text-[11px] text-stone-400 font-bold uppercase">{pet.breed}</p>
-                      </div>
-                    </div>
-                  </Link>
+                    </Link>
+
+                    {/* 🎯 NÚT XÓA MÈO NẰM NỔI LÊN TRÊN */}
+                    <button 
+                      onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
+                      className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                      title="Xóa hồ sơ bé này"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 ))}
-                <Link href="/profile/add-pet" className="border-2 border-dashed border-stone-200 rounded-2xl p-4 text-stone-400 font-bold hover:bg-pink-50 hover:border-pink-200 hover:text-pink-400 transition-all flex items-center justify-center">+ Thêm Boss</Link>
+                
+                <Link href="/profile/add-pet" className="border-2 border-dashed border-stone-200 rounded-2xl p-4 text-stone-400 font-bold hover:bg-pink-50 hover:border-pink-200 hover:text-pink-400 transition-all flex items-center justify-center min-h-[88px]">
+                  + Thêm Boss
+                </Link>
               </div>
             </section>
 
