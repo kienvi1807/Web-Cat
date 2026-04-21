@@ -12,6 +12,34 @@ export default function HeroBanner() {
   // Ref để điều khiển cuộn ngang bằng nút bấm trên PC
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
+  // 🕒 TÍNH TOÁN QUỸ ĐẠO BÁN NGUYỆT THEO THỜI GIAN THỰC TẾ
+  const [celestialProgress, setCelestialProgress] = useState(0.5);
+
+  useEffect(() => {
+    const updateTimeProgress = () => {
+      const date = new Date();
+      const hour = date.getHours();
+      const minute = date.getMinutes();
+      const timeInHours = hour + minute / 60; // Tính ra số thập phân (VD: 6h30 = 6.5)
+
+      let progress = 0.5;
+      // Ban ngày: từ 6h sáng (0%) đến 18h tối (100%)
+      if (timeInHours >= 6 && timeInHours < 18) {
+        progress = (timeInHours - 6) / 12;
+      } 
+      // Ban đêm: từ 18h tối (0%) đến 6h sáng hôm sau (100%)
+      else {
+        let nightHour = timeInHours >= 18 ? timeInHours - 18 : timeInHours + 6;
+        progress = nightHour / 12;
+      }
+      setCelestialProgress(progress);
+    };
+
+    updateTimeProgress();
+    const interval = setInterval(updateTimeProgress, 60000); // Cập nhật lại mỗi 1 phút
+    return () => clearInterval(interval);
+  }, []);
+
   // 🌍 ĐỒNG BỘ THỜI TIẾT
   useEffect(() => {
     async function fetchWeather() {
@@ -132,16 +160,21 @@ export default function HeroBanner() {
         @keyframes float-cloud-1 { 0% { transform: translateX(100vw); } 100% { transform: translateX(-50vw); } }
         @keyframes float-cloud-2 { 0% { transform: translateX(100vw); } 100% { transform: translateX(-80vw); } }
         @keyframes wind-leaf { 0% { transform: translate(120vw, -10vh) rotate(0deg); opacity: 0;} 10% { opacity: 1; } 90% { opacity: 1; } 100% { transform: translate(-20vw, 80vh) rotate(360deg); opacity: 0;} }
-        @keyframes cat-float { 0%, 100% { transform: translateY(0px); } 50% { transform: translateY(-10px); } }
-        @keyframes cat-shiver { 0%, 100% { transform: translateX(0); } 25% { transform: translateX(-2px); } 75% { transform: translateX(2px); } }
         @keyframes bounce-horizontal { 0%, 100% { transform: translateX(0); } 50% { transform: translateX(10px); } }
         
+        /* Hiệu ứng vệt gió bay xẹt qua */
+        @keyframes wind-gust {
+          0% { transform: translateX(-20vw); opacity: 0; }
+          20% { opacity: 0.6; }
+          80% { opacity: 0.6; }
+          100% { transform: translateX(120vw); opacity: 0; }
+        }
+        .wind-line { position: absolute; fill: none; stroke: rgba(255,255,255,0.4); animation: wind-gust linear infinite; z-index: 10; pointer-events: none;}
+
         .raindrop { position: absolute; width: 1.5px; height: 40px; background: linear-gradient(transparent, rgba(255,255,255,0.5)); animation: rain-fall 1.2s linear infinite; }
         .cloud-fast { position: absolute; animation: float-cloud-1 30s linear infinite; }
         .cloud-slow { position: absolute; animation: float-cloud-2 50s linear infinite; opacity: 0.5; }
         .falling-leaf { position: absolute; font-size: 24px; animation: wind-leaf 6s linear infinite; }
-        .animate-cat-float { animation: cat-float 4s ease-in-out infinite; }
-        .animate-cat-shiver { animation: cat-shiver 0.15s infinite; }
         .animate-bounce-horizontal { animation: bounce-horizontal 1.5s infinite; }
       `}} />
 
@@ -184,12 +217,12 @@ export default function HeroBanner() {
         
         <div className="relative z-20 text-center px-6 max-w-4xl flex flex-col items-center">
           
-          {/* Logo KinVie: Font mềm mại & Animation nhịp thở */}
+          {/* Logo KinVie */}
           <h1 className="font-cursive text-[100px] md:text-[160px] text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 animate-smooth-breathe leading-tight mb-2 pb-4">
             KinVie
           </h1>
           
-          {/* Slogan mới: Nhỏ gọn, sang trọng, có vệt line 2 bên */}
+          {/* Slogan */}
           <div className="flex items-center gap-4 mb-16 opacity-90">
             <span className="hidden md:block w-16 h-[1.5px] bg-gradient-to-r from-transparent to-rose-400 rounded-full"></span>
             <p className="text-sm md:text-xl font-bold text-stone-600 tracking-[0.3em] uppercase">
@@ -214,7 +247,7 @@ export default function HeroBanner() {
       </div>
 
       {/* =======================================
-          SLIDE 2: DIORAMA MÈO & THỜI TIẾT
+          SLIDE 2: DIORAMA THỜI TIẾT (KHÔNG MÈO)
           ======================================= */}
       <div className={`w-full h-full flex-shrink-0 snap-center relative overflow-hidden transition-colors duration-[3000ms] bg-gradient-to-br ${getSkyGradient()}`}>
         
@@ -232,15 +265,37 @@ export default function HeroBanner() {
           </div>
         ) : (
           <>
-            <div className={`absolute transition-all duration-[2000ms] ${isDay && weatherCondition === 'clear' ? 'top-20 right-32 md:right-[20%]' : 'top-10 right-20'} z-0`}>
-              {isDay && weatherCondition !== 'rain' && weatherCondition !== 'thunder' ? (
-                <div className="w-32 h-32 md:w-48 md:h-48 bg-yellow-300 rounded-full shadow-[0_0_100px_40px_rgba(253,224,71,0.5)] animate-pulse" />
-              ) : !isDay ? (
-                <div className="w-24 h-24 md:w-32 md:h-32 bg-stone-100 rounded-full shadow-[0_0_50px_15px_rgba(255,255,255,0.3)] relative overflow-hidden">
-                  <div className="absolute top-2 right-4 w-full h-full bg-indigo-950 rounded-full opacity-90 mix-blend-multiply" />
-                </div>
-              ) : null}
-            </div>
+            {/* THIÊN THỂ QUỸ ĐẠO BÁN NGUYỆT: Biến mất khi có Mưa/Sấm */}
+            {weatherCondition !== 'rain' && weatherCondition !== 'thunder' && (
+              <div 
+                className="absolute z-0 transition-all duration-[60000ms] ease-linear pointer-events-none"
+                style={{
+                  left: `${celestialProgress * 100}%`,
+                  bottom: `${Math.sin(celestialProgress * Math.PI) * 70}%`, // Lên đỉnh cao nhất 70% chiều cao màn hình
+                  transform: 'translate(-50%, 50%)'
+                }}
+              >
+                {isDay ? (
+                  /* MẶT TRỜI XỊN CÓ HÀO QUANG TOẢ SÁNG */
+                  <div className="relative flex items-center justify-center w-32 h-32 md:w-48 md:h-48">
+                    <div className="absolute inset-0 bg-yellow-400 rounded-full blur-[30px] opacity-70 animate-pulse"></div>
+                    <div className="absolute inset-4 bg-yellow-200 rounded-full blur-[15px] opacity-90"></div>
+                    <div className="relative w-full h-full bg-gradient-to-tr from-yellow-100 via-yellow-300 to-orange-400 rounded-full shadow-[0_0_80px_rgba(253,224,71,0.8)]"></div>
+                  </div>
+                ) : (
+                  /* MẶT TRĂNG XỊN CÓ HỐ THIÊN THẠCH */
+                  <div className="relative flex items-center justify-center w-24 h-24 md:w-32 md:h-32">
+                    <div className="absolute inset-0 bg-blue-300 rounded-full blur-[30px] opacity-40 animate-pulse"></div>
+                    <div className="relative w-full h-full bg-gradient-to-br from-stone-100 to-stone-400 rounded-full shadow-[0_0_60px_rgba(255,255,255,0.5)] overflow-hidden border border-white/20">
+                       {/* Các hố thiên thạch (Craters) */}
+                       <div className="absolute top-[20%] left-[25%] w-[25%] h-[25%] bg-stone-500/30 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                       <div className="absolute top-[55%] left-[60%] w-[35%] h-[35%] bg-stone-500/20 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                       <div className="absolute top-[65%] left-[20%] w-[15%] h-[15%] bg-stone-500/30 rounded-full shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2)]"></div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
 
             {!isDay && weatherCondition === 'clear' && (
               <div className="absolute inset-0 z-0 pointer-events-none">
@@ -264,6 +319,24 @@ export default function HeroBanner() {
                     <div className="falling-leaf" style={{ animationDelay: '0s' }}>🍂</div>
                     <div className="falling-leaf" style={{ animationDelay: '2.5s', top: '10%' }}>🍃</div>
                     <div className="falling-leaf" style={{ animationDelay: '4s', top: '30%', fontSize: '18px' }}>🍂</div>
+                    
+                    {/* HIỆU ỨNG GIÓ THỔI CUỘN LINE */}
+                    <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
+                      {/* Vệt gió 1 */}
+                      <svg className="wind-line top-[20%] w-[300px] md:w-[500px]" style={{ animationDuration: '7s', animationDelay: '0s', strokeWidth: '2px' }} viewBox="0 0 200 40">
+                        <path d="M -50 20 Q 20 20 40 10 T 100 20 T 160 30 T 250 20" />
+                        <path d="M 0 30 Q 30 30 50 20 T 110 30 T 170 40 T 230 30" stroke="rgba(255,255,255,0.2)"/>
+                      </svg>
+                      {/* Vệt gió 2 có cuộn xoáy */}
+                      <svg className="wind-line top-[50%] w-[400px] md:w-[600px]" style={{ animationDuration: '9s', animationDelay: '2s', strokeWidth: '3px' }} viewBox="0 0 200 40">
+                        <path d="M -50 20 Q 30 30 50 15 T 120 20 T 180 10 T 250 20" />
+                        <path d="M 120 20 C 130 20 140 10 130 5 C 120 0 110 10 120 20" strokeWidth="2"/>
+                      </svg>
+                      {/* Vệt gió 3 */}
+                      <svg className="wind-line top-[75%] w-[250px] md:w-[400px]" style={{ animationDuration: '6s', animationDelay: '4s', strokeWidth: '2px' }} viewBox="0 0 200 40">
+                        <path d="M -50 20 Q 10 10 30 20 T 90 30 T 150 20 T 250 20" />
+                      </svg>
+                    </div>
                   </>
                 )}
               </div>
@@ -307,41 +380,16 @@ export default function HeroBanner() {
                 </div>
               </div>
 
-              <div className="max-w-xl md:max-w-2xl mt-12 md:mt-0 relative z-30">
-                <div className="inline-flex flex-col md:flex-row items-start md:items-center gap-3 bg-stone-900/60 backdrop-blur-md border border-stone-700/50 py-4 px-6 rounded-3xl rounded-tl-sm shadow-2xl">
-                  <p className="text-xl md:text-2xl font-medium text-stone-100 tracking-wide leading-snug">
-                    {getDynamicSlogan()}
+              {/* KHU VỰC CÂU CHÂM NGÔN: Lui xuống thấp ở mobile (mt-[40vh]), hiện giữa ở PC */}
+              <div className="w-full mt-[40vh] md:mt-0 relative z-30 px-2 text-center">
+                <div className="inline-block bg-stone-900/50 backdrop-blur-xl border border-white/10 py-5 px-6 md:py-8 md:px-12 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
+                  <p className="text-xl md:text-3xl font-serif italic text-stone-100 tracking-wide leading-snug drop-shadow-md">
+                    "{getDynamicSlogan()}"
                   </p>
                 </div>
               </div>
 
-              <div className="absolute bottom-0 right-0 left-0 md:left-auto md:right-[5%] w-full h-[50vh] md:w-[650px] md:h-[550px] z-10 pointer-events-none flex items-end justify-center md:justify-end">
-                
-                {weatherCondition === 'clear' && (
-                  <div className="relative w-full h-full animate-cat-float">
-                    <Image src="/weather-status/sunny.png" alt="Mèo sưởi nắng" fill sizes="(max-width: 768px) 100vw, 650px" className="object-contain object-bottom drop-shadow-2xl" />
-                  </div>
-                )}
-
-                {weatherCondition === 'cloudy' && (
-                  <div className="relative w-full h-full animate-cat-float" style={{ animationDuration: '3s' }}>
-                    <Image src="/weather-status/cloudy.png" alt="Mèo đón gió" fill sizes="(max-width: 768px) 100vw, 650px" className="object-contain object-bottom drop-shadow-2xl" />
-                  </div>
-                )}
-
-                {weatherCondition === 'rain' && (
-                  <div className="relative w-full h-full">
-                    <Image src="/weather-status/raining.png" alt="Mèo trú mưa" fill sizes="(max-width: 768px) 100vw, 650px" className="object-contain object-bottom drop-shadow-2xl" priority />
-                  </div>
-                )}
-
-                {weatherCondition === 'thunder' && (
-                  <div className="relative w-full h-full animate-cat-shiver">
-                    <Image src="/weather-status/thunder.png" alt="Mèo sợ sấm chớp" fill sizes="(max-width: 768px) 100vw, 650px" className="object-contain object-bottom drop-shadow-2xl" />
-                  </div>
-                )}
-
-              </div>
+              {/* ĐÃ XÓA TOÀN BỘ ẢNH MÈO THEO YÊU CẦU */}
 
             </div>
           </>

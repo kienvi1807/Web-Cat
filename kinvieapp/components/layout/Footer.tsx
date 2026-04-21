@@ -160,7 +160,7 @@ export default function Footer() {
                 </div>
                 <div className="mt-1 flex flex-col">
                   <span className="text-white font-bold mb-1">Địa chỉ</span>
-                  <span className="group-hover:text-pink-400 transition-colors">Đống Đa, Hà Nội, Việt Nam</span>
+                  <span className="group-hover:text-pink-400 transition-colors">2b/1 Phạm Ngũ Lão, P.Gia Viên, Thành phố Hải Phòng</span>
                 </div>
               </a>
 
