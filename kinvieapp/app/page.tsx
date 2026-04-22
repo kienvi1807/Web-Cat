@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CarouselBanner from '@/components/home/CarouselBanner';
 import HeroBanner from '@/components/home/HeroBanner';
+import { supabase } from '@/lib/supabase';
 
 // ==========================================
 // WIDGET POPUP TROLL KHÁCH HÀNG (ReviewPopup)
@@ -19,27 +20,32 @@ const ReviewPopup = () => {
   const [currentUser, setCurrentUser] = useState<any>(null); 
 
   useEffect(() => {
-    // 🌟 1. HÀM KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP & DATABASE
     const checkUserAndLikeStatus = async () => {
       try {
-        // [CHÚ Ý]: Sếp thay đoạn này bằng logic lấy User hiện tại của sếp (VD: useSession, supabase.auth.getUser()...)
-        // Ở đây em ví dụ gọi 1 API trả về thông tin user đang đăng nhập
-        const res = await fetch('/api/user/profile'); 
+        // 1. KIỂM TRA KHÁCH ĐÃ ĐĂNG NHẬP CHƯA
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
         
-        // Nếu chưa đăng nhập (lỗi 401 hoặc ko có data) -> Dừng luôn, ko hiện popup
-        if (!res.ok) return; 
-        
-        const userData = await res.json();
+        // Nếu khách chưa đăng nhập -> Dừng luôn, không làm gì cả
+        if (!user || authError) return; 
+
+        // 2. KIỂM TRA TRONG DATABASE XEM KHÁCH ĐÃ LIKE CHƯA
+        const { data: userData, error: dbError } = await supabase
+          .from('users')
+          .select('userid, hasliked')
+          // So khớp user đăng nhập với cột email trong bảng users (sếp có thể đổi thành providerid nếu muốn)
+          .eq('email', user.email) 
+          .single();
+
+        if (dbError || !userData) return;
         setCurrentUser(userData);
 
-        // Nếu đã đăng nhập, check tiếp cột hasliked trong DB
-        // Nếu khách đã bấm Like rồi (hasliked === true) -> Dừng luôn
+        // 3. NẾU BẰNG TRUE -> ĐÃ LIKE -> KHÔNG HIỆN LAYER NỮA (DỪNG LUÔN)
         if (userData.hasliked === true) return;
 
-        // 🌟 2. NẾU ĐÃ ĐĂNG NHẬP MÀ CHƯA LIKE -> HẸN GIỜ 2 PHÚT (120,000 ms)
+        // 4. NẾU BẰNG FALSE -> CHƯA LIKE -> CHỜ 2 PHÚT (120.000 ms) RỒI BẬT LAYER
         const timer = setTimeout(() => {
           setShowPopup(true);
-        }, 3000); // Đổi thành 3000 (3s) nếu sếp muốn test cho lẹ
+        }, 15000); 
 
         return () => clearTimeout(timer);
         
@@ -51,31 +57,33 @@ const ReviewPopup = () => {
     checkUserAndLikeStatus();
   }, []);
 
-  // Hàm làm nút "Ghét" chạy lung tung khi bị chạm vào
+  // Hàm làm nút "Ghét" chạy lung tung mỗi khi khách di chuột hoặc chạm vào
   const moveHateButton = () => {
     if (buttonRef.current) {
-      // Random tọa độ X, Y trong khoảng -100px đến 100px
-      const newTop = Math.random() * 200 - 100;
-      const newLeft = Math.random() * 200 - 100;
+      // Nhảy ngẫu nhiên trong khoảng -150px đến 150px để khách không bấm được
+      const newTop = Math.random() * 300 - 150;
+      const newLeft = Math.random() * 300 - 150;
       setHateButtonPos({ top: newTop, left: newLeft });
     }
   };
 
   const handleLike = async () => {
     try {
-      // 🌟 3. BẮN API UPDATE CỘT 'hasliked' = true VÀO DATABASE
-      // Sếp tự chỉnh lại route API và body cho khớp với Backend của sếp nhé
-      await fetch('/api/user/update-like', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          userid: currentUser?.userid, 
-          hasliked: true 
-        })
-      });
+      // 5. CHỈ ĐƯỢC ẤN THÍCH THÌ SẼ UPDATE VÀO DATABASE
+      if (currentUser?.userid) {
+        const { error } = await supabase
+          .from('users')
+          .update({ hasliked: true })
+          .eq('userid', currentUser.userid);
 
-      alert("Cảm ơn Sen đã yêu thương KinVie! Đã ghi nhận vào Database thành công! 🥰");
-      setShowPopup(false);
+        if (error) {
+          console.error("Lỗi update Database:", error);
+          return;
+        }
+      }
+
+      alert("Cảm ơn Sen đã yêu thương KinVie! 🥰");
+      setShowPopup(false); // Cất layer đi
     } catch (error) {
       console.error("Lỗi update DB:", error);
     }
@@ -91,7 +99,7 @@ const ReviewPopup = () => {
         
         <div className="relative h-40 flex items-center justify-center gap-4">
           
-          {/* NÚT THÍCH (Đứng im) */}
+          {/* NÚT THÍCH (Đứng im, bấm được) */}
           <button 
             onClick={handleLike}
             className="relative z-10 bg-gradient-to-r from-pink-400 to-rose-400 text-white font-bold py-3 px-8 rounded-full shadow-[0_10px_20px_-10px_rgba(244,113,182,0.8)] hover:scale-105 transition-transform"
@@ -99,11 +107,11 @@ const ReviewPopup = () => {
             Đẹp xỉu luôn! 😻
           </button>
 
-          {/* NÚT GHÉT (Chạy lung tung) */}
+          {/* NÚT GHÉT (Cứ di chuột là nhảy lung tung) */}
           <button
             ref={buttonRef}
-            onMouseEnter={moveHateButton} // Lướt chuột (PC)
-            onTouchStart={moveHateButton} // Chạm ngón tay (Mobile)
+            onMouseEnter={moveHateButton} // Máy tính (Di chuột)
+            onTouchStart={moveHateButton} // Điện thoại (Chạm tay)
             className="absolute bg-stone-100 text-stone-500 font-bold py-3 px-8 rounded-full shadow-sm transition-all duration-200 ease-out z-20"
             style={{
               transform: `translate(${hateButtonPos.left}px, ${hateButtonPos.top}px)`,
