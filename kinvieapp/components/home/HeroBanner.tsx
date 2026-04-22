@@ -103,10 +103,11 @@ export default function HeroBanner() {
       
       {/* TẤT CẢ CSS ANIMATION NẰM Ở ĐÂY */}
       <style dangerouslySetInnerHTML={{__html: `
-        /* Import Font chữ mềm mại (Dancing Script) */
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&display=swap');
+        /* Import Font Dancing Script cho Logo và Lora cho Slogan hỗ trợ tiếng Việt chuẩn */
+        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Lora:ital,wght@0,500;1,500&display=swap');
         
         .font-cursive { font-family: 'Dancing Script', cursive; }
+        .font-slogan { font-family: 'Lora', serif; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -184,14 +185,29 @@ export default function HeroBanner() {
       <div className="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-[#fdf3f5]">
         
         <div className="absolute inset-0 w-full h-full animate-subtle-float origin-center z-0">
-          <Image 
-            src="/images/banner.png" 
-            alt="KinVie Banner Background" 
-            fill 
-            sizes="100vw"
-            className="object-cover object-center opacity-80"
-            priority
-          />
+          {/* Ảnh dành cho MÀN HÌNH ĐIỆN THOẠI (banner_2.png dọc) */}
+          <div className="block md:hidden absolute inset-0 w-full h-full">
+            <Image 
+              src="/images/banner_2.png" 
+              alt="KinVie Banner Background Mobile" 
+              fill 
+              sizes="(max-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
+              className="object-cover object-center opacity-80"
+              priority
+            />
+          </div>
+
+          {/* Ảnh dành cho MÀN HÌNH MÁY TÍNH (banner.png ngang) */}
+          <div className="hidden md:block absolute inset-0 w-full h-full">
+            <Image 
+              src="/images/banner.png" 
+              alt="KinVie Banner Background Desktop" 
+              fill 
+              sizes="(min-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
+              className="object-cover object-center opacity-80"
+              priority
+            />
+          </div>
         </div>
 
         <div className="absolute inset-0 overflow-hidden pointer-events-none z-10">
@@ -380,16 +396,14 @@ export default function HeroBanner() {
                 </div>
               </div>
 
-              {/* KHU VỰC CÂU CHÂM NGÔN: Lui xuống thấp ở mobile (mt-[40vh]), hiện giữa ở PC */}
+              {/* KHU VỰC CÂU CHÂM NGÔN (Dùng Font Lora) */}
               <div className="w-full mt-[40vh] md:mt-0 relative z-30 px-2 text-center">
                 <div className="inline-block bg-stone-900/50 backdrop-blur-xl border border-white/10 py-5 px-6 md:py-8 md:px-12 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.5)]">
-                  <p className="text-xl md:text-3xl font-serif italic text-stone-100 tracking-wide leading-snug drop-shadow-md">
+                  <p className="text-xl md:text-3xl font-slogan italic text-stone-100 tracking-wide leading-snug drop-shadow-md">
                     "{getDynamicSlogan()}"
                   </p>
                 </div>
               </div>
-
-              {/* ĐÃ XÓA TOÀN BỘ ẢNH MÈO THEO YÊU CẦU */}
 
             </div>
           </>

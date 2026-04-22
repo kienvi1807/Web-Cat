@@ -1,29 +1,137 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import CarouselBanner from '@/components/home/CarouselBanner';
-// 🌟 BƯỚC 1: IMPORT HERO BANNER VÀO ĐÂY
 import HeroBanner from '@/components/home/HeroBanner';
 
+// ==========================================
+// WIDGET POPUP TROLL KHÁCH HÀNG (ReviewPopup)
+// ==========================================
+const ReviewPopup = () => {
+  const [showPopup, setShowPopup] = useState(false);
+  const [hateButtonPos, setHateButtonPos] = useState({ top: 0, left: 0 });
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  
+  // Lưu state user để lúc bấm Like còn biết user nào mà update
+  const [currentUser, setCurrentUser] = useState<any>(null); 
+
+  useEffect(() => {
+    // 🌟 1. HÀM KIỂM TRA TRẠNG THÁI ĐĂNG NHẬP & DATABASE
+    const checkUserAndLikeStatus = async () => {
+      try {
+        // [CHÚ Ý]: Sếp thay đoạn này bằng logic lấy User hiện tại của sếp (VD: useSession, supabase.auth.getUser()...)
+        // Ở đây em ví dụ gọi 1 API trả về thông tin user đang đăng nhập
+        const res = await fetch('/api/user/profile'); 
+        
+        // Nếu chưa đăng nhập (lỗi 401 hoặc ko có data) -> Dừng luôn, ko hiện popup
+        if (!res.ok) return; 
+        
+        const userData = await res.json();
+        setCurrentUser(userData);
+
+        // Nếu đã đăng nhập, check tiếp cột hasliked trong DB
+        // Nếu khách đã bấm Like rồi (hasliked === true) -> Dừng luôn
+        if (userData.hasliked === true) return;
+
+        // 🌟 2. NẾU ĐÃ ĐĂNG NHẬP MÀ CHƯA LIKE -> HẸN GIỜ 2 PHÚT (120,000 ms)
+        const timer = setTimeout(() => {
+          setShowPopup(true);
+        }, 3000); // Đổi thành 3000 (3s) nếu sếp muốn test cho lẹ
+
+        return () => clearTimeout(timer);
+        
+      } catch (error) {
+        console.error("Lỗi khi kiểm tra trạng thái User:", error);
+      }
+    };
+
+    checkUserAndLikeStatus();
+  }, []);
+
+  // Hàm làm nút "Ghét" chạy lung tung khi bị chạm vào
+  const moveHateButton = () => {
+    if (buttonRef.current) {
+      // Random tọa độ X, Y trong khoảng -100px đến 100px
+      const newTop = Math.random() * 200 - 100;
+      const newLeft = Math.random() * 200 - 100;
+      setHateButtonPos({ top: newTop, left: newLeft });
+    }
+  };
+
+  const handleLike = async () => {
+    try {
+      // 🌟 3. BẮN API UPDATE CỘT 'hasliked' = true VÀO DATABASE
+      // Sếp tự chỉnh lại route API và body cho khớp với Backend của sếp nhé
+      await fetch('/api/user/update-like', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          userid: currentUser?.userid, 
+          hasliked: true 
+        })
+      });
+
+      alert("Cảm ơn Sen đã yêu thương KinVie! Đã ghi nhận vào Database thành công! 🥰");
+      setShowPopup(false);
+    } catch (error) {
+      console.error("Lỗi update DB:", error);
+    }
+  };
+
+  if (!showPopup) return null;
+
+  return (
+    <div className="fixed inset-0 z-[99999] bg-stone-900/60 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="bg-white p-8 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-center max-w-md w-full relative overflow-hidden border border-pink-100">
+        <h2 className="text-3xl font-black text-pink-500 mb-3">Xin chào Sen! 👋</h2>
+        <p className="text-stone-600 mb-8 font-medium">Lượn web KinVie nãy giờ, Sen thấy web của tụi mình có xịn không nàooo?</p>
+        
+        <div className="relative h-40 flex items-center justify-center gap-4">
+          
+          {/* NÚT THÍCH (Đứng im) */}
+          <button 
+            onClick={handleLike}
+            className="relative z-10 bg-gradient-to-r from-pink-400 to-rose-400 text-white font-bold py-3 px-8 rounded-full shadow-[0_10px_20px_-10px_rgba(244,113,182,0.8)] hover:scale-105 transition-transform"
+          >
+            Đẹp xỉu luôn! 😻
+          </button>
+
+          {/* NÚT GHÉT (Chạy lung tung) */}
+          <button
+            ref={buttonRef}
+            onMouseEnter={moveHateButton} // Lướt chuột (PC)
+            onTouchStart={moveHateButton} // Chạm ngón tay (Mobile)
+            className="absolute bg-stone-100 text-stone-500 font-bold py-3 px-8 rounded-full shadow-sm transition-all duration-200 ease-out z-20"
+            style={{
+              transform: `translate(${hateButtonPos.left}px, ${hateButtonPos.top}px)`,
+            }}
+          >
+            Cũng bình thường 😿
+          </button>
+
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// ==========================================
+// CODE TRANG CHỦ HIỆN TẠI CỦA SẾP
+// ==========================================
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-stone-700 font-sans selection:bg-pink-200 selection:text-pink-900">
+    <div className="min-h-screen bg-white text-stone-700 font-sans selection:bg-pink-200 selection:text-pink-900 relative">
       <Header />
 
-      {/* Đã bỏ overflow-hidden ở thẻ main để tránh cắt mất hiệu ứng Sticky của Header nếu sếp có dùng */}
       <main className="relative z-10 pt-16">
         
-        {/* 🌟 BƯỚC 2: THẢ HERO BANNER VÀO NGAY ĐÂY (TRÊN CÙNG) */}
         <HeroBanner />
 
-        {/* =========================================
-            PHẦN 1: KINVIE CATTERY (MÀU HỒNG LOANG)
-            ========================================= */}
+        {/* PHẦN 1: KINVIE CATTERY */}
         <section 
-          // 🌟 SỬA LỖI ẢNH ĐIỆN THOẠI: Dùng bg-scroll cho ĐT, md:bg-fixed cho máy tính
           className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
         >
@@ -35,7 +143,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* 🌟 SỬA LỖI MÀU LAN RA NGOÀI: Thêm overflow-hidden vào đúng thẻ section trắng này */}
         <section className="py-32 bg-white relative overflow-hidden">
           <div className="absolute top-0 left-0 -translate-x-1/4 -translate-y-1/4 w-[500px] h-[500px] bg-pink-200/70 rounded-full blur-[120px] pointer-events-none"></div>
           <div className="absolute bottom-0 right-0 translate-x-1/4 translate-y-1/4 w-[600px] h-[600px] bg-rose-200/50 rounded-full blur-[120px] pointer-events-none"></div>
@@ -67,10 +174,7 @@ export default function Home() {
           </div>
         </section>
 
-
-        {/* =========================================
-            PHẦN 2: BEAM PETSHOP (MÀU CAM LOANG)
-            ========================================= */}
+        {/* PHẦN 2: BEAM PETSHOP */}
         <section 
           className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
@@ -114,10 +218,7 @@ export default function Home() {
           </div>
         </section>
 
-
-        {/* =========================================
-            PHẦN 3: CỘNG ĐỒNG KINVIE (MÀU XANH DƯƠNG LOANG)
-            ========================================= */}
+        {/* PHẦN 3: CỘNG ĐỒNG KINVIE */}
         <section 
           className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
@@ -159,10 +260,7 @@ export default function Home() {
           </div>
         </section>
 
-
-        {/* =========================================
-            PHẦN 4: KHO BÁU KÝ ỨC (MÀU XANH LÁ LOANG)
-            ========================================= */}
+        {/* PHẦN 4: KHO BÁU KÝ ỨC */}
         <section 
           className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
           style={{ backgroundImage: "url('/images/logo.jpg')" }}
@@ -209,6 +307,9 @@ export default function Home() {
       </main>
 
       <Footer />
+      
+      {/* 🌟 GỌI POPUP RA Ở ĐÂY ĐỂ ĐÈ LÊN TẤT CẢ */}
+      <ReviewPopup />
     </div>
   );
 }
