@@ -73,7 +73,7 @@ export default function CatDetailPage() {
   const [isFatherBreederOpen, setIsFatherBreederOpen] = useState(false);
   const [isMotherBreederOpen, setIsMotherBreederOpen] = useState(false);
 
-  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  const setThemeColor = useLayoutStore((state: any) => state.setThemeColor);
   useEffect(() => {
     setThemeColor('red'); // 👈 Set lại tone đỏ
   }, [setThemeColor]);
