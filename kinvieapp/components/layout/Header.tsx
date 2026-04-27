@@ -9,18 +9,28 @@ import { supabase } from '@/lib/supabase';
 export default function Header() {
   const pathname = usePathname();
   
-  // 🎯 THÊM BIẾN NÀY ĐỂ CHỜ CHECK VÉ
   const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
-
   const [isLoggedIn, setIsLoggedIn] = useState(false);       
   const [isAdmin, setIsAdmin] = useState(false); 
   const [cartItemCount, setCartItemCount] = useState(0);       
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  
+  // 🌟 LƯU LẠI USER ID ĐỂ DÙNG CHO VIỆC ĐẾM GIỎ HÀNG
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [pathname]);
+
+  // 🌟 HÀM ĐẾM GIỎ HÀNG TÁCH RỜI ĐỂ GỌI LẠI ĐƯỢC
+  const fetchCartCount = async (userId: string) => {
+    const { count } = await supabase
+      .from('cart_items')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId);
+    setCartItemCount(count || 0);
+  };
 
   useEffect(() => {
     let isMounted = true;
@@ -29,21 +39,18 @@ export default function Header() {
       try {
         if (isMounted) setIsLoadingAuth(true);
 
-        // 1. Dùng getSession() moi dữ liệu từ bộ nhớ đệm siêu nhanh
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError || !session) {
           if (isMounted) {
             setIsLoggedIn(false);
-            setIsLoadingAuth(false); // Check xong: Không có vé
+            setIsLoadingAuth(false);
           }
           return;
         }
 
-        // 2. Có session -> Đã đăng nhập
         if (isMounted) setIsLoggedIn(true);
 
-        // 3. Lấy thêm thông tin chi tiết từ bảng users
         const { data: dbUser } = await supabase
           .from('users')
           .select('userid, avatarurl, type_id')
@@ -51,15 +58,12 @@ export default function Header() {
           .single();
 
         if (dbUser && isMounted) {
+          setCurrentUserId(dbUser.userid); // Lưu ID lại
           const isStaffOrBoss = dbUser.type_id === 1 || dbUser.type_id === 2;
           setIsAdmin(isStaffOrBoss);
 
           if (!isStaffOrBoss) {
-            const { count } = await supabase
-              .from('cart_items')
-              .select('*', { count: 'exact', head: true })
-              .eq('user_id', dbUser.userid);
-            setCartItemCount(count || 0);
+            fetchCartCount(dbUser.userid); // Gọi hàm đếm giỏ hàng
           } else {
             setCartItemCount(0); 
           }
@@ -83,13 +87,12 @@ export default function Header() {
       } catch (error) {
         console.error("Lỗi xác thực:", error);
       } finally {
-        if (isMounted) setIsLoadingAuth(false); // Kết thúc quá trình check vé
+        if (isMounted) setIsLoadingAuth(false);
       }
     };
 
     checkSession();
 
-    // Camera theo dõi sự kiện đăng nhập/đăng xuất
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' || event === 'USER_UPDATED') {
         checkSession();
@@ -99,6 +102,7 @@ export default function Header() {
         setCartItemCount(0);
         setIsAdmin(false);
         setIsLoadingAuth(false);
+        setCurrentUserId(null);
       }
     });
 
@@ -107,6 +111,19 @@ export default function Header() {
       subscription.unsubscribe();
     };
   }, [pathname]);
+
+  // 🌟 LẮNG NGHE TÍN HIỆU TỪ NÚT THÊM VÀO GIỎ HÀNG
+  useEffect(() => {
+    const handleCartUpdate = () => {
+      if (currentUserId) {
+        fetchCartCount(currentUserId);
+      }
+    };
+
+    // Mở ăng-ten bắt sóng sự kiện tên là 'update_cart'
+    window.addEventListener('update_cart', handleCartUpdate);
+    return () => window.removeEventListener('update_cart', handleCartUpdate);
+  }, [currentUserId]);
 
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
   const wrapperSize = isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
@@ -199,12 +216,9 @@ export default function Header() {
               </Link>
             )}
 
-            {/* 🎯 LOGIC HIỂN THỊ CHUẨN XÁC */}
             {isLoadingAuth ? (
-              // Đang check thì hiện cục nhấp nháy
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-stone-200 animate-pulse border-2 border-white shadow-sm"></div>
             ) : isLoggedIn ? (
-              // Có vé thì hiện Avatar
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
                  <img 
                     src={safeAvatarUrl} 
@@ -216,7 +230,6 @@ export default function Header() {
                  />
               </Link>
             ) : (
-              // Đích thị là người lạ thì mới mời Đăng nhập
               <Link href="/login" className="text-xs md:text-sm font-bold text-pink-500 hover:text-pink-600 transition-colors">
                 Đăng nhập
               </Link>
