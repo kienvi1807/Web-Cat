@@ -43,7 +43,7 @@ export default function EmployeeProfilePage() {
       .from('users')
       .select('*')
       .eq('userid', userId)
-      .single();
+      .maybeSingle();
 
     if (data && !error) {
       setProfile({

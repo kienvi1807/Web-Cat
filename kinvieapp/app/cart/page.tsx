@@ -207,9 +207,9 @@ export default function CartPage() {
                   <span className="text-3xl font-black text-rose-500">{finalTotal.toLocaleString('vi-VN')}đ</span>
                 </div>
 
-                <button className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 px-6 rounded-xl shadow-md shadow-pink-200 transition-all flex items-center justify-center gap-2 text-lg">
+                <Link href="/checkout" className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 px-6 rounded-xl shadow-md shadow-pink-200 transition-all flex items-center justify-center gap-2 text-lg">
                   Tiến hành thanh toán <span>→</span>
-                </button>
+                </Link>
 
                 <p className="text-center text-[10px] text-stone-400 font-bold mt-4 flex items-center justify-center gap-1 uppercase tracking-widest">
                   <span>🔒</span> Thanh toán bảo mật & an toàn

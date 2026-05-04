@@ -55,54 +55,68 @@ export default function ProductDetailPage() {
 
   // 🌟 HÀM XỬ LÝ THÊM VÀO GIỎ HÀNG CHUẨN (ĐÃ FIX LỖI TÌM KIẾM)
   const handleAddToCart = async () => {
-    if (!currentUserId) {
-      alert("Sen vui lòng đăng nhập để thêm món này vào giỏ hàng nhé! 🛒");
-      router.push('/login');
-      return;
-    }
-
-    setIsAdding(true);
     try {
-      // 1. Kiểm tra xem trong giỏ đã có món này chưa
-      // 🌟 Dùng maybeSingle() thay vì single() để nó không văng lỗi khi giỏ hàng đang trống
-      const { data: existingCartItem, error: fetchError } = await supabase
+      // 1. Kiểm tra đăng nhập
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sen cần đăng nhập để thêm Boss vào giỏ nhé!");
+        // router.push('/login'); // Có thể mở comment dòng này để đá về trang login
+        return;
+      }
+
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('userid')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (!dbUser) {
+        alert("Không tìm thấy thông tin tài khoản của Sen!");
+        return;
+      }
+
+      // 3. 🎯 LUẬT THÉP: Kiểm tra sản phẩm đã có trong giỏ chưa bằng .maybeSingle()
+      const currentVariant = 'Mặc định';
+      
+      const { data: existingItem, error: checkError } = await supabase
         .from('cart_items')
         .select('*')
-        .eq('user_id', currentUserId)
+        .eq('user_id', dbUser.userid)
         .eq('product_id', product.id)
-        .maybeSingle(); 
+        .eq('variant', currentVariant)
+        .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      if (checkError) throw checkError;
 
-      if (existingCartItem) {
-        // Nếu có rồi thì chỉ cộng thêm số lượng
+      if (existingItem) {
+        // Đã có -> Cộng dồn số lượng
         const { error: updateError } = await supabase
           .from('cart_items')
-          .update({ quantity: existingCartItem.quantity + quantity })
-          .eq('id', existingCartItem.id);
+          .update({ quantity: existingItem.quantity + quantity }) // Thay quantity bằng state số lượng của sếp
+          .eq('id', existingItem.id);
           
         if (updateError) throw updateError;
       } else {
-        // Nếu chưa có thì tạo dòng mới trong Database
-        const { error: insertError } = await supabase.from('cart_items').insert({
-          user_id: currentUserId,
-          product_id: product.id,
-          quantity: quantity
-        });
-        
+        // Chưa có -> Thêm dòng mới
+        const { error: insertError } = await supabase
+          .from('cart_items')
+          .insert([{
+            user_id: dbUser.userid,
+            product_id: product.id,
+            variant: currentVariant,
+            quantity: quantity // Thay quantity bằng state số lượng của sếp
+          }]);
+          
         if (insertError) throw insertError;
       }
 
-      alert(`Đã thêm ${quantity} hộp "${product.name}" vào giỏ hàng thành công! 🐾`);
-      
-      // BẮN TÍN HIỆU CHO HEADER TỰ ĐỘNG CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG
+      // 4. Thành công -> Bắn pháo hoa & Cập nhật số trên Header
+      alert("Đã thêm vào giỏ hàng thành công! 🛍️");
       window.dispatchEvent(new Event('update_cart'));
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error("Lỗi thêm giỏ hàng:", error);
-      alert("Ui da, có lỗi xảy ra khi thêm vào giỏ. Sen thử lại nhé!");
-    } finally {
-      setIsAdding(false);
+      alert("Ui da, có lỗi xảy ra khi thêm vào giỏ. Sen thử lại nhé: " + error.message);
     }
   };
 

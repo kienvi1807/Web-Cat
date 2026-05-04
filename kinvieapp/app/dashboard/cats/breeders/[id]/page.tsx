@@ -71,7 +71,7 @@ export default function BreederCatDetailPage() {
       if (allCats) setAllCatsList(allCats);
 
       if (catId) {
-        const { data, error } = await supabase.from('cats').select(`*, users (*)`).eq('id', catId).single();
+        const { data, error } = await supabase.from('cats').select(`*, users (*)`).eq('id', catId).maybeSingle();
         if (data) {
           let loadedImages = data.images || [];
           while (loadedImages.length < 5) loadedImages.push(''); 

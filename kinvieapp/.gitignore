@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Không bao giờ đẩy mấy folder này lên nữa
+.claude/
+ai_agency/
+free-claude-code/
+
+# Các file rác phát sinh khi code
+node_modules/
+.next/
+repomix-output.xml
+.env*

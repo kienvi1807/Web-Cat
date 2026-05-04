@@ -5,39 +5,8 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
-// 🌟 GỌI THẺ CATCARD TỪ COMMON VÀO ĐÂY
 import CatCard from '@/components/common/CatCard';
-
-// 🎯 BỘ TỪ ĐIỂN DỊCH MÀU EMS
-const EMS_COLORS: Record<string, string> = {
-  'NS11': 'Black Silver Shaded', 'NS 11': 'Black Silver Shaded',
-  'NS12': 'Black Silver Shell', 'NS 12': 'Black Silver Shell',
-  'N22': 'Black Classic Tabby', 'N 22': 'Black Classic Tabby',
-  'NS22': 'Black Silver Classic Tabby', 'NS 22': 'Black Silver Classic Tabby',
-  'N23': 'Black Mackerel Tabby', 'N 23': 'Black Mackerel Tabby',
-  'NS23': 'Black Silver Mackerel Tabby', 'NS 23': 'Black Silver Mackerel Tabby',
-  'N24': 'Black Spotted Tabby', 'N 24': 'Black Spotted Tabby',
-  'NS24': 'Black Silver Spotted Tabby', 'NS 24': 'Black Silver Spotted Tabby',
-  'D22': 'Red Classic Tabby', 'D 22': 'Red Classic Tabby',
-  'DS22': 'Red Silver Classic Tabby', 'DS 22': 'Red Silver Classic Tabby',
-  'D24': 'Red Spotted Tabby', 'D 24': 'Red Spotted Tabby',
-  'W': 'Solid White', 'N': 'Solid Black', 'A': 'Solid Blue',
-  'D': 'Solid Red', 'E': 'Solid Cream', 'F': 'Black Tortie',
-  'FS': 'Black Tortie Smoke', 'G': 'Blue Tortie',
-  'N03': 'Black Bicolor', 'N 03': 'Black Bicolor',
-  'A03': 'Blue Bicolor', 'A 03': 'Blue Bicolor',
-  'D03': 'Red Bicolor', 'D 03': 'Red Bicolor',
-  'F03': 'Black Tortie Bicolor', 'F 03': 'Black Tortie Bicolor',
-  'N09': 'Black & White', 'N 09': 'Black & White',
-  'NS09': 'Black Silver & White', 'NS 09': 'Black Silver & White',
-  'NS 22 03': 'Black Silver Classic Bicolor', 'NS2203': 'Black Silver Classic Bicolor'
-};
-
-const getColorName = (code: string) => {
-  if (!code) return 'Khác';
-  const cleanCode = code.trim().toUpperCase();
-  return EMS_COLORS[cleanCode] || code;
-};
+import { formatEmsCode } from '@/lib/utils';
 
 const getAgeInMonths = (dob: string) => {
   if (!dob) return 0;
@@ -88,12 +57,12 @@ export default function CatteryDetailsPage() {
   }, []);
 
   const breeds = ['Tất cả', ...Array.from(new Set(cats.map(cat => cat.breed || 'Khác')))];
-  const colors = ['Tất cả', ...Array.from(new Set(cats.map(cat => getColorName(cat.color))))];
+  const colors = ['Tất cả', ...Array.from(new Set(cats.map(cat => formatEmsCode(cat.color))))];
   const ages = ['Tất cả', 'Kitten (2-4 tháng)', 'Junior (5-8 tháng)', 'Adult (> 8 tháng)'];
 
   let filteredCats = cats.filter(cat => {
     const matchBreed = filterBreed === 'Tất cả' || cat.breed === filterBreed;
-    const matchColor = filterColor === 'Tất cả' || getColorName(cat.color) === filterColor;
+    const matchColor = filterColor === 'Tất cả' || formatEmsCode(cat.color) === filterColor;
     const matchAge = filterAge === 'Tất cả' || getAgeCategory(cat.dob) === filterAge;
     return matchBreed && matchColor && matchAge;
   });

@@ -35,7 +35,7 @@ export default function EditOrderPage() {
       .from('orders')
       .select('*')
       .eq('orderid', orderId)
-      .single();
+      .maybeSingle();
 
     if (orderData) {
       setCustomerInfo({

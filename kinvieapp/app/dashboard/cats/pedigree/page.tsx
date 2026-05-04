@@ -79,12 +79,27 @@ export default function PedigreeExplorerPage() {
   // ============================================================================
   // 🌳 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ NGANG (HORIZONTAL TREE) 5 ĐỜI
   // ============================================================================
-  const FamilyTreeNode = ({ catId, level, label }: { catId: number | null, level: number, label: string }) => {
+  const FamilyTreeNode = ({ catId, level, label, visitedIds = [] }: { catId: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (level > 5) return null;
     
+    // BỌC THÉP
+    if (catId && visitedIds.includes(catId)) {
+      return (
+        <div className="flex items-center group/tree relative">
+          {level > 1 && <div className="w-12 h-[2px] bg-stone-300"></div>}
+          <div className="w-64 p-3 rounded-2xl border border-rose-400 bg-rose-50/90 backdrop-blur-xl flex items-center gap-3 relative z-10 shadow-lg">
+            <div className="text-2xl ml-2">⚠️</div>
+            <div>
+               <p className="text-[10px] font-black uppercase tracking-widest mb-0.5 text-rose-500">{label}</p>
+               <p className="text-sm font-bold text-rose-600">Lặp vòng phả hệ!</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const cat = allCats.find(c => c.id === catId);
     
-    // NẾU KHÔNG TÌM THẤY MÈO (CHỖ TRỐNG PHẢ HỆ)
     if (!cat) {
       return (
         <div className="flex items-center group/node relative">
@@ -100,6 +115,7 @@ export default function PedigreeExplorerPage() {
       );
     }
 
+    const newVisited = [...visitedIds, cat.id];
     const hasFather = level < 5 && (cat.father_id || true); 
     const hasMother = level < 5 && (cat.mother_id || true);
 
@@ -109,10 +125,8 @@ export default function PedigreeExplorerPage() {
 
     return (
       <div className="flex items-center relative group/tree">
-        {/* Đường nối ngang */}
         {level > 1 && <div className="w-12 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>}
         
-        {/* CARD THÔNG TIN NODE */}
         <Link 
           href={getCatProfileRoute(cat)}
           target="_blank" 
@@ -137,18 +151,17 @@ export default function PedigreeExplorerPage() {
           </div>
         </Link>
 
-        {/* NHÁNH CHA MẸ */}
         {level < 5 && (
           <div className="flex items-center relative">
             <div className="w-8 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>
             <div className="flex flex-col justify-center border-l-2 border-stone-300 py-6 my-2 relative transition-colors group-hover/tree:border-teal-300">
                <div className="flex items-center relative -left-[2px] mb-8">
                   <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
-                  <FamilyTreeNode catId={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} />
+                  <FamilyTreeNode catId={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} />
                </div>
                <div className="flex items-center relative -left-[2px]">
                   <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
-                  <FamilyTreeNode catId={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} />
+                  <FamilyTreeNode catId={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} />
                </div>
             </div>
           </div>

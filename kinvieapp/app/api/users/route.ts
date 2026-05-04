@@ -1,11 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
 
-// Hàm GET cũ của ông giữ nguyên ở đây...
-export async function GET(request: Request) {
-   // ... (code cũ)
-}
-
 // THÊM HÀM POST: Xử lý Đăng ký tài khoản (Local & Social)
 export async function POST(request: Request) {
   try {

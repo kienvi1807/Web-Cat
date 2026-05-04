@@ -4,22 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-
-// 🎯 BỘ TỪ ĐIỂN DỊCH MÃ MÀU EMS 
-const EMS_COLORS: Record<string, string> = {
-  'NS11': 'Black Silver Shaded', 'NS 11': 'Black Silver Shaded',
-  'NS22': 'Black Silver Classic Tabby', 'NS 22': 'Black Silver Classic Tabby',
-  'N22': 'Black Classic Tabby', 'N 22': 'Black Classic Tabby',
-  'D22': 'Red Classic Tabby', 'D 22': 'Red Classic Tabby',
-  'W': 'Solid White (Trắng Tinh)', 'N': 'Solid Black (Đen)',
-  'A': 'Solid Blue (Xám Xanh)', 'F': 'Black Tortie (Đồi mồi)',
-};
-
-const getColorName = (code: string) => {
-  if (!code) return 'Đang cập nhật';
-  const cleanCode = code.trim().toUpperCase();
-  return EMS_COLORS[cleanCode] || code;
-};
+import { formatEmsCode } from '@/lib/utils';
 
 export default function PublicCatProfilePage() {
   const params = useParams();
@@ -47,7 +32,7 @@ export default function PublicCatProfilePage() {
 
       // Lấy data bé mèo hiện tại
       if (catId) {
-        const { data } = await supabase.from('cats').select('*').eq('id', catId).single();
+        const { data } = await supabase.from('cats').select('*').eq('id', catId).maybeSingle();
         if (data) {
           setCatData({ ...data, images: data.images || [], medical_history: data.medical_history || [] });
           if (data.images && data.images.length > 0) {
@@ -75,9 +60,25 @@ export default function PublicCatProfilePage() {
   };
 
   // 🎯 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ (READ-ONLY)
-  const PedigreeNode = ({ catIdNode, level, label }: { catIdNode: number | null, level: number, label: string }) => {
+  const PedigreeNode = ({ catIdNode, level, label, visitedIds = [] }: { catIdNode: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (!catIdNode || level > 5) return null;
-    const cat = allCatsList.find(c => c.id === parseInt(catIdNode.toString()));
+    
+    const currentId = parseInt(catIdNode.toString());
+    // BỌC THÉP: Chống lặp vòng phả hệ
+    if (visitedIds.includes(currentId)) {
+      return (
+        <div className="flex items-center group/node transition-all">
+          {level > 1 && <div className="w-10 h-[2px] bg-rose-200 rounded-full"></div>}
+          <div className="w-64 p-3 rounded-2xl border border-rose-400 bg-rose-50 flex items-center gap-3 relative z-10 opacity-70">
+            <span className="text-xl">⚠️</span>
+            <p className="text-xs font-bold text-rose-600">Lỗi lặp vòng phả hệ!</p>
+          </div>
+        </div>
+      );
+    }
+    
+    const newVisited = [...visitedIds, currentId];
+    const cat = allCatsList.find(c => c.id === currentId);
     if (!cat) return null;
 
     const hasFather = !!cat.father_id;
@@ -85,29 +86,14 @@ export default function PublicCatProfilePage() {
     const hasParents = level < 5 && (hasFather || hasMother);
 
     const isCurrent = level === 1;
-    let borderClass = '';
-    let textThemeClass = '';
-    let glowClass = '';
-
-    if (isCurrent) {
-      borderClass = 'border-pink-500 ring-4 ring-pink-100';
-      textThemeClass = 'text-pink-600';
-      glowClass = 'shadow-[0_0_15px_rgba(236,72,153,0.2)]';
-    } else if (cat.gender) {
-      borderClass = 'border-blue-200 hover:border-blue-400';
-      textThemeClass = 'text-blue-500';
-      glowClass = 'hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]';
-    } else {
-      borderClass = 'border-rose-200 hover:border-rose-400';
-      textThemeClass = 'text-rose-500';
-      glowClass = 'hover:shadow-[0_0_15px_rgba(244,63,94,0.2)]';
-    }
+    let borderClass = isCurrent ? 'border-pink-500 ring-4 ring-pink-100' : cat.gender ? 'border-blue-200 hover:border-blue-400' : 'border-rose-200 hover:border-rose-400';
+    let textThemeClass = isCurrent ? 'text-pink-600' : cat.gender ? 'text-blue-500' : 'text-rose-500';
+    let glowClass = isCurrent ? 'shadow-[0_0_15px_rgba(236,72,153,0.2)]' : cat.gender ? 'hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'hover:shadow-[0_0_15px_rgba(244,63,94,0.2)]';
 
     return (
       <div className="flex items-center group/node transition-all">
         {level > 1 && <div className="w-10 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>}
         
-        {/* Nếu khách click vào ông bà bố mẹ, chuyển sang trang profile của bé đó */}
         <Link href={`/cattery/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-100">
              <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
@@ -115,7 +101,7 @@ export default function PublicCatProfilePage() {
           <div className="overflow-hidden flex-1">
              <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
              <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{getColorName(cat.color)}</p>
+             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -123,8 +109,8 @@ export default function PublicCatProfilePage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-pink-100 py-4 my-2 transition-colors group-hover/node:border-pink-300 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} /></div>}
+               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} /></div>}
+               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} /></div>}
             </div>
           </div>
         )}
@@ -149,7 +135,6 @@ export default function PublicCatProfilePage() {
   );
 
   const isReady = catData.status === 'Sẵn sàng';
-  const colorFullName = getColorName(catData.color);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] text-stone-700 font-sans selection:bg-pink-200 pb-24 pt-20">
@@ -239,7 +224,7 @@ export default function PublicCatProfilePage() {
                   </div>
                   <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
                     <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
-                    <p className="text-sm font-bold text-pink-600">{colorFullName}</p>
+                    <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
                   </div>
                   <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
                     <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
