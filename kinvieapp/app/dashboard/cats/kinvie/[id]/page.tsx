@@ -7,18 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion vào
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
-
-const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
-const SIMPLE_COLORS = [
-  { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
-  { id: 'Trắng', name: 'Trắng tuyền (White)' },
-  { id: 'Đen', name: 'Đen tuyền (Black)' },
-  { id: 'Mướp / Vằn', name: 'Mướp / Vằn (Tabby)' },
-  { id: 'Nhị thể', name: 'Nhị thể (Bicolor)' },
-  { id: 'Tam thể', name: 'Tam thể (Calico)' },
-  { id: 'Đồi mồi', name: 'Đồi mồi (Tortie)' },
-  { id: 'Màu pha khác', name: 'Màu pha khác' }
-];
+import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 
 // Cấu hình animation Stagger cho Dropdown
 const listVariants = {
@@ -93,20 +82,6 @@ export default function CatDetailPage() {
   const getCatImage = (id: number) => {
     const cat = allCatsList.find(c => c.id === id);
     return cat?.images?.[0] || 'https://via.placeholder.com/100?text=No+Img';
-  };
-
-  const formatEmsCode = (code: string) => {
-    if (!code) return 'Chưa rõ';
-    if (code.includes(' ') || code.length > 5) return code;
-    const baseColors: Record<string, string> = { 'a': 'Blue', 'b': 'Chocolate', 'c': 'Lilac', 'd': 'Red', 'e': 'Cream', 'f': 'Black Tortie', 'g': 'Blue Tortie', 'h': 'Chocolate Tortie', 'j': 'Lilac Tortie', 'n': 'Black' };
-    const patterns: Record<string, string> = { '01': 'Van', '02': 'Harlequin', '03': 'Bicolor', '09': 'White Spotting', '11': 'Shaded', '12': 'Shell', '21': 'Tabby', '22': 'Classic Tabby', '23': 'Mackerel Tabby', '24': 'Spotted Tabby' };
-    let result = [];
-    let base = code[0].toLowerCase();
-    if (baseColors[base]) result.push(baseColors[base]); else return code;
-    if (code.toLowerCase().includes('s')) result.push('Silver');
-    const patternMatch = code.match(/\d{2}/);
-    if (patternMatch && patterns[patternMatch[0]]) result.push(patterns[patternMatch[0]]);
-    return result.join(' ');
   };
 
   useEffect(() => {
@@ -236,9 +211,6 @@ export default function CatDetailPage() {
   const removeMedicalRecord = (index: number) => {
     const updatedHistory = [...catData.medical_history]; updatedHistory.splice(index, 1);
     setCatData({ ...catData, medical_history: updatedHistory });
-  };
-  const formatDateDisplay = (dateString: string) => {
-    if (!dateString) return ''; const [year, month, day] = dateString.split('-'); return `${day}/${month}/${year}`;
   };
 
   // LOGIC CHỐNG PHỐI CẬN HUYẾT

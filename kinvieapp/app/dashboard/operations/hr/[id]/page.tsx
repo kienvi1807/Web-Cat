@@ -4,18 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-
-const getAvatarColor = (name: string) => {
-  const colors = [
-    'bg-gradient-to-br from-purple-500 to-indigo-500', 
-    'bg-gradient-to-br from-fuchsia-500 to-pink-500', 
-    'bg-gradient-to-br from-blue-500 to-cyan-500', 
-    'bg-gradient-to-br from-emerald-500 to-teal-500',
-    'bg-gradient-to-br from-rose-500 to-orange-500'
-  ];
-  const charCode = (name || 'A').charCodeAt(0);
-  return colors[charCode % colors.length];
-};
+import { getAvatarColor } from '@/lib/utils';
 
 const ROLE_OPTIONS = [
   { id: 1, name: 'Quản trị viên (Trùm Cuối 👑)' },

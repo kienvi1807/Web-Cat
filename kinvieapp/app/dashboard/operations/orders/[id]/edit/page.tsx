@@ -94,35 +94,45 @@ export default function EditOrderPage() {
       alert("Tên khách và Giỏ hàng không được để trống!");
       return;
     }
-
     setIsSaving(true);
-    
-    const itemsToSave = cart.map(item => ({
-      productid: item.productid,
-      name: item.name,
-      price: item.price,
-      quantity: item.quantity
-    }));
 
-    // Cập nhật không đụng đến orderstatus
-    const { error } = await supabase
+    // 1. Cập nhật thông tin chung vào orders (KHÔNG CÓ cột items)
+    const { error: orderError } = await supabase
       .from('orders')
       .update({
         customer_name: customerInfo.name,
         customer_phone: customerInfo.phone,
         address: customerInfo.address,
-        totalamount: totalPrice,
-        items: itemsToSave
+        totalamount: totalPrice
       })
       .eq('orderid', orderId);
 
-    setIsSaving(false);
+    if (orderError) {
+      alert("Lỗi khi lưu đơn hàng: " + orderError.message);
+      setIsSaving(false);
+      return;
+    }
 
-    if (!error) {
+    // 2. Xóa các chi tiết cũ trong orderdetails
+    await supabase.from('orderdetails').delete().eq('orderid', orderId);
+
+    // 3. Insert các chi tiết mới vào orderdetails
+    const itemsToInsert = cart.map(item => ({
+      orderid: orderId,
+      productid: item.productid,
+      quantity: item.quantity,
+      unitprice: item.price,
+      // variant: item.variant // Nếu trong cart state của sếp có variant thì nhớ nhét vào đây
+    }));
+
+    const { error: detailError } = await supabase.from('orderdetails').insert(itemsToInsert);
+
+    setIsSaving(false);
+    if (!detailError) {
       alert("✅ Đã cập nhật đơn hàng thành công!");
       router.push('/dashboard/operations/orders');
     } else {
-      alert("Lỗi khi lưu: " + error.message);
+      alert("Lỗi cập nhật chi tiết: " + detailError.message);
     }
   };
 

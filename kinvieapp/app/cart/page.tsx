@@ -21,7 +21,7 @@ export default function CartPage() {
       return;
     }
 
-    const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).single();
+    const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).maybeSingle();
     
     if (dbUser) {
       setUserId(dbUser.userid);

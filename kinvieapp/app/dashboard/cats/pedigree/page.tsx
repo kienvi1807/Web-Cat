@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase'; 
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import { formatEmsCode } from '@/lib/utils';
 
 export default function PedigreeExplorerPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -73,20 +74,6 @@ export default function PedigreeExplorerPage() {
     // Nếu là của Boss thì về /kinvie, nếu của đối tác thì về /breeders
     if (cat.breeder_id === 1 || breeder?.type_id === 1) return `/dashboard/cats/kinvie/${cat.id}`;
     return `/dashboard/cats/breeders/${cat.id}`;
-  };
-
-  const formatEmsCode = (code: string) => {
-    if (!code) return '';
-    if (code.includes(' ') || code.length > 5) return code;
-    const baseColors: Record<string, string> = { 'a': 'Blue', 'b': 'Chocolate', 'c': 'Lilac', 'd': 'Red', 'e': 'Cream', 'f': 'Black Tortie', 'g': 'Blue Tortie', 'h': 'Chocolate Tortie', 'j': 'Lilac Tortie', 'n': 'Black' };
-    const patterns: Record<string, string> = { '01': 'Van', '02': 'Harlequin', '03': 'Bicolor', '09': 'White Spotting', '11': 'Shaded', '12': 'Shell', '21': 'Tabby', '22': 'Classic Tabby', '23': 'Mackerel Tabby', '24': 'Spotted Tabby' };
-    let result = [];
-    let base = code[0].toLowerCase();
-    if (baseColors[base]) result.push(baseColors[base]); else return code;
-    if (code.toLowerCase().includes('s')) result.push('Silver');
-    const patternMatch = code.match(/\d{2}/);
-    if (patternMatch && patterns[patternMatch[0]]) result.push(patterns[patternMatch[0]]);
-    return result.join(' ');
   };
 
   // ============================================================================

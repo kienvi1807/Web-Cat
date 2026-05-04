@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
+import { formatEmsCode, formatDateDisplay } from '@/lib/utils';
 
 export default function HealthAndBreedingPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -51,26 +52,6 @@ export default function HealthAndBreedingPage() {
     });
     setSearchResults(results.slice(0, 10)); 
   }, [searchQuery, allCats, allUsers]);
-
-  const formatEmsCode = (code: string) => {
-    if (!code) return '';
-    if (code.includes(' ') || code.length > 5) return code;
-    const baseColors: Record<string, string> = { 'a': 'Blue', 'b': 'Chocolate', 'c': 'Lilac', 'd': 'Red', 'e': 'Cream', 'f': 'Black Tortie', 'g': 'Blue Tortie', 'h': 'Chocolate Tortie', 'j': 'Lilac Tortie', 'n': 'Black' };
-    const patterns: Record<string, string> = { '01': 'Van', '02': 'Harlequin', '03': 'Bicolor', '09': 'White Spotting', '11': 'Shaded', '12': 'Shell', '21': 'Tabby', '22': 'Classic Tabby', '23': 'Mackerel Tabby', '24': 'Spotted Tabby' };
-    let result = [];
-    let base = code[0].toLowerCase();
-    if (baseColors[base]) result.push(baseColors[base]); else return code;
-    if (code.toLowerCase().includes('s')) result.push('Silver');
-    const patternMatch = code.match(/\d{2}/);
-    if (patternMatch && patterns[patternMatch[0]]) result.push(patterns[patternMatch[0]]);
-    return result.join(' ');
-  };
-
-  const formatDateDisplay = (dateString: string) => {
-    if (!dateString) return ''; 
-    const [year, month, day] = dateString.split('-'); 
-    return `${day}/${month}/${year}`;
-  };
 
   const getCatProfileRoute = (cat: any) => {
     if (!cat) return '#';
