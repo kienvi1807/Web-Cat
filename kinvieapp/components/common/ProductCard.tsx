@@ -39,6 +39,28 @@ export default function ProductCard({ product }: { product: any }) {
     router.push(`/petshop/${product.id}`); // Hoặc /shop tùy route của sếp
   };
 
+  // 🌟 XỬ LÝ CLICK SẢN PHẨM AFFILIATE (MỚI)
+  const handleAffiliateClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.affiliate_url) return;
+
+    // Gọi hàm đếm click ngầm (không await để chuyển trang mượt mà)
+    supabase.rpc('increment_affiliate_click', { product_id: product.id });
+    
+    // Mở liên kết ở tab mới
+    window.open(product.affiliate_url, '_blank');
+  };
+
+  // 🌟 XỬ LÝ SỰ KIỆN CLICK TRÊN TOÀN BỘ CARD (MỚI)
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (product.is_affiliate) {
+      handleAffiliateClick(e); // Hàng Affiliate -> Qua sàn
+    } else {
+      handleViewDetail(); // Hàng thường -> Xem chi tiết
+    }
+  };
+
   // 🌟 MỞ BẢNG CHỌN (MODAL) THAY VÌ THÊM LUÔN
   const handleOpenQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -132,7 +154,7 @@ export default function ProductCard({ product }: { product: any }) {
   return (
     <>
       <div 
-        onClick={handleViewDetail} 
+        onClick={handleCardClick} 
         className="group bg-white rounded-[2rem] overflow-hidden cursor-pointer border border-orange-50 relative transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_50px_-12px_rgba(249,115,22,0.25)] hover:border-orange-200 flex flex-col h-full"
       >
         <div className="relative aspect-square overflow-hidden bg-stone-50 shrink-0 p-4 flex items-center justify-center">
@@ -143,8 +165,15 @@ export default function ProductCard({ product }: { product: any }) {
             onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/ffedd5/ea580c?text=Anh+Loi'; }}
           />
           {discount > 0 && (
-            <div className="absolute top-4 left-4 bg-rose-500 px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-md uppercase tracking-wider animate-pulse">
+            <div className="absolute top-4 left-4 bg-rose-500 px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-md uppercase tracking-wider animate-pulse z-10">
               Giảm {discount}%
+            </div>
+          )}
+          
+          {/* 🌟 NHÃN AFFILIATE DÁN Ở GÓC PHẢI (MỚI) */}
+          {product.is_affiliate && (
+            <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-rose-500 px-3 py-1.5 rounded-full text-[10px] font-black text-white shadow-md uppercase tracking-wider z-10 flex items-center gap-1 border border-white/20">
+              <span>🔗</span> Đối Tác
             </div>
           )}
         </div>
@@ -173,15 +202,24 @@ export default function ProductCard({ product }: { product: any }) {
               {discount > 0 && <p className="text-xs text-stone-400 line-through font-bold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rawPrice)}</p>}
             </div>
             
-            {/* 🌟 NÚT MỞ LAYER THÊM NHANH */}
-            <button 
-              onClick={handleOpenQuickAdd}
-              disabled={product.stock === 0}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95
-                ${product.stock === 0 ? 'bg-stone-200 text-stone-400 cursor-not-allowed' : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-lg hover:shadow-orange-200'}`}
-            >
-              {product.stock === 0 ? <span className="text-xs font-black">Hết</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
-            </button>
+            {/* 🌟 ĐỔI NÚT DỰA VÀO LOẠI SẢN PHẨM (MỚI) */}
+            {product.is_affiliate ? (
+              <button 
+                onClick={handleAffiliateClick}
+                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white font-black rounded-xl text-xs hover:shadow-lg hover:shadow-orange-200 transition-all active:scale-95 flex items-center gap-1"
+              >
+                Nơi bán <span className="text-[10px]">➔</span>
+              </button>
+            ) : (
+              <button 
+                onClick={handleOpenQuickAdd}
+                disabled={product.stock === 0}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95
+                  ${product.stock === 0 ? 'bg-stone-200 text-stone-400 cursor-not-allowed' : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-lg hover:shadow-orange-200'}`}
+              >
+                {product.stock === 0 ? <span className="text-xs font-black">Hết</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -189,7 +227,7 @@ export default function ProductCard({ product }: { product: any }) {
       {/* ============================================================ */}
       {/* 🌟 QUICK ADD MODAL (LAYER BẬT LÊN KHI BẤM GIỎ HÀNG)          */}
       {/* ============================================================ */}
-      {showQuickAdd && (
+      {showQuickAdd && !product.is_affiliate && (
         <div 
           className="fixed inset-0 z-[99999] flex items-center justify-center px-4 animate-in fade-in duration-200"
           onClick={handleCloseQuickAdd} // Click ra ngoài nền đen sẽ đóng Modal

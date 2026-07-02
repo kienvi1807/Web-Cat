@@ -27,6 +27,10 @@ export default function AddProductPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false); 
   
+  // 🌟 STATE CHO TÍNH NĂNG AFFILIATE
+  const [isAffiliate, setIsAffiliate] = useState(false);
+  const [affiliateUrl, setAffiliateUrl] = useState('');
+
   const [productData, setProductData] = useState<any>({
     name: '', 
     category: 'Thức ăn hạt', 
@@ -74,6 +78,10 @@ export default function AddProductPage() {
     if (!productData.name || !productData.price) {
       return alert("Sếp quên nhập Tên hoặc Giá rồi!");
     }
+    if (isAffiliate && !affiliateUrl) {
+      return alert("Sếp chọn bán Affiliate thì phải dán link Shopee/TikTok vào nhé!");
+    }
+
     setIsLoading(true);
     const cleanImages = productData.images.filter((img: string) => img !== '');
 
@@ -85,10 +93,13 @@ export default function AddProductPage() {
         brand: productData.brand,
         origin: productData.origin,
         price: Number(productData.price),
-        stock: Number(productData.stock || 0),
+        stock: isAffiliate ? 0 : Number(productData.stock || 0), // Affiliate ép stock về 0
         status: productData.status,
         images: cleanImages,
-        description: productData.description
+        description: productData.description,
+        is_affiliate: isAffiliate,
+        affiliate_url: isAffiliate ? affiliateUrl : null,
+        affiliate_clicks: 0
       }]);
 
     setIsLoading(false);
@@ -181,7 +192,7 @@ export default function AddProductPage() {
                   </div>
                 </div>
 
-                {/* Dropdown DANH MỤC (Xịn, không phèn) */}
+                {/* Dropdown DANH MỤC */}
                 <div className="relative">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 mb-2 block">Phân loại hàng</label>
                   <div 
@@ -217,6 +228,44 @@ export default function AddProductPage() {
                   <input type="text" value={productData.origin} onChange={(e) => setProductData({...productData, origin: e.target.value})} placeholder="Pháp, Mỹ, Nhật Bản..." className="w-full bg-white border border-stone-100 rounded-2xl px-6 py-4 font-bold text-slate-700 outline-none focus:border-rose-300 shadow-sm" />
                 </div>
 
+                {/* 🌟 CHỌN LOẠI HÀNG (SẴN/AFFILIATE) */}
+                <div className="space-y-3 pt-4 border-t border-dashed border-stone-100">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Nguồn Hàng</label>
+                  <div className="flex bg-slate-100/50 rounded-2xl p-1.5 border border-stone-100 gap-2 shadow-inner">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAffiliate(false)}
+                      className={`cursor-pointer flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${!isAffiliate ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      📦 Có sẵn tại Shop
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAffiliate(true)}
+                      className={`cursor-pointer flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${isAffiliate ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      🔗 Affiliate (Shopee/TikTok)
+                    </button>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isAffiliate && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                        <div className="mt-3">
+                          <label className="text-[10px] font-black text-orange-400 uppercase tracking-widest ml-2 block mb-2">Link Nơi Bán *</label>
+                          <input 
+                            type="url" 
+                            value={affiliateUrl} 
+                            onChange={(e) => setAffiliateUrl(e.target.value)} 
+                            placeholder="https://shopee.vn/..." 
+                            className="w-full bg-orange-50/30 border border-orange-100 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:border-orange-300 shadow-sm" 
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 {/* Giá & Tồn kho */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-dashed border-stone-100">
                   <div className="space-y-2">
@@ -227,8 +276,16 @@ export default function AddProductPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Số lượng nhập kho</label>
-                    <input type="number" value={productData.stock} onChange={(e) => setProductData({...productData, stock: e.target.value})} className="cursor-text w-full bg-slate-50 border border-stone-100 text-slate-700 rounded-2xl px-6 py-5 font-black text-3xl outline-none" placeholder="0" />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Số lượng kho</label>
+                    <input 
+                      type="number" 
+                      value={isAffiliate ? 0 : productData.stock} 
+                      onChange={(e) => setProductData({...productData, stock: e.target.value})} 
+                      disabled={isAffiliate}
+                      className={`w-full border border-stone-100 rounded-2xl px-6 py-5 font-black text-3xl outline-none ${isAffiliate ? 'bg-stone-100 text-stone-400 cursor-not-allowed' : 'cursor-text bg-slate-50 text-slate-700'}`} 
+                      placeholder="0" 
+                    />
+                    {isAffiliate && <p className="text-[10px] text-orange-400 font-bold ml-2 mt-1">* Hàng Affiliate không cần nhập kho</p>}
                   </div>
                 </div>
 

@@ -46,6 +46,7 @@ ai.bat
 app/api/pets/route.ts
 app/api/users/route.ts
 app/auth/callback/route.ts
+app/blog/[id]/page.tsx
 app/blog/page.tsx
 app/cart/page.tsx
 app/cattery/[id]/page.tsx
@@ -251,7 +252,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `post_likes`: `id` (bigint), `post_id` (bigint), `created_at` (timestamp with time zone), `user_id` (integer)
 - `post_pets`: `pet_id` (bigint), `post_id` (bigint)
 - `posts`: `content` (text), `id` (bigint), `user_id` (integer), `created_at` (timestamp with time zone), `image_url` (text)
-- `products`: `origin` (text), `reviews_count` (integer), `rating` (numeric), `discount_percent` (integer), `sales_count` (integer), `created_at` (timestamp with time zone), `expiry_date` (date), `stock` (integer), `price` (numeric), `categoryid` (integer), `id` (integer), `imageurl` (text), `description` (text), `category` (text), `status` (text), `images` (ARRAY), `name` (text), `brand` (text)
+- `products`: `origin` (text), `reviews_count` (integer), `rating` (numeric), `discount_percent` (integer), `sales_count` (integer), `created_at` (timestamp with time zone), `expiry_date` (date), `stock` (integer), `price` (numeric), `categoryid` (integer), `id` (integer), `imageurl` (text), `description` (text), `category` (text), `status` (text), `images` (ARRAY), `name` (text), `brand` (text), `is_affiliate` (boolean), `affiliate_url` (text), `affiliate_clicks` (integer)
 - `system_settings`: `zalo` (text), `hotline` (text), `theme_mode` (text), `id` (integer), `email` (text), `facebook_url` (text), `tiktok_url` (text), `instagram_url` (text), `updated_at` (timestamp with time zone)
 - `type_users`: `description` (text), `rank_name` (character varying), `role` (character varying), `point_required` (integer), `id` (integer)
 - `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text)
@@ -265,6 +266,7 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 3. **Phân loại Giỏ hàng:** Khi insert/update `cart_items`, phải check trùng lặp bằng CẢ `product_id` VÀ `variant`. (Khách mua cùng 1 sản phẩm nhưng khác Vị thì phải tách thành 2 dòng riêng biệt).
 4. **Viết lệnh:** Khi có yêu cầu về sửa hoặc thêm mới database, thì cho câu lệnh SQL để sửa chứ đừng chỉ nói chung chung là sửa hay thêm mới cái gì.
 5. **Luồng Thanh toán (Checkout):** Bảng `orders` và `orderdetails` dùng chung khóa `orderid` (integer). Khi tạo đơn hàng thành công, trạng thái mặc định BẮT BUỘC là "Chờ xác nhận" (vì thanh toán qua mã QR Momo/Bank thủ công). Sau khi tạo đơn, BẮT BUỘC phải có lệnh trừ `stock` trong bảng `products` và xóa `cart_items` của user đó.
+6. **Update sau khi cập nhật database:** Sau mỗi lần update/insert/delete database thì đều phải chỉnh sửa file AI_CONTEXT.md này.
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.
@@ -280,6 +282,7 @@ Các quy tắc này ưu tiên sự **CẨN TRỌNG** và **CHÍNH XÁC** hơn l�
 1. **Không giả định:** Nêu rõ các giả định trước khi thực hiện. Nếu có điều gì chưa rõ (về logic hoặc yêu cầu), BẮT BUỘC phải hỏi lại sếp trước khi viết code.
 2. **Đưa ra lựa chọn:** Nếu một vấn đề có nhiều cách giải quyết, hãy trình bày các phương án và sự đánh đổi (trade-offs) thay vì tự ý chọn một cách.
 3. **Ưu tiên sự đơn giản:** Nếu có cách tiếp cận đơn giản hơn, hãy đề xuất. Nếu đoạn code có thể viết trong 50 dòng thay vì 200 dòng, hãy viết lại.
+4. **Không tự phân tích:** Nếu src hoặc file nhận được quá dài, không được đoán mò mà phải báo lại là bị cắt ở phần nào, có quá dài không đọc được hết file hay không.
 
 ### B. Thay đổi có chọn lọc (Surgical Changes):
 1. **Đúng mục tiêu:** Chỉ chỉnh sửa những dòng code thực sự cần thiết để giải quyết yêu cầu.
@@ -426,27 +429,177 @@ export async function GET(request: Request) {
 }
 </file>
 
+<file path="app/blog/[id]/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { supabase } from '@/lib/supabase';
+
+export default function BlogDetailPage() {
+  const params = useParams();
+  const blogId = params.id as string;
+
+  const [blog, setBlog] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (blogId) fetchBlog();
+  }, [blogId]);
+
+  const fetchBlog = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .eq('id', blogId)
+      .maybeSingle();
+
+    if (!error && data) setBlog(data);
+    setIsLoading(false);
+  };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-stone-50">
+        <Header />
+        <div className="min-h-[60vh] flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (!blog) {
+    return (
+      <div className="min-h-screen bg-stone-50">
+        <Header />
+        <div className="min-h-[60vh] flex flex-col items-center justify-center text-center px-4">
+          <h2 className="text-2xl font-black text-stone-800 mb-4">Không tìm thấy bài viết</h2>
+          <Link href="/blog" className="text-pink-500 font-bold hover:underline">← Quay lại Blog</Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
+      <Header />
+
+      <main className="pt-32 pb-20">
+        <article className="max-w-3xl mx-auto px-4">
+
+          <Link href="/blog" className="inline-flex items-center gap-2 text-stone-400 font-bold hover:text-pink-500 transition-colors mb-8">
+            ← Quay lại Blog
+          </Link>
+
+          <div className="flex items-center gap-3 mb-6">
+            <span className="text-xs font-bold text-pink-500 uppercase tracking-wide bg-pink-50 px-3 py-1.5 rounded-full">
+              {blog.category}
+            </span>
+            <span className="text-stone-400 text-sm">
+              🗓️ {new Date(blog.created_at).toLocaleDateString('vi-VN')}
+            </span>
+          </div>
+
+          <h1 className="text-3xl md:text-5xl font-serif font-black text-stone-800 mb-8 leading-tight">
+            {blog.title}
+          </h1>
+
+          {blog.cover_image && (
+            <div className="aspect-[16/9] rounded-[2rem] overflow-hidden mb-10 shadow-lg">
+              <img src={blog.cover_image} alt={blog.title} className="w-full h-full object-cover" />
+            </div>
+          )}
+
+          {/* 🎯 RENDER TỪNG KHỐI NỘI DUNG THEO ĐÚNG THỨ TỰ ĐÃ SOẠN */}
+          <div className="max-w-none">
+            {(blog.content || []).map((block: any) => {
+              if (block.type === 'image' && block.value) {
+                return (
+                  <div key={block.id} className="my-8 rounded-3xl overflow-hidden shadow-sm">
+                    <img src={block.value} alt="" className="w-full h-auto" />
+                  </div>
+                );
+              }
+              if (block.type === 'text' && block.value) {
+                return (
+                  <p key={block.id} className="text-stone-700 text-lg leading-relaxed mb-6 whitespace-pre-line">
+                    {block.value}
+                  </p>
+                );
+              }
+              return null;
+            })}
+          </div>
+
+        </article>
+      </main>
+
+      <Footer />
+    </div>
+  );
+}
+</file>
+
 <file path="app/blog/page.tsx">
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { BLOG_POSTS } from '@/lib/mock-data';
+import { supabase } from '@/lib/supabase';
+
+const CATEGORIES = [
+  'Tất cả',
+  'Kiến thức đi Show',
+  'Kiến thức về Mèo',
+  'Dinh dưỡng & Chăm sóc',
+  'Tin tức Cattery',
+];
 
 export default function BlogPage() {
   const [activeTab, setActiveTab] = useState('Tất cả');
-  
-  // Fake danh mục chủ đề bài viết
-  const topics = ['Tất cả', 'Cẩm nang Newbie', 'Dinh dưỡng', 'Chăm sóc lông', 'Kiến thức đi Show'];
+  const [searchQuery, setSearchQuery] = useState('');
+  const [blogs, setBlogs] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    fetchBlogs();
+  }, []);
+
+  const fetchBlogs = async () => {
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from('blogs')
+      .select('*')
+      .order('created_at', { ascending: false });
+    if (!error && data) setBlogs(data);
+    setIsLoading(false);
+  };
+
+  // Lấy đoạn text đầu tiên trong content để làm mô tả ngắn ngoài card
+  const getExcerpt = (content: any[]) => {
+    const textBlock = content?.find((b: any) => b.type === 'text' && b.value?.trim());
+    return textBlock ? textBlock.value.slice(0, 150) : 'Khám phá bài viết mới nhất từ KinVie Cattery...';
+  };
+
+  const filteredBlogs = blogs.filter((b) => {
+    const matchesTab = activeTab === 'Tất cả' || b.category === activeTab;
+    const matchesSearch = b.title.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchesTab && matchesSearch;
+  });
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
       <Header />
 
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10">
-        
-        {/* TIÊU ĐỀ TRANG */}
+
         <div className="mb-10 text-center">
           <div className="inline-block bg-white border border-pink-100 p-4 rounded-full mb-4 shadow-sm">
              <span className="text-4xl">📖</span>
@@ -456,39 +609,34 @@ export default function BlogPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          
-          {/* =========================================
-              CỘT TRÁI (1/4): TÌM KIẾM & CHỦ ĐỀ
-              ========================================= */}
+
           <div className="lg:w-1/4">
             <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-sm border border-white/50 sticky top-32">
-              
-              {/* Ô Tìm kiếm */}
+
               <div className="mb-8">
                 <h3 className="font-bold text-stone-800 mb-3 text-sm uppercase tracking-wider">Tìm kiếm</h3>
                 <div className="relative">
-                  <input 
-                    type="text" 
-                    placeholder="Nhập từ khóa..." 
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Nhập từ khóa..."
                     className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
                   />
-                  <button className="absolute right-3 top-1/2 transform -translate-y-1/2 text-stone-400 hover:text-pink-500">
-                    🔍
-                  </button>
+                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-stone-400">🔍</span>
                 </div>
               </div>
 
-              {/* Danh sách chủ đề */}
               <div>
                 <h3 className="font-bold text-stone-800 mb-3 text-sm uppercase tracking-wider">Chủ đề</h3>
                 <div className="flex flex-col gap-2">
-                  {topics.map(topic => (
-                    <button 
+                  {CATEGORIES.map(topic => (
+                    <button
                       key={topic}
                       onClick={() => setActiveTab(topic)}
-                      className={`text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                        activeTab === topic 
-                          ? 'bg-pink-50 text-pink-600 font-bold border-l-4 border-pink-500' 
+                      className={`text-left px-4 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer ${
+                        activeTab === topic
+                          ? 'bg-pink-50 text-pink-600 font-bold border-l-4 border-pink-500'
                           : 'bg-transparent text-stone-600 hover:bg-stone-50 hover:text-pink-400 border-l-4 border-transparent'
                       }`}
                     >
@@ -501,62 +649,63 @@ export default function BlogPage() {
             </div>
           </div>
 
-          {/* =========================================
-              CỘT PHẢI (3/4): LƯỚI BÀI VIẾT
-              ========================================= */}
           <div className="lg:w-3/4">
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              {BLOG_POSTS.map((post) => (
-                <article key={post.id} className="bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-sm border border-white/50 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden flex flex-col cursor-pointer">
-                  
-                  {/* Thumbnail bài viết */}
-                  <div className="aspect-[16/10] bg-pink-50 flex items-center justify-center overflow-hidden relative">
-                    <span className="text-pink-300 text-xs px-2 text-center relative z-10">{post.img}</span>
-                    <div className="absolute inset-0 bg-pink-400/0 group-hover:bg-pink-400/10 transition-colors z-0"></div>
-                  </div>
-                  
-                  {/* Nội dung text */}
-                  <div className="p-6 flex flex-col flex-1">
-                    <div className="flex items-center gap-3 mb-3">
-                      <span className="text-xs font-bold text-pink-400 uppercase tracking-wide bg-pink-50 px-3 py-1 rounded-full">
-                        Cẩm nang
-                      </span>
-                      <span className="text-stone-400 text-xs flex items-center gap-1">
-                        🗓️ {post.date}
-                      </span>
-                    </div>
-                    
-                    <h3 className="text-xl font-bold text-stone-800 mb-3 group-hover:text-pink-500 transition-colors leading-snug">
-                      {post.title}
-                    </h3>
-                    
-                    <p className="text-stone-500 text-sm line-clamp-3 leading-relaxed mb-6 flex-1">
-                      Khám phá những mẹo hay ho và chuẩn khoa học để giúp bé mèo nhà bạn khỏe mạnh, xinh đẹp hơn mỗi ngày. Đội ngũ KinVie đúc kết từ quá trình chăm sóc hàng chục thế hệ mèo...
-                    </p>
-                    
-                    <div className="mt-auto border-t border-stone-100 pt-4 flex items-center justify-between">
-                      <span className="text-sm font-bold text-stone-800 flex items-center gap-2">
-                        <div className="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center text-xs">🐾</div>
-                        KinVie Team
-                      </span>
-                      <span className="text-pink-500 text-sm font-bold group-hover:translate-x-1 transition-transform">
-                        Đọc tiếp ➔
-                      </span>
-                    </div>
-                  </div>
 
-                </article>
-              ))}
-            </div>
+            {isLoading ? (
+              <div className="py-32 text-center text-4xl text-pink-300 animate-spin">🐾</div>
+            ) : filteredBlogs.length === 0 ? (
+              <div className="text-center py-32 bg-white/40 rounded-[3rem] border border-white">
+                <div className="text-5xl mb-4 opacity-50">📰</div>
+                <h3 className="text-2xl font-black text-stone-800">Chưa có bài viết nào</h3>
+                <p className="text-stone-500 font-medium">Quay lại sau nhé, KinVie đang cập nhật thêm!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                {filteredBlogs.map((post) => (
+                  <Link href={`/blog/${post.id}`} key={post.id} className="bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-sm border border-white/50 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden flex flex-col cursor-pointer">
 
-            {/* Phân trang (Pagination) */}
-            <div className="mt-12 flex justify-center items-center gap-2">
-              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-400 flex items-center justify-center hover:bg-stone-50 disabled:opacity-50">❮</button>
-              <button className="w-10 h-10 rounded-full bg-pink-500 text-white font-bold flex items-center justify-center shadow-md shadow-pink-200">1</button>
-              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-600 font-bold flex items-center justify-center hover:border-pink-300 hover:text-pink-500 transition-colors">2</button>
-              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-600 flex items-center justify-center hover:bg-stone-50">❯</button>
-            </div>
+                    <div className="aspect-[16/10] bg-pink-50 flex items-center justify-center overflow-hidden relative">
+                      {post.cover_image ? (
+                        <img src={post.cover_image} alt={post.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      ) : (
+                        <span className="text-pink-300 text-xs px-2 text-center relative z-10">KINVIE BLOG</span>
+                      )}
+                      <div className="absolute inset-0 bg-pink-400/0 group-hover:bg-pink-400/10 transition-colors z-0"></div>
+                    </div>
+
+                    <div className="p-6 flex flex-col flex-1">
+                      <div className="flex items-center gap-3 mb-3">
+                        <span className="text-xs font-bold text-pink-400 uppercase tracking-wide bg-pink-50 px-3 py-1 rounded-full">
+                          {post.category}
+                        </span>
+                        <span className="text-stone-400 text-xs flex items-center gap-1">
+                          🗓️ {new Date(post.created_at).toLocaleDateString('vi-VN')}
+                        </span>
+                      </div>
+
+                      <h3 className="text-xl font-bold text-stone-800 mb-3 group-hover:text-pink-500 transition-colors leading-snug">
+                        {post.title}
+                      </h3>
+
+                      <p className="text-stone-500 text-sm line-clamp-3 leading-relaxed mb-6 flex-1">
+                        {getExcerpt(post.content)}
+                      </p>
+
+                      <div className="mt-auto border-t border-stone-100 pt-4 flex items-center justify-between">
+                        <span className="text-sm font-bold text-stone-800 flex items-center gap-2">
+                          <div className="w-6 h-6 bg-pink-100 rounded-full flex items-center justify-center text-xs">🐾</div>
+                          KinVie Team
+                        </span>
+                        <span className="text-pink-500 text-sm font-bold group-hover:translate-x-1 transition-transform">
+                          Đọc tiếp ➔
+                        </span>
+                      </div>
+                    </div>
+
+                  </Link>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
@@ -1463,7 +1612,14 @@ export default function CheckoutPage() {
           address: customerInfo.address,
           totalamount: subTotal,
           paymentmethod: paymentMethod,
-          orderstatus: 'Chờ thanh toán' // Mặc định luôn là Chờ xác nhận
+          orderstatus: 'Chờ thanh toán',
+          items: cartItems.map(item => ({
+            productid: item.product_id,
+            name: item.products?.name || '',
+            price: item.products?.price || 0,
+            quantity: item.quantity,
+            image: item.products?.imageurl || item.products?.images?.[0] || ''
+          }))
         }])
         .select('orderid')
         .maybeSingle();
@@ -1652,10 +1808,16 @@ function PaymentContent() {
       const billUrl = publicUrlData.publicUrl;
 
       // Cập nhật trạng thái đơn thành "Chờ xác nhận" và nhét link bill vào paymentmethod
-      await supabase.from('orders').update({ 
+      const { error: updateError } = await supabase.from('orders').update({ 
         orderstatus: 'Chờ xác nhận',
         paymentmethod: `${orderData.paymentmethod} | BILL: ${billUrl}`
       }).eq('orderid', orderId);
+
+      if (updateError) {
+        alert("⚠️ Ảnh đã lưu nhưng lỗi cập nhật đơn hàng: " + updateError.message);
+        setIsUploading(false);
+        return;
+      }
 
       // Chuyển hướng sang trang Theo dõi đơn hàng
       router.push(`/order-tracking/${orderId}`);
@@ -2385,7 +2547,7 @@ export default function BreederCatDetailPage() {
               {/* 🎯 BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-orange-50/50 rounded-3xl p-6 border border-orange-100 shadow-sm mt-8 transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-orange-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -2526,7 +2688,7 @@ export default function BreederCatDetailPage() {
       {/* 🎯 MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <div className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-scale-up">
             <h2 className="text-xl font-black text-stone-800 mb-6 flex items-center gap-2">💉 Thêm mũi tiêm mới</h2>
             <div className="space-y-5 mb-8">
@@ -3772,7 +3934,7 @@ export default function CatDetailPage() {
               {/* BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-red-50/40 rounded-3xl p-6 border border-red-100 shadow-sm transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -3918,7 +4080,7 @@ export default function CatDetailPage() {
       {/* MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl"
@@ -4542,7 +4704,7 @@ export default function AddCatPage() {
               {/* 🎯 BẢNG CHỌN MÀU EMS DẠNG SỔ XUỐNG (ACCORDION) */}
               {isPurebred ? (
                 <div className="bg-red-50/50 rounded-3xl p-6 border border-red-100 shadow-sm mt-8 transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -4670,7 +4832,7 @@ export default function AddCatPage() {
       {/* 🎯 MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <div className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-scale-up">
             <h2 className="text-xl font-black text-stone-800 mb-6 flex items-center gap-2">💉 Thêm mũi tiêm mới</h2>
             <div className="space-y-5 mb-8">
@@ -5364,14 +5526,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      try {
+        // 1. Thêm biến error vào để hứng lỗi từ Supabase
+        const { data: { user }, error } = await supabase.auth.getUser();
 
-      const { data: dbUser } = await supabase.from('users').select(`fullname, type_id`).eq('email', user.email).maybeSingle();
-      if (!dbUser) {
+        // 2. Nếu có lỗi (bao gồm lỗi Invalid Refresh Token) hoặc không có user
+        if (error || !user) {
+          console.warn("Auth Error/No User:", error?.message);
+          await supabase.auth.signOut(); // Ép xóa sạch token rác ở client
+          localStorage.removeItem('kinvie_user');
+          router.push('/login');
+          return;
+        }
+
+        const { data: dbUser } = await supabase
+          .from('users')
+          .select('fullname, type_id')
+          .eq('email', user.email)
+          .maybeSingle();
+
+        if (!dbUser) {
+          await supabase.auth.signOut();
+          localStorage.removeItem('kinvie_user');
+          router.push('/login');
+          return;
+        }
+
+        setAdminName(dbUser.fullname);
+        setIsAuthorized(true);
+      } catch (err) {
+        // 3. Fallback cuối cùng nếu toàn bộ khối try/catch bị sập
+        console.error("Critical Auth Error:", err);
         await supabase.auth.signOut();
         router.push('/login');
-        return;
       }
     };
     checkAuth();
@@ -5399,39 +5586,38 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   return (
     <div className="min-h-screen bg-stone-50 flex font-sans">
-      
+
       {/* ==========================================
           SIDEBAR MINI (THU GỌN) & BUNG RA KHI HOVER
           ========================================== */}
       {/* 🎯 SỬ DỤNG CLASS "group" VÀ THAY ĐỔI WIDTH TỪ w-20 -> hover:w-72 */}
       <aside className="group w-20 hover:w-72 bg-[#0a0a0a] text-stone-300 flex flex-col fixed h-full shadow-[4px_0_24px_rgba(0,0,0,0.15)] hover:shadow-[10px_0_30px_rgba(0,0,0,0.4)] z-[100] border-r border-stone-800/50 transition-all duration-300 ease-in-out overflow-hidden">
-        
+
         {/* LOGO */}
         <div className="h-20 flex items-center px-6 border-b border-stone-800/80 bg-black/20 backdrop-blur-sm whitespace-nowrap">
           <Link href="/" className="text-xl font-serif font-black text-white tracking-wide flex items-center gap-4">
             {/* Chân chó luôn hiện */}
-            <span className="text-pink-500 text-3xl drop-shadow-[0_0_12px_rgba(236,72,153,0.8)] group-hover:animate-spin-slow transition-all shrink-0">🐾</span> 
+            <span className="text-pink-500 text-3xl drop-shadow-[0_0_12px_rgba(236,72,153,0.8)] group-hover:animate-spin-slow transition-all shrink-0">🐾</span>
             {/* Chữ KINVIE ẩn đi khi thu nhỏ, hiện ra khi hover */}
             <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">KINVIE<span className="text-pink-500">.</span></span>
           </Link>
         </div>
-        
+
         {/* MENU ĐIỀU HƯỚNG */}
         {/* custom-scrollbar overflow-x-hidden để khi thu nhỏ không bị nảy thanh cuộn ngang */}
         <nav className="flex-1 py-6 px-3 space-y-2 overflow-y-auto overflow-x-hidden custom-scrollbar">
           {menuItems.map((item) => {
             const isActive = item.path === '/dashboard' ? pathname === '/dashboard' : pathname.startsWith(item.path);
-            
+
             return (
-              <Link 
-                key={item.name} 
-                href={item.path} 
+              <Link
+                key={item.name}
+                href={item.path}
                 title={item.name} // Tooltip hiện chữ khi sidebar đang thu nhỏ
-                className={`flex items-center gap-4 px-3 py-3.5 rounded-2xl font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap ${
-                  isActive 
-                    ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]' 
+                className={`flex items-center gap-4 px-3 py-3.5 rounded-2xl font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap ${isActive
+                    ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]'
                     : 'text-stone-400 hover:bg-stone-900 hover:text-pink-100 border-l-4 border-transparent'
-                }`}
+                  }`}
               >
                 {/* Lớp ánh sáng chạy xẹt qua khi hover (Chỉ hiện khi sidebar bung ra) */}
                 <div className="absolute inset-0 w-full h-full bg-gradient-to-r from-transparent via-white/5 to-transparent -translate-x-full group-hover:animate-[shimmer_1.5s_infinite]"></div>
@@ -5439,8 +5625,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 {/* Icon (Cố định chiều rộng w-8 để nằm chính giữa khi thu nhỏ) */}
                 <span className={`text-[22px] shrink-0 w-8 flex justify-center z-10 transition-transform duration-300 ${isActive ? 'scale-110 drop-shadow-[0_0_10px_rgba(236,72,153,0.8)]' : 'group-hover:scale-125 group-hover:drop-shadow-[0_0_8px_rgba(255,255,255,0.5)]'}`}>
                   {item.icon}
-                </span> 
-                
+                </span>
+
                 {/* Text (Ẩn đi, tịnh tiến và hiện ra khi hover) */}
                 <span className="text-sm tracking-wide z-10 opacity-0 group-hover:opacity-100 -translate-x-4 group-hover:translate-x-0 transition-all duration-300 delay-75">
                   {item.name}
@@ -5452,24 +5638,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         {/* USER INFO & NÚT ĐĂNG XUẤT */}
         <div className="p-4 border-t border-stone-800/80 bg-gradient-to-t from-black to-[#0a0a0a] whitespace-nowrap">
-           <div className="flex items-center gap-4 mb-5">
-              {/* Avatar cố định size */}
-              <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 text-white flex items-center justify-center font-bold text-xl shadow-[0_0_15px_rgba(236,72,153,0.6)] uppercase border border-pink-400/50">
-                {adminName.charAt(0)}
-              </div>
-              
-              {/* Thông tin ẩn hiện */}
-              <div className="flex-1 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
-                <p className="text-sm font-bold text-white truncate">{adminName}</p>
-                <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest drop-shadow-[0_0_5px_rgba(236,72,153,0.5)]">Super Admin</p>
-              </div>
-           </div>
-           
-           {/* Nút thoát */}
-           <button onClick={handleLogout} className="flex items-center gap-4 bg-stone-900 border border-stone-800 hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 text-stone-500 font-bold w-full p-3 rounded-xl transition-all duration-300">
-             <span className="text-xl shrink-0 w-8 flex justify-center">🚪</span> 
-             <span className="text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">Thoát quản trị</span>
-           </button>
+          <div className="flex items-center gap-4 mb-5">
+            {/* Avatar cố định size */}
+            <div className="w-11 h-11 shrink-0 rounded-full bg-gradient-to-br from-pink-500 to-rose-600 text-white flex items-center justify-center font-bold text-xl shadow-[0_0_15px_rgba(236,72,153,0.6)] uppercase border border-pink-400/50">
+              {adminName.charAt(0)}
+            </div>
+
+            {/* Thông tin ẩn hiện */}
+            <div className="flex-1 overflow-hidden opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">
+              <p className="text-sm font-bold text-white truncate">{adminName}</p>
+              <p className="text-[10px] font-black text-pink-500 uppercase tracking-widest drop-shadow-[0_0_5px_rgba(236,72,153,0.5)]">Super Admin</p>
+            </div>
+          </div>
+
+          {/* Nút thoát */}
+          <button onClick={handleLogout} className="flex items-center gap-4 bg-stone-900 border border-stone-800 hover:border-rose-500/50 hover:bg-rose-500/10 hover:text-rose-400 text-stone-500 font-bold w-full p-3 rounded-xl transition-all duration-300">
+            <span className="text-xl shrink-0 w-8 flex justify-center">🚪</span>
+            <span className="text-sm opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">Thoát quản trị</span>
+          </button>
         </div>
       </aside>
 
@@ -5648,7 +5834,7 @@ export default function FeedbackManagementPage() {
       {/* 🎯 MODAL VIẾT PHẢN HỒI */}
       {replyTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setReplyTarget(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={() => setReplyTarget(null)}></div>
           <div className="relative bg-white border rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-fade-in-up">
             <h3 className="text-2xl font-black text-purple-600 mb-2">Phản hồi khách hàng</h3>
             <p className="text-stone-400 text-sm font-bold mb-6 truncate">Gửi tới: {replyTarget.users?.fullname}</p>
@@ -5963,7 +6149,7 @@ export default function FinancePage() {
         {/* ... MODAL THÊM MỚI GIỮ NGUYÊN ... */}
         {isExpenseModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsExpenseModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsExpenseModalOpen(false)}></div>
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">
                 <h3 className="text-2xl font-black text-stone-800 tracking-tight">Ghi nhận Chi Phí 📉</h3>
@@ -7109,7 +7295,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-const ORDER_STATUSES = ['Tất cả', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
+const ORDER_STATUSES = ['Tất cả', 'Chờ xác nhận', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
 
 const getAvatarColor = (name: string) => {
   const colors = [
@@ -7141,13 +7327,32 @@ export default function OrderManagementPage() {
 
   const fetchOrders = async () => {
     setIsLoading(true);
-    // Dùng select('*') để lấy luôn cột delivery_date sếp vừa thêm
+    // 🎯 JOIN thêm orderdetails + products để lấy sản phẩm cho những đơn khách tự đặt
+    // (những đơn này lưu sản phẩm ở bảng orderdetails, không phải cột items)
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
-      .order('orderdate', { ascending: false, nullsFirst: false }); 
-      
-    if (!error) setOrders(data || []);
+      .select('*, orderdetails(quantity, unitprice, variant, products(id, name, price, imageurl, images))')
+      .order('orderdate', { ascending: false, nullsFirst: false });
+
+    if (!error && data) {
+      const normalized = data.map((o: any) => {
+        // Nếu đơn chưa có sẵn cột items (JSON) thì tự build từ orderdetails
+        if ((!o.items || o.items.length === 0) && o.orderdetails && o.orderdetails.length > 0) {
+          return {
+            ...o,
+            items: o.orderdetails.map((d: any) => ({
+              productid: d.products?.id,
+              name: d.products?.name || 'Sản phẩm',
+              price: d.unitprice,
+              quantity: d.quantity,
+              image: d.products?.imageurl || d.products?.images?.[0] || ''
+            }))
+          };
+        }
+        return o;
+      });
+      setOrders(normalized);
+    }
     setIsLoading(false);
   };
 
@@ -7168,9 +7373,27 @@ export default function OrderManagementPage() {
     }
   };
 
+  // 🎯 DUYỆT ĐƠN NHANH: Chờ xác nhận -> Đang vận chuyển
+  const handleApproveOrder = async (order: any) => {
+    if (!window.confirm(`Duyệt đơn #${order.orderid} và chuyển sang "Đang vận chuyển"?`)) return;
+    
+    const { error } = await supabase
+      .from('orders')
+      .update({ orderstatus: 'Đang vận chuyển' })
+      .eq('orderid', order.orderid);
+
+    if (!error) {
+      setOrders(orders.map(o => o.orderid === order.orderid ? { ...o, orderstatus: 'Đang vận chuyển' } : o));
+      alert("✅ Đã duyệt đơn! Đơn hàng chuyển sang Đang vận chuyển.");
+    } else {
+      alert("Lỗi khi duyệt đơn: " + error.message);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm";
     switch (status) {
+      case 'Chờ xác nhận': return <span className={`${baseClasses} bg-sky-100/80 text-sky-700 border border-sky-200/50 animate-pulse`}>{status}</span>;
       case 'Đã đặt hàng': return <span className={`${baseClasses} bg-lime-100/80 text-lime-700 border border-lime-200/50`}>{status}</span>;
       case 'Đã thanh toán': return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50`}>{status}</span>;
       case 'Đang vận chuyển': return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50`}>{status}</span>;
@@ -7355,6 +7578,10 @@ export default function OrderManagementPage() {
               // Kiểm tra xem đơn này có Pate không để highlight icon
               const hasPate = order.items?.some((item: any) => item.name?.toLowerCase().includes('pate'));
 
+              // 🎯 Trích link ảnh bill khách up (nếu có) từ paymentmethod
+              const billMatch = order.paymentmethod?.match(/BILL:\s*(\S+)/);
+              const billUrl = billMatch ? billMatch[1] : null;
+
               return (
                 <div 
                   key={order.orderid} 
@@ -7447,7 +7674,32 @@ export default function OrderManagementPage() {
                             </p>
                           </div>
 
+                          {/* 🎯 ẢNH BILL CHUYỂN KHOẢN CỦA KHÁCH */}
+                          {billUrl && (
+                            <div className="bg-white p-6 rounded-3xl border border-stone-200/60 shadow-sm">
+                              <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                📸 Ảnh biên lai khách gửi
+                              </h4>
+                              <a href={billUrl} target="_blank" rel="noopener noreferrer" className="block">
+                                <img 
+                                  src={billUrl} 
+                                  alt="Biên lai chuyển khoản" 
+                                  className="w-full max-h-64 object-contain rounded-2xl border border-stone-200 hover:opacity-80 transition-opacity cursor-pointer bg-stone-50"
+                                />
+                              </a>
+                              <p className="text-[10px] text-stone-400 mt-2 text-center">Bấm vào ảnh để xem full size</p>
+                            </div>
+                          )}
+
                           <div className="grid grid-cols-2 gap-3 mt-auto">
+                            {order.orderstatus === 'Chờ xác nhận' && (
+                              <button
+                                onClick={() => handleApproveOrder(order)}
+                                className="cursor-pointer col-span-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-md"
+                              >
+                                ✅ Duyệt đơn & Chuyển vận chuyển
+                              </button>
+                            )}
                             <button 
                               onClick={() => {
                                 setActiveOrder(order);
@@ -7484,7 +7736,7 @@ export default function OrderManagementPage() {
         {/* 🎯 MODAL CẬP NHẬT TRẠNG THÁI */}
         {isStatusModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
-            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md" onClick={() => setIsStatusModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md cursor-pointer" onClick={() => setIsStatusModalOpen(false)}></div>
             
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">
@@ -8760,7 +9012,7 @@ export default function PateTypesManagementPage() {
         {/* MODAL THÊM/SỬA */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm fixed" onClick={() => setIsModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm fixed cursor-pointer" onClick={() => setIsModalOpen(false)}></div>
             
             <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md relative z-10 animate-fade-in shadow-2xl my-8">
               <h2 className="text-2xl font-black text-stone-800 mb-6 flex items-center gap-2">
@@ -9264,7 +9516,7 @@ export default function PateFreshPage() {
         {isEditModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
             {/* Lớp nền làm mờ đen */}
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md transition-opacity" onClick={() => setIsEditModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md transition-opacity cursor-pointer" onClick={() => setIsEditModalOpen(false)}></div>
             
             {/* Khung Modal nảy lên */}
             <div className="bg-white/90 backdrop-blur-2xl rounded-[3rem] p-8 md:p-10 max-w-lg w-full shadow-[0_20px_60px_rgba(0,0,0,0.3)] relative z-10 border border-white animate-scale-up">
@@ -9722,6 +9974,10 @@ export default function AddProductPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false); 
   
+  // 🌟 STATE CHO TÍNH NĂNG AFFILIATE
+  const [isAffiliate, setIsAffiliate] = useState(false);
+  const [affiliateUrl, setAffiliateUrl] = useState('');
+
   const [productData, setProductData] = useState<any>({
     name: '', 
     category: 'Thức ăn hạt', 
@@ -9769,6 +10025,10 @@ export default function AddProductPage() {
     if (!productData.name || !productData.price) {
       return alert("Sếp quên nhập Tên hoặc Giá rồi!");
     }
+    if (isAffiliate && !affiliateUrl) {
+      return alert("Sếp chọn bán Affiliate thì phải dán link Shopee/TikTok vào nhé!");
+    }
+
     setIsLoading(true);
     const cleanImages = productData.images.filter((img: string) => img !== '');
 
@@ -9780,10 +10040,13 @@ export default function AddProductPage() {
         brand: productData.brand,
         origin: productData.origin,
         price: Number(productData.price),
-        stock: Number(productData.stock || 0),
+        stock: isAffiliate ? 0 : Number(productData.stock || 0), // Affiliate ép stock về 0
         status: productData.status,
         images: cleanImages,
-        description: productData.description
+        description: productData.description,
+        is_affiliate: isAffiliate,
+        affiliate_url: isAffiliate ? affiliateUrl : null,
+        affiliate_clicks: 0
       }]);
 
     setIsLoading(false);
@@ -9876,7 +10139,7 @@ export default function AddProductPage() {
                   </div>
                 </div>
 
-                {/* Dropdown DANH MỤC (Xịn, không phèn) */}
+                {/* Dropdown DANH MỤC */}
                 <div className="relative">
                   <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 mb-2 block">Phân loại hàng</label>
                   <div 
@@ -9912,6 +10175,44 @@ export default function AddProductPage() {
                   <input type="text" value={productData.origin} onChange={(e) => setProductData({...productData, origin: e.target.value})} placeholder="Pháp, Mỹ, Nhật Bản..." className="w-full bg-white border border-stone-100 rounded-2xl px-6 py-4 font-bold text-slate-700 outline-none focus:border-rose-300 shadow-sm" />
                 </div>
 
+                {/* 🌟 CHỌN LOẠI HÀNG (SẴN/AFFILIATE) */}
+                <div className="space-y-3 pt-4 border-t border-dashed border-stone-100">
+                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Nguồn Hàng</label>
+                  <div className="flex bg-slate-100/50 rounded-2xl p-1.5 border border-stone-100 gap-2 shadow-inner">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAffiliate(false)}
+                      className={`cursor-pointer flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${!isAffiliate ? 'bg-rose-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      📦 Có sẵn tại Shop
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setIsAffiliate(true)}
+                      className={`cursor-pointer flex-1 py-3.5 rounded-xl font-black text-xs uppercase tracking-widest transition-all ${isAffiliate ? 'bg-orange-500 text-white shadow-lg' : 'text-slate-400 hover:text-slate-600'}`}
+                    >
+                      🔗 Affiliate (Shopee/TikTok)
+                    </button>
+                  </div>
+                  
+                  <AnimatePresence>
+                    {isAffiliate && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}>
+                        <div className="mt-3">
+                          <label className="text-[10px] font-black text-orange-400 uppercase tracking-widest ml-2 block mb-2">Link Nơi Bán *</label>
+                          <input 
+                            type="url" 
+                            value={affiliateUrl} 
+                            onChange={(e) => setAffiliateUrl(e.target.value)} 
+                            placeholder="https://shopee.vn/..." 
+                            className="w-full bg-orange-50/30 border border-orange-100 rounded-2xl px-6 py-4 font-medium text-slate-700 outline-none focus:border-orange-300 shadow-sm" 
+                          />
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+                </div>
+
                 {/* Giá & Tồn kho */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-4 border-t border-dashed border-stone-100">
                   <div className="space-y-2">
@@ -9922,8 +10223,16 @@ export default function AddProductPage() {
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Số lượng nhập kho</label>
-                    <input type="number" value={productData.stock} onChange={(e) => setProductData({...productData, stock: e.target.value})} className="cursor-text w-full bg-slate-50 border border-stone-100 text-slate-700 rounded-2xl px-6 py-5 font-black text-3xl outline-none" placeholder="0" />
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-2 block">Số lượng kho</label>
+                    <input 
+                      type="number" 
+                      value={isAffiliate ? 0 : productData.stock} 
+                      onChange={(e) => setProductData({...productData, stock: e.target.value})} 
+                      disabled={isAffiliate}
+                      className={`w-full border border-stone-100 rounded-2xl px-6 py-5 font-black text-3xl outline-none ${isAffiliate ? 'bg-stone-100 text-stone-400 cursor-not-allowed' : 'cursor-text bg-slate-50 text-slate-700'}`} 
+                      placeholder="0" 
+                    />
+                    {isAffiliate && <p className="text-[10px] text-orange-400 font-bold ml-2 mt-1">* Hàng Affiliate không cần nhập kho</p>}
                   </div>
                 </div>
 
@@ -10142,16 +10451,27 @@ export default function ProductsPage() {
                     className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-[800ms] mix-blend-multiply" 
                   />
                   
-                  {/* Badge Tồn kho */}
-                  <div className="absolute top-3 right-3 z-10">
-                    {product.stock && product.stock > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md">
-                        TỒN: {product.stock}
-                      </span>
+                  {/* Badge Tồn kho hoặc Affiliate */}
+                  <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+                    {product.is_affiliate ? (
+                      <>
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm backdrop-blur-md border border-white/20">
+                          🔗 LIÊN KẾT
+                        </span>
+                        <span className="px-2 py-1 rounded-lg text-[9px] font-bold tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md flex items-center gap-1">
+                          🖱️ CLICK: <span className="font-black text-stone-800">{product.affiliate_clicks || 0}</span>
+                        </span>
+                      </>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-rose-500/90 text-white shadow-sm backdrop-blur-md">
-                        HẾT HÀNG
-                      </span>
+                      product.stock && product.stock > 0 ? (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md">
+                          TỒN: {product.stock}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-rose-500/90 text-white shadow-sm backdrop-blur-md">
+                          HẾT HÀNG
+                        </span>
+                      )
                     )}
                   </div>
                 </div>
@@ -10408,7 +10728,7 @@ export default function BlogManagementPage() {
       {/* 🎯 MODAL SOẠN THẢO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={closeModal}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={closeModal}></div>
           
           <div className="relative bg-[#F8F9FA] border border-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-fade-in-up overflow-hidden">
             
@@ -11399,7 +11719,7 @@ export default function AccountListPage() {
       {/* MODAL SỬA */}
       {editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer" onClick={() => setEditingUser(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={() => setEditingUser(null)}></div>
           <div className="relative bg-white/90 backdrop-blur-2xl border border-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-md animate-fade-in-up">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-2xl font-black text-cyan-600">Sửa Thông Tin</h3>
@@ -11938,7 +12258,7 @@ export default function RankManagementPage() {
       {/* MODAL ÉP HẠNG */}
       {editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer transition-opacity" onClick={() => setEditingUser(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer transition-opacity cursor-pointer" onClick={() => setEditingUser(null)}></div>
           
           <div className="relative bg-white/90 backdrop-blur-2xl border border-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-md animate-fade-in-up">
             
@@ -12521,7 +12841,7 @@ export default function CommunityFeedPage() {
         {/* MODAL ĐĂNG BÀI */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={handleCloseModal}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={handleCloseModal}></div>
             <div className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between p-4 border-b border-stone-100">
                 <div className="w-8"></div>
@@ -12730,7 +13050,7 @@ export default function LoginPage() {
   // STATE HỨNG DỮ LIỆU
   const [phone, setPhone] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState(''); 
+  const [fullName, setFullName] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   // ==========================================
@@ -12741,16 +13061,16 @@ export default function LoginPage() {
       if (event === 'SIGNED_IN' && session?.user) {
         const { data: dbUser } = await supabase
           .from('users')
-          .select('userid') 
+          .select('userid')
           .eq('email', session.user.email)
           .maybeSingle();
 
         if (!dbUser) {
-          router.push('/register/complete-profile'); 
+          router.push('/register/complete-profile');
         } else {
-          router.push('/'); 
+          router.push('/');
         }
-        router.refresh(); 
+        router.refresh();
       }
     });
 
@@ -12759,9 +13079,9 @@ export default function LoginPage() {
 
   const getURL = () => {
     let url =
-      process.env.NEXT_PUBLIC_SITE_URL ?? 
-      process.env.NEXT_PUBLIC_VERCEL_URL ?? 
-      'http://localhost:3000'; 
+      process.env.NEXT_PUBLIC_SITE_URL ??
+      process.env.NEXT_PUBLIC_VERCEL_URL ??
+      'http://localhost:3000';
     url = url.includes('http') ? url : `https://${url}`;
     url = url.charAt(url.length - 1) === '/' ? url.slice(0, -1) : url;
     return url;
@@ -12790,7 +13110,7 @@ export default function LoginPage() {
 
   // HÀM XỬ LÝ SUBMIT (Đã tách cờ isLoginAction để dùng chung cho 2 form)
   const handlePhoneSubmit = async (e: React.FormEvent, isLoginAction: boolean) => {
-    e.preventDefault(); 
+    e.preventDefault();
 
     const cleanPhone = phone.trim();
     const fakeEmail = `sen_${cleanPhone}@kinvie.com`;
@@ -12814,7 +13134,7 @@ export default function LoginPage() {
 
       if (!existingUser) {
         alert("Số điện thoại này chưa được đăng ký! Chuyển sang tạo tài khoản nhé.");
-        setIsLoginView(false); 
+        setIsLoginView(false);
         setIsLoading(false);
         return;
       }
@@ -12826,12 +13146,12 @@ export default function LoginPage() {
         return;
       }
 
-      const loginEmail = existingUser.email || fakeEmail; 
+      const loginEmail = existingUser.email || fakeEmail;
       const { error: loginError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
 
       if (loginError) {
         alert(`Không vào được cửa! Lỗi hệ thống báo: ${loginError.message}`);
-        setPassword(''); 
+        setPassword('');
       } else {
         alert("Đăng nhập thành công! Chào mừng trở lại Beam Petshop.");
         router.push('/');
@@ -12848,7 +13168,7 @@ export default function LoginPage() {
       const { data: existingUser } = await supabase.from('users').select('phone').eq('phone', cleanPhone).single();
       if (existingUser) {
         alert("Số điện thoại này đã được đăng ký rồi! Sen chuyển qua form Đăng nhập nhé.");
-        setIsLoginView(true); 
+        setIsLoginView(true);
         setIsLoading(false); return;
       }
 
@@ -12864,7 +13184,7 @@ export default function LoginPage() {
       if (insertError) console.error("Lỗi lưu hồ sơ:", insertError);
 
       alert("Tạo tài khoản thành công! Chào mừng Sen đến với KinVie Cattery.");
-      router.push('/profile'); 
+      router.push('/profile');
     }
 
     setIsLoading(false);
@@ -12874,11 +13194,11 @@ export default function LoginPage() {
   const SocialButtons = () => (
     <div className="flex flex-col gap-3 mb-6">
       <button type="button" onClick={() => handleLogin('google')} className="group w-full bg-white border border-stone-200 hover:border-rose-300 hover:bg-rose-50 text-stone-600 font-semibold py-3 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow-md hover:-translate-y-1 active:scale-95">
-        <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+        <svg className="w-5 h-5 group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" /><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" /><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" /><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" /></svg>
         Tiếp tục với Google
       </button>
       <button type="button" onClick={() => handleLogin('facebook')} className="group w-full bg-[#1877F2] text-white font-semibold py-3 rounded-xl flex items-center justify-center gap-3 transition-all duration-300 shadow-md hover:shadow-lg hover:shadow-blue-500/30 hover:bg-[#166fe5] hover:-translate-y-1 active:scale-95">
-        <svg className="w-6 h-6 fill-current group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+        <svg className="w-6 h-6 fill-current group-hover:scale-110 transition-transform duration-300" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z" /></svg>
         Tiếp tục với Facebook
       </button>
     </div>
@@ -12886,9 +13206,10 @@ export default function LoginPage() {
 
   return (
     <div className="min-h-screen bg-pink-50/30 flex items-center justify-center font-sans relative overflow-hidden p-4">
-      
+
       {/* --- INLINE STYLE CON MÈO GỐC CỦA SẾP --- */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
         @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
         @keyframes tail-wag { 0% { transform: rotate(10deg); } 100% { transform: rotate(-20deg); } }
@@ -12906,7 +13227,7 @@ export default function LoginPage() {
 
       {/* KHUNG MAIN CHỨA TẤT CẢ (Sửa md:h-[650px] để cố định chiều cao cho thanh trượt) */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-pink-50 w-full max-w-4xl flex flex-col md:block overflow-hidden relative z-10 md:h-[650px]">
-        
+
         {/* ============================================================
             📱 GIAO DIỆN ĐIỆN THOẠI (Xếp dọc bình thường như code cũ)
             ============================================================ */}
@@ -12963,7 +13284,7 @@ export default function LoginPage() {
           <p className="text-stone-500 text-sm mb-6">Đăng ký ngay để nhận voucher 50K cho đơn hàng đầu tiên.</p>
           <SocialButtons />
           <div className="flex items-center gap-4 mb-6"><div className="flex-1 h-px bg-stone-100"></div><span className="text-xs text-stone-400 font-medium uppercase">Hoặc dùng số điện thoại</span><div className="flex-1 h-px bg-stone-100"></div></div>
-          
+
           <form className="space-y-4" onSubmit={(e) => handlePhoneSubmit(e, false)}>
             <input type="text" value={fullName} onChange={(e) => setFullName(e.target.value)} placeholder="Họ và tên" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 transition-colors" />
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Số điện thoại" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 transition-colors" />
@@ -12980,12 +13301,21 @@ export default function LoginPage() {
           <p className="text-stone-500 text-sm mb-6">Đăng nhập để tiếp tục trải nghiệm mua sắm.</p>
           <SocialButtons />
           <div className="flex items-center gap-4 mb-6"><div className="flex-1 h-px bg-stone-100"></div><span className="text-xs text-stone-400 font-medium uppercase">Hoặc dùng số điện thoại</span><div className="flex-1 h-px bg-stone-100"></div></div>
-          
+
           <form className="space-y-4" onSubmit={(e) => handlePhoneSubmit(e, true)}>
             <input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Số điện thoại" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 transition-colors" />
-            <div className="relative">
-              <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Mật khẩu" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 transition-colors" />
-              <a href="#" className="absolute right-4 top-1/2 -translate-y-1/2 text-xs text-pink-500 font-bold hover:underline">Quên?</a>
+            <div>
+              <div className="flex justify-between items-center mb-1.5 px-1">
+                <label className="text-xs text-stone-500 font-medium">Mật khẩu</label>
+                <a href="#" className="text-xs text-pink-500 font-bold hover:underline">Quên mật khẩu?</a>
+              </div>
+              <input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Mật khẩu"
+                className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 transition-colors"
+              />
             </div>
             <button type="submit" disabled={isLoading} className="w-full text-white font-bold py-3.5 rounded-xl bg-pink-500 hover:bg-pink-600 shadow-lg shadow-pink-200 hover:-translate-y-0.5 active:scale-95 transition-all mt-4">
               {isLoading ? 'Đang xử lý...' : 'Đăng Nhập'}
@@ -12996,20 +13326,20 @@ export default function LoginPage() {
         {/* 3. CÁNH CỬA CON MÈO (Trượt qua trượt lại che 2 Form) */}
         <div className={`hidden md:flex absolute top-0 left-0 w-1/2 h-full bg-gradient-to-br from-pink-100 to-rose-100 p-10 flex-col items-center justify-center transition-transform duration-[1500ms] ease-in-out z-20 shadow-2xl ${!isLoginView ? 'translate-x-full' : 'translate-x-0'}`}>
           <Link href="/" className="absolute top-8 left-8 bg-white/50 backdrop-blur w-10 h-10 flex items-center justify-center rounded-full hover:bg-white transition-colors z-30">
-             <span className="text-stone-600 text-sm">❮</span>
+            <span className="text-stone-600 text-sm">❮</span>
           </Link>
-          
+
           <div className="w-48 h-48 relative flex items-center justify-center mb-8 mt-4">
             {/* CON MÈO VÀ VÒNG TRÒN XOAY */}
             <div className="absolute border-2 border-pink-300 border-dashed rounded-full animate-[spin_10s_linear_infinite] z-20 w-40 h-40">
               <div className="absolute -top-5 left-1/2 -translate-x-1/2 w-10 h-10 text-pink-500 drop-shadow-sm">
                 <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
                   <g className="cat-body-group">
-                    <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round"/>
-                    <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round"/>
-                    <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
-                    <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round"/>
-                    <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
+                    <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round" />
+                    <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round" />
+                    <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
+                    <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round" />
+                    <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
                     <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
                     <circle cx="75" cy="35" r="14" className="stroke-none" />
                     <polygon points="68,25 65,10 78,25" className="stroke-none" />
@@ -13020,25 +13350,25 @@ export default function LoginPage() {
               <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[10px] opacity-60 text-pink-400">🐾</div>
               <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[10px] opacity-30 text-pink-400">🐾</div>
             </div>
-            
+
             {/* LOGO */}
             <div className="absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 w-32 h-32">
               <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
             </div>
           </div>
-          
+
           <h2 className="font-serif text-3xl font-bold text-stone-800 text-center mb-4 mt-2">
-            Beam Petshop & <br/> KinVie Cattery
+            Beam Petshop & <br /> KinVie Cattery
           </h2>
           <p className="text-stone-500 text-center max-w-xs text-sm leading-relaxed h-16">
-            {isLoginView 
+            {isLoginView
               ? 'Chưa có tài khoản? Tham gia ngay để kết nối với các Boss Maine Coon!'
               : 'Đã có tài khoản? Hãy đăng nhập để tiếp tục tích điểm mua sắm.'}
           </p>
-          
+
           {/* NÚT CHUYỂN ĐỔI GẮN TRÊN CÁNH CỬA */}
-          <button 
-            onClick={() => { setIsLoginView(!isLoginView); setPassword(''); setFullName(''); }} 
+          <button
+            onClick={() => { setIsLoginView(!isLoginView); setPassword(''); setFullName(''); }}
             className="mt-6 px-10 py-3 border-2 border-pink-400 text-pink-500 rounded-full font-bold hover:bg-pink-400 hover:text-white transition-colors active:scale-95"
           >
             {isLoginView ? 'Chuyển sang Đăng Ký' : 'Chuyển sang Đăng Nhập'}
@@ -13791,7 +14121,7 @@ export default function PetDetailPage() {
           ========================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer" onClick={() => setIsModalOpen(false)}></div>
           
           <div className="bg-white rounded-[2rem] shadow-2xl border border-stone-100 w-full max-w-md relative z-10 overflow-hidden transform transition-all">
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-100 flex items-center justify-between">
@@ -16095,7 +16425,7 @@ export default function ProfilePage() {
       {/* MODAL QUẢN LÝ BÀI ĐĂNG (GIỮ NGUYÊN CODE CŨ CỦA SẾP DƯỚI ĐÂY) */}
       {isPostManagerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={() => setIsPostManagerOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm cursor-pointer" onClick={() => setIsPostManagerOpen(false)}></div>
           <div className="relative bg-[#FFF8FA] w-full max-w-2xl h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 bg-white border-b border-pink-100 shrink-0 shadow-sm z-10">
               <h3 className="text-xl font-black text-stone-800 flex items-center gap-2"><span className="text-pink-500">📸</span> Quản lý bài đăng của bạn</h3>
@@ -16579,6 +16909,28 @@ export default function ProductCard({ product }: { product: any }) {
     router.push(`/petshop/${product.id}`); // Hoặc /shop tùy route của sếp
   };
 
+  // 🌟 XỬ LÝ CLICK SẢN PHẨM AFFILIATE (MỚI)
+  const handleAffiliateClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!product.affiliate_url) return;
+
+    // Gọi hàm đếm click ngầm (không await để chuyển trang mượt mà)
+    supabase.rpc('increment_affiliate_click', { product_id: product.id });
+    
+    // Mở liên kết ở tab mới
+    window.open(product.affiliate_url, '_blank');
+  };
+
+  // 🌟 XỬ LÝ SỰ KIỆN CLICK TRÊN TOÀN BỘ CARD (MỚI)
+  const handleCardClick = (e: React.MouseEvent) => {
+    if (product.is_affiliate) {
+      handleAffiliateClick(e); // Hàng Affiliate -> Qua sàn
+    } else {
+      handleViewDetail(); // Hàng thường -> Xem chi tiết
+    }
+  };
+
   // 🌟 MỞ BẢNG CHỌN (MODAL) THAY VÌ THÊM LUÔN
   const handleOpenQuickAdd = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -16672,7 +17024,7 @@ export default function ProductCard({ product }: { product: any }) {
   return (
     <>
       <div 
-        onClick={handleViewDetail} 
+        onClick={handleCardClick} 
         className="group bg-white rounded-[2rem] overflow-hidden cursor-pointer border border-orange-50 relative transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_50px_-12px_rgba(249,115,22,0.25)] hover:border-orange-200 flex flex-col h-full"
       >
         <div className="relative aspect-square overflow-hidden bg-stone-50 shrink-0 p-4 flex items-center justify-center">
@@ -16683,8 +17035,15 @@ export default function ProductCard({ product }: { product: any }) {
             onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/ffedd5/ea580c?text=Anh+Loi'; }}
           />
           {discount > 0 && (
-            <div className="absolute top-4 left-4 bg-rose-500 px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-md uppercase tracking-wider animate-pulse">
+            <div className="absolute top-4 left-4 bg-rose-500 px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-md uppercase tracking-wider animate-pulse z-10">
               Giảm {discount}%
+            </div>
+          )}
+          
+          {/* 🌟 NHÃN AFFILIATE DÁN Ở GÓC PHẢI (MỚI) */}
+          {product.is_affiliate && (
+            <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-rose-500 px-3 py-1.5 rounded-full text-[10px] font-black text-white shadow-md uppercase tracking-wider z-10 flex items-center gap-1 border border-white/20">
+              <span>🔗</span> Đối Tác
             </div>
           )}
         </div>
@@ -16713,15 +17072,24 @@ export default function ProductCard({ product }: { product: any }) {
               {discount > 0 && <p className="text-xs text-stone-400 line-through font-bold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rawPrice)}</p>}
             </div>
             
-            {/* 🌟 NÚT MỞ LAYER THÊM NHANH */}
-            <button 
-              onClick={handleOpenQuickAdd}
-              disabled={product.stock === 0}
-              className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95
-                ${product.stock === 0 ? 'bg-stone-200 text-stone-400 cursor-not-allowed' : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-lg hover:shadow-orange-200'}`}
-            >
-              {product.stock === 0 ? <span className="text-xs font-black">Hết</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
-            </button>
+            {/* 🌟 ĐỔI NÚT DỰA VÀO LOẠI SẢN PHẨM (MỚI) */}
+            {product.is_affiliate ? (
+              <button 
+                onClick={handleAffiliateClick}
+                className="px-4 py-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white font-black rounded-xl text-xs hover:shadow-lg hover:shadow-orange-200 transition-all active:scale-95 flex items-center gap-1"
+              >
+                Nơi bán <span className="text-[10px]">➔</span>
+              </button>
+            ) : (
+              <button 
+                onClick={handleOpenQuickAdd}
+                disabled={product.stock === 0}
+                className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95
+                  ${product.stock === 0 ? 'bg-stone-200 text-stone-400 cursor-not-allowed' : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-lg hover:shadow-orange-200'}`}
+              >
+                {product.stock === 0 ? <span className="text-xs font-black">Hết</span> : <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" /></svg>}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -16729,7 +17097,7 @@ export default function ProductCard({ product }: { product: any }) {
       {/* ============================================================ */}
       {/* 🌟 QUICK ADD MODAL (LAYER BẬT LÊN KHI BẤM GIỎ HÀNG)          */}
       {/* ============================================================ */}
-      {showQuickAdd && (
+      {showQuickAdd && !product.is_affiliate && (
         <div 
           className="fixed inset-0 z-[99999] flex items-center justify-center px-4 animate-in fade-in duration-200"
           onClick={handleCloseQuickAdd} // Click ra ngoài nền đen sẽ đóng Modal
@@ -18231,7 +18599,7 @@ export default function Header() {
 
       {/* OVERLAY MENU ĐIỆN THOẠI */}
       <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}></div>
         
         <div className={`absolute top-0 left-0 w-[85%] max-w-[360px] h-[100dvh] bg-white shadow-2xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col rounded-r-[2rem] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           

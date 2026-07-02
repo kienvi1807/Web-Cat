@@ -180,16 +180,27 @@ export default function ProductsPage() {
                     className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-[800ms] mix-blend-multiply" 
                   />
                   
-                  {/* Badge Tồn kho */}
-                  <div className="absolute top-3 right-3 z-10">
-                    {product.stock && product.stock > 0 ? (
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md">
-                        TỒN: {product.stock}
-                      </span>
+                  {/* Badge Tồn kho hoặc Affiliate */}
+                  <div className="absolute top-3 right-3 z-10 flex flex-col items-end gap-1.5">
+                    {product.is_affiliate ? (
+                      <>
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-gradient-to-r from-orange-500 to-rose-500 text-white shadow-sm backdrop-blur-md border border-white/20">
+                          🔗 LIÊN KẾT
+                        </span>
+                        <span className="px-2 py-1 rounded-lg text-[9px] font-bold tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md flex items-center gap-1">
+                          🖱️ CLICK: <span className="font-black text-stone-800">{product.affiliate_clicks || 0}</span>
+                        </span>
+                      </>
                     ) : (
-                      <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-rose-500/90 text-white shadow-sm backdrop-blur-md">
-                        HẾT HÀNG
-                      </span>
+                      product.stock && product.stock > 0 ? (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-white/90 text-stone-600 border border-stone-200 shadow-sm backdrop-blur-md">
+                          TỒN: {product.stock}
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-lg text-[10px] font-black tracking-widest bg-rose-500/90 text-white shadow-sm backdrop-blur-md">
+                          HẾT HÀNG
+                        </span>
+                      )
                     )}
                   </div>
                 </div>
