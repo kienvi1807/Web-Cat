@@ -77,7 +77,14 @@ export default function CheckoutPage() {
           address: customerInfo.address,
           totalamount: subTotal,
           paymentmethod: paymentMethod,
-          orderstatus: 'Chờ thanh toán' // Mặc định luôn là Chờ xác nhận
+          orderstatus: 'Chờ thanh toán',
+          items: cartItems.map(item => ({
+            productid: item.product_id,
+            name: item.products?.name || '',
+            price: item.products?.price || 0,
+            quantity: item.quantity,
+            image: item.products?.imageurl || item.products?.images?.[0] || ''
+          }))
         }])
         .select('orderid')
         .maybeSingle();

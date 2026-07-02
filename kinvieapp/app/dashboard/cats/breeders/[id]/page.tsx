@@ -353,18 +353,18 @@ export default function BreederCatDetailPage() {
 
         {/* 🎯 BỘ 4 NÚT QUYỀN LỰC CỦA ADMIN */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <button onClick={handleDeleteCat} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-xl text-sm font-bold text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors disabled:opacity-50">
+          <button onClick={handleDeleteCat} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors disabled:opacity-50">
             Xóa Vĩnh Viễn
           </button>
           
           {(catData.approval_status === 'Chờ duyệt' || !catData.approval_status || catData.approval_status === 'Đã duyệt') && (
-             <button onClick={handleReject} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white transition-colors shadow-sm disabled:opacity-50 border border-rose-100">
+             <button onClick={handleReject} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-2xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white transition-colors shadow-sm disabled:opacity-50 border border-rose-100">
                ✕ Từ chối
              </button>
           )}
 
           {(catData.approval_status === 'Chờ duyệt' || !catData.approval_status || catData.approval_status === 'Từ chối') && (
-             <button onClick={handleApprove} disabled={isSaving || isUploading} className="cursor-pointer px-6 py-2.5 rounded-xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/30 hover:-translate-y-0.5 disabled:opacity-50">
+             <button onClick={handleApprove} disabled={isSaving || isUploading} className="cursor-pointer px-6 py-2.5 rounded-2xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/30 hover:-translate-y-0.5 disabled:opacity-50">
                ✓ Phê duyệt
              </button>
           )}
@@ -374,7 +374,7 @@ export default function BreederCatDetailPage() {
           <button 
             onClick={handleUpdateCat} 
             disabled={isSaving || isUploading} 
-            className="cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black px-8 py-3 rounded-xl shadow-[0_4px_20px_rgba(249,115,22,0.4)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1 flex items-center gap-2 disabled:opacity-50"
+            className="cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black px-8 py-3 rounded-2xl shadow-[0_4px_20px_rgba(249,115,22,0.4)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1 flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi 🚀'}
           </button>
@@ -458,7 +458,7 @@ export default function BreederCatDetailPage() {
                         key={item.label} 
                         type="button"
                         onClick={() => setCatData({...catData, status: item.label})}
-                        className={`cursor-pointer px-5 py-3 rounded-[14px] text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${
+                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${
                           isSelected ? `${activeColor} shadow-md transform scale-[1.02]` : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
                         }`}
                       >
@@ -483,7 +483,7 @@ export default function BreederCatDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Trại của Mèo Bố</label>
-                      <select value={fatherBreederId} onChange={(e) => { setFatherBreederId(e.target.value); setCatData({...catData, father_id: null}); }} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
+                      <select value={fatherBreederId} onChange={(e) => { setFatherBreederId(e.target.value); setCatData({...catData, father_id: null}); }} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-2xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
                         <option value="">-- Chọn Trại giống --</option>
                         {breedersList.map(b => <option key={b.userid} value={b.userid}>{getBreederDisplayName(b)}</option>)}
                       </select>
@@ -495,7 +495,7 @@ export default function BreederCatDetailPage() {
                         type="button" 
                         disabled={!fatherBreederId}
                         onClick={() => { setIsFatherDropdownOpen(!isFatherDropdownOpen); setIsMotherDropdownOpen(false); }}
-                        className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
+                        className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {catData.father_id ? (
                           <div className="flex items-center gap-3">
@@ -602,7 +602,7 @@ export default function BreederCatDetailPage() {
               {/* 🎯 BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-orange-50/50 rounded-3xl p-6 border border-orange-100 shadow-sm mt-8 transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-orange-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -619,7 +619,7 @@ export default function BreederCatDetailPage() {
                          <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                            {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-orange-500 shadow-sm ring-1 ring-blue-500' : 'bg-white border-stone-200 hover:border-blue-300'}`}>
+                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-2xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-orange-500 shadow-sm ring-1 ring-blue-500' : 'bg-white border-stone-200 hover:border-blue-300'}`}>
                                 <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
                                 <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
                              </div>
@@ -743,7 +743,7 @@ export default function BreederCatDetailPage() {
       {/* 🎯 MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <div className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-scale-up">
             <h2 className="text-xl font-black text-stone-800 mb-6 flex items-center gap-2">💉 Thêm mũi tiêm mới</h2>
             <div className="space-y-5 mb-8">
@@ -752,22 +752,22 @@ export default function BreederCatDetailPage() {
                 <input 
                   type="text" placeholder="Ví dụ: Vaccine 4 bệnh, Dại, Tẩy giun..."
                   value={newRecord.vaccineName} onChange={(e) => setNewRecord({...newRecord, vaccineName: e.target.value})} 
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Ngày tiêm</label>
-                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
+                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Nhắc lại (Nếu có)</label>
-                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
+                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setIsMedicalModalOpen(false)} className="cursor-pointer px-5 py-2.5 rounded-xl font-bold text-stone-500 hover:bg-stone-100 transition-colors">Hủy</button>
+              <button onClick={() => setIsMedicalModalOpen(false)} className="cursor-pointer px-5 py-2.5 rounded-2xl font-bold text-stone-500 hover:bg-stone-100 transition-colors">Hủy</button>
               <button onClick={addMedicalRecord} className="cursor-pointer px-6 py-2.5 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/30 transition-all hover:-translate-y-0.5">Thêm Mũi Tiêm</button>
             </div>
           </div>

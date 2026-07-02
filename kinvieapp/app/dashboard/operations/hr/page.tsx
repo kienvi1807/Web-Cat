@@ -225,24 +225,6 @@ export default function HRManagementPage() {
           </div>
         )}
       </div>
-
-      {/* CSS CHO CÁC HIỆU ỨNG CHUYỂN ĐỘNG NGẦU */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes fadeInUp { 
-          from { opacity: 0; transform: translateY(20px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
-        .animate-blob { animation: blob 10s infinite alternate; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-      `}} />
     </div>
   );
 }

@@ -97,7 +97,7 @@ export default function CartPage() {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-12 text-center py-20">
+          <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 p-12 text-center py-20">
             <span className="text-7xl opacity-40 block mb-6">🛍️</span>
             <h2 className="text-xl font-bold text-stone-700 mb-2">Giỏ hàng đang trống</h2>
             <p className="text-stone-500 text-sm mb-8">Sen chưa chọn món đồ nào cho Boss cả.</p>
@@ -109,7 +109,7 @@ export default function CartPage() {
           <div className="flex flex-col lg:flex-row gap-8">
             
             <div className="lg:w-2/3 space-y-4">
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden p-6 sm:p-8">
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 overflow-hidden p-6 sm:p-8">
                 <div className="hidden sm:flex text-xs font-bold text-stone-400 uppercase border-b border-stone-100 pb-4 mb-4">
                   <div className="w-1/2">Sản phẩm</div>
                   <div className="w-1/4 text-center">Số lượng</div>
@@ -186,7 +186,7 @@ export default function CartPage() {
             </div>
 
             <div className="lg:w-1/3">
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 sticky top-24">
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 p-8 sticky top-24">
                 <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
                   <span>🧾</span> Tóm tắt đơn hàng
                 </h3>

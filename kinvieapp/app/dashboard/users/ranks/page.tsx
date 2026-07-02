@@ -276,7 +276,7 @@ export default function RankManagementPage() {
       {/* MODAL ÉP HẠNG */}
       {editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer transition-opacity" onClick={() => setEditingUser(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer transition-opacity cursor-pointer" onClick={() => setEditingUser(null)}></div>
           
           <div className="relative bg-white/90 backdrop-blur-2xl border border-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-md animate-fade-in-up">
             

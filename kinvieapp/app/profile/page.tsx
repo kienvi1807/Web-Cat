@@ -400,7 +400,7 @@ export default function ProfilePage() {
       {/* MODAL QUẢN LÝ BÀI ĐĂNG (GIỮ NGUYÊN CODE CŨ CỦA SẾP DƯỚI ĐÂY) */}
       {isPostManagerOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm" onClick={() => setIsPostManagerOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm cursor-pointer" onClick={() => setIsPostManagerOpen(false)}></div>
           <div className="relative bg-[#FFF8FA] w-full max-w-2xl h-[85vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between p-6 bg-white border-b border-pink-100 shrink-0 shadow-sm z-10">
               <h3 className="text-xl font-black text-stone-800 flex items-center gap-2"><span className="text-pink-500">📸</span> Quản lý bài đăng của bạn</h3>

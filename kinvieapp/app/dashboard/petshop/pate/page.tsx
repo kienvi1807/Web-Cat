@@ -257,7 +257,7 @@ export default function PateFreshPage() {
         {isEditModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
             {/* Lớp nền làm mờ đen */}
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md transition-opacity" onClick={() => setIsEditModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md transition-opacity cursor-pointer" onClick={() => setIsEditModalOpen(false)}></div>
             
             {/* Khung Modal nảy lên */}
             <div className="bg-white/90 backdrop-blur-2xl rounded-[3rem] p-8 md:p-10 max-w-lg w-full shadow-[0_20px_60px_rgba(0,0,0,0.3)] relative z-10 border border-white animate-scale-up">

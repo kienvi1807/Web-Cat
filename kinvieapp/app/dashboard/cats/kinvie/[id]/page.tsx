@@ -652,7 +652,7 @@ export default function CatDetailPage() {
               {/* BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-red-50/40 rounded-3xl p-6 border border-red-100 shadow-sm transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -798,7 +798,7 @@ export default function CatDetailPage() {
       {/* MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <motion.div 
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl"
@@ -831,20 +831,6 @@ export default function CatDetailPage() {
           </motion.div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-blob { animation: blob 10s infinite alternate; }
-        @keyframes blob { 
-          0% { transform: translate(0px, 0px) scale(1); } 
-          33% { transform: translate(40px, -60px) scale(1.1); } 
-          66% { transform: translate(-30px, 30px) scale(0.9); } 
-          100% { transform: translate(0px, 0px) scale(1); } 
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #ef4444; }
-      `}} />
     </div>
   );
 }

@@ -222,7 +222,7 @@ export default function BlogManagementPage() {
       {/* 🎯 MODAL SOẠN THẢO */}
       {isModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-6">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={closeModal}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={closeModal}></div>
           
           <div className="relative bg-[#F8F9FA] border border-white rounded-[2.5rem] shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col animate-fade-in-up overflow-hidden">
             

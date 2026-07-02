@@ -16,12 +16,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase.from('users').select(`fullname, type_id`).eq('email', user.email).maybeSingle();
+      const { data: dbUser } = await supabase.from('users').select('fullname, type_id').eq('email', user.email).maybeSingle();
       if (!dbUser) {
         await supabase.auth.signOut();
         router.push('/login');
         return;
       }
+
+      setAdminName(dbUser.fullname);
+      setIsAuthorized(true);
     };
     checkAuth();
   }, [router]);

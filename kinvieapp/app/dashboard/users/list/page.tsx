@@ -252,7 +252,7 @@ export default function AccountListPage() {
       {/* MODAL SỬA */}
       {editingUser && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer" onClick={() => setEditingUser(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={() => setEditingUser(null)}></div>
           <div className="relative bg-white/90 backdrop-blur-2xl border border-white p-8 md:p-10 rounded-[2.5rem] shadow-[0_20px_60px_rgba(0,0,0,0.15)] w-full max-w-md animate-fade-in-up">
             <div className="flex justify-between items-center mb-8">
               <h3 className="text-2xl font-black text-cyan-600">Sửa Thông Tin</h3>

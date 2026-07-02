@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 
-const ORDER_STATUSES = ['Tất cả', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
+const ORDER_STATUSES = ['Tất cả', 'Chờ xác nhận', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
 
 const getAvatarColor = (name: string) => {
   const colors = [
@@ -36,13 +36,32 @@ export default function OrderManagementPage() {
 
   const fetchOrders = async () => {
     setIsLoading(true);
-    // Dùng select('*') để lấy luôn cột delivery_date sếp vừa thêm
+    // 🎯 JOIN thêm orderdetails + products để lấy sản phẩm cho những đơn khách tự đặt
+    // (những đơn này lưu sản phẩm ở bảng orderdetails, không phải cột items)
     const { data, error } = await supabase
       .from('orders')
-      .select('*')
-      .order('orderdate', { ascending: false, nullsFirst: false }); 
-      
-    if (!error) setOrders(data || []);
+      .select('*, orderdetails(quantity, unitprice, variant, products(id, name, price, imageurl, images))')
+      .order('orderdate', { ascending: false, nullsFirst: false });
+
+    if (!error && data) {
+      const normalized = data.map((o: any) => {
+        // Nếu đơn chưa có sẵn cột items (JSON) thì tự build từ orderdetails
+        if ((!o.items || o.items.length === 0) && o.orderdetails && o.orderdetails.length > 0) {
+          return {
+            ...o,
+            items: o.orderdetails.map((d: any) => ({
+              productid: d.products?.id,
+              name: d.products?.name || 'Sản phẩm',
+              price: d.unitprice,
+              quantity: d.quantity,
+              image: d.products?.imageurl || d.products?.images?.[0] || ''
+            }))
+          };
+        }
+        return o;
+      });
+      setOrders(normalized);
+    }
     setIsLoading(false);
   };
 
@@ -63,9 +82,27 @@ export default function OrderManagementPage() {
     }
   };
 
+  // 🎯 DUYỆT ĐƠN NHANH: Chờ xác nhận -> Đang vận chuyển
+  const handleApproveOrder = async (order: any) => {
+    if (!window.confirm(`Duyệt đơn #${order.orderid} và chuyển sang "Đang vận chuyển"?`)) return;
+    
+    const { error } = await supabase
+      .from('orders')
+      .update({ orderstatus: 'Đang vận chuyển' })
+      .eq('orderid', order.orderid);
+
+    if (!error) {
+      setOrders(orders.map(o => o.orderid === order.orderid ? { ...o, orderstatus: 'Đang vận chuyển' } : o));
+      alert("✅ Đã duyệt đơn! Đơn hàng chuyển sang Đang vận chuyển.");
+    } else {
+      alert("Lỗi khi duyệt đơn: " + error.message);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     const baseClasses = "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest shadow-sm";
     switch (status) {
+      case 'Chờ xác nhận': return <span className={`${baseClasses} bg-sky-100/80 text-sky-700 border border-sky-200/50 animate-pulse`}>{status}</span>;
       case 'Đã đặt hàng': return <span className={`${baseClasses} bg-lime-100/80 text-lime-700 border border-lime-200/50`}>{status}</span>;
       case 'Đã thanh toán': return <span className={`${baseClasses} bg-purple-100/80 text-purple-700 border border-purple-200/50`}>{status}</span>;
       case 'Đang vận chuyển': return <span className={`${baseClasses} bg-amber-100/80 text-amber-700 border border-amber-200/50`}>{status}</span>;
@@ -250,6 +287,10 @@ export default function OrderManagementPage() {
               // Kiểm tra xem đơn này có Pate không để highlight icon
               const hasPate = order.items?.some((item: any) => item.name?.toLowerCase().includes('pate'));
 
+              // 🎯 Trích link ảnh bill khách up (nếu có) từ paymentmethod
+              const billMatch = order.paymentmethod?.match(/BILL:\s*(\S+)/);
+              const billUrl = billMatch ? billMatch[1] : null;
+
               return (
                 <div 
                   key={order.orderid} 
@@ -342,7 +383,32 @@ export default function OrderManagementPage() {
                             </p>
                           </div>
 
+                          {/* 🎯 ẢNH BILL CHUYỂN KHOẢN CỦA KHÁCH */}
+                          {billUrl && (
+                            <div className="bg-white p-6 rounded-3xl border border-stone-200/60 shadow-sm">
+                              <h4 className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                📸 Ảnh biên lai khách gửi
+                              </h4>
+                              <a href={billUrl} target="_blank" rel="noopener noreferrer" className="block">
+                                <img 
+                                  src={billUrl} 
+                                  alt="Biên lai chuyển khoản" 
+                                  className="w-full max-h-64 object-contain rounded-2xl border border-stone-200 hover:opacity-80 transition-opacity cursor-pointer bg-stone-50"
+                                />
+                              </a>
+                              <p className="text-[10px] text-stone-400 mt-2 text-center">Bấm vào ảnh để xem full size</p>
+                            </div>
+                          )}
+
                           <div className="grid grid-cols-2 gap-3 mt-auto">
+                            {order.orderstatus === 'Chờ xác nhận' && (
+                              <button
+                                onClick={() => handleApproveOrder(order)}
+                                className="cursor-pointer col-span-2 py-3.5 bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl font-bold transition-all flex items-center justify-center gap-2 shadow-md"
+                              >
+                                ✅ Duyệt đơn & Chuyển vận chuyển
+                              </button>
+                            )}
                             <button 
                               onClick={() => {
                                 setActiveOrder(order);
@@ -379,7 +445,7 @@ export default function OrderManagementPage() {
         {/* 🎯 MODAL CẬP NHẬT TRẠNG THÁI */}
         {isStatusModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
-            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md" onClick={() => setIsStatusModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md cursor-pointer" onClick={() => setIsStatusModalOpen(false)}></div>
             
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">

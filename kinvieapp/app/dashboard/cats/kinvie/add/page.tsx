@@ -583,7 +583,7 @@ export default function AddCatPage() {
               {/* 🎯 BẢNG CHỌN MÀU EMS DẠNG SỔ XUỐNG (ACCORDION) */}
               {isPurebred ? (
                 <div className="bg-red-50/50 rounded-3xl p-6 border border-red-100 shadow-sm mt-8 transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
                      <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
                        <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
                        <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -711,7 +711,7 @@ export default function AddCatPage() {
       {/* 🎯 MODAL THÊM LỊCH TIÊM */}
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMedicalModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
           <div className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl animate-scale-up">
             <h2 className="text-xl font-black text-stone-800 mb-6 flex items-center gap-2">💉 Thêm mũi tiêm mới</h2>
             <div className="space-y-5 mb-8">

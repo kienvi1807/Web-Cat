@@ -519,7 +519,7 @@ export default function CommunityFeedPage() {
         {/* MODAL ĐĂNG BÀI */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={handleCloseModal}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={handleCloseModal}></div>
             <div className="relative bg-white w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
               <div className="flex items-center justify-between p-4 border-b border-stone-100">
                 <div className="w-8"></div>

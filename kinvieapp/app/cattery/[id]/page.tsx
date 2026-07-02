@@ -311,14 +311,6 @@ export default function PublicCatProfilePage() {
         )}
 
       </div>
-      
-      {/* CSS Nhẹ nhàng cho thanh cuộn ngang */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #fdf2f8; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #f472b6; }
-      `}} />
     </div>
   );
 }

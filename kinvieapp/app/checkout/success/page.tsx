@@ -50,10 +50,16 @@ function PaymentContent() {
       const billUrl = publicUrlData.publicUrl;
 
       // Cập nhật trạng thái đơn thành "Chờ xác nhận" và nhét link bill vào paymentmethod
-      await supabase.from('orders').update({ 
+      const { error: updateError } = await supabase.from('orders').update({ 
         orderstatus: 'Chờ xác nhận',
         paymentmethod: `${orderData.paymentmethod} | BILL: ${billUrl}`
       }).eq('orderid', orderId);
+
+      if (updateError) {
+        alert("⚠️ Ảnh đã lưu nhưng lỗi cập nhật đơn hàng: " + updateError.message);
+        setIsUploading(false);
+        return;
+      }
 
       // Chuyển hướng sang trang Theo dõi đơn hàng
       router.push(`/order-tracking/${orderId}`);

@@ -282,7 +282,7 @@ export default function FinancePage() {
         {/* ... MODAL THÊM MỚI GIỮ NGUYÊN ... */}
         {isExpenseModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsExpenseModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsExpenseModalOpen(false)}></div>
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">
                 <h3 className="text-2xl font-black text-stone-800 tracking-tight">Ghi nhận Chi Phí 📉</h3>
@@ -313,12 +313,6 @@ export default function FinancePage() {
           </div>
         )}
       </div>
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        .animate-slide-down { animation: slideDown 0.3s ease-out forwards; transform-origin: top; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideDown { from { opacity: 0; transform: scaleY(0.95); } to { opacity: 1; transform: scaleY(1); } }
-      `}} />
     </div>
   );
 }

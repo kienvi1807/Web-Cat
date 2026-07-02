@@ -143,7 +143,7 @@ export default function PateTypesManagementPage() {
         {/* MODAL THÊM/SỬA */}
         {isModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 overflow-y-auto">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm fixed" onClick={() => setIsModalOpen(false)}></div>
+            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm fixed cursor-pointer" onClick={() => setIsModalOpen(false)}></div>
             
             <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md relative z-10 animate-fade-in shadow-2xl my-8">
               <h2 className="text-2xl font-black text-stone-800 mb-6 flex items-center gap-2">

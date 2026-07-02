@@ -157,7 +157,7 @@ export default function FeedbackManagementPage() {
       {/* 🎯 MODAL VIẾT PHẢN HỒI */}
       {replyTarget && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setReplyTarget(null)}></div>
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer cursor-pointer" onClick={() => setReplyTarget(null)}></div>
           <div className="relative bg-white border rounded-[2.5rem] w-full max-w-lg p-8 shadow-2xl animate-fade-in-up">
             <h3 className="text-2xl font-black text-purple-600 mb-2">Phản hồi khách hàng</h3>
             <p className="text-stone-400 text-sm font-bold mb-6 truncate">Gửi tới: {replyTarget.users?.fullname}</p>

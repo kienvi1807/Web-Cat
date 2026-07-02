@@ -284,7 +284,7 @@ export default function PetDetailPage() {
           ========================================== */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm cursor-pointer" onClick={() => setIsModalOpen(false)}></div>
           
           <div className="bg-white rounded-[2rem] shadow-2xl border border-stone-100 w-full max-w-md relative z-10 overflow-hidden transform transition-all">
             <div className="bg-stone-50 px-6 py-4 border-b border-stone-100 flex items-center justify-between">

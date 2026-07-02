@@ -240,7 +240,7 @@ export default function Header() {
 
       {/* OVERLAY MENU ĐIỆN THOẠI */}
       <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
-        <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm" onClick={() => setIsMobileMenuOpen(false)}></div>
+        <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}></div>
         
         <div className={`absolute top-0 left-0 w-[85%] max-w-[360px] h-[100dvh] bg-white shadow-2xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col rounded-r-[2rem] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
           

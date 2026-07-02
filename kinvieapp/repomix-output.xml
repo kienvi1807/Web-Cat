@@ -50,6 +50,8 @@ app/blog/page.tsx
 app/cart/page.tsx
 app/cattery/[id]/page.tsx
 app/cattery/page.tsx
+app/checkout/page.tsx
+app/checkout/success/page.tsx
 app/dashboard/cafe/page.tsx
 app/dashboard/cats/breeders/[id]/page.tsx
 app/dashboard/cats/breeders/page.tsx
@@ -90,6 +92,7 @@ app/feed/page.tsx
 app/globals.css
 app/layout.tsx
 app/login/page.tsx
+app/order-tracking/[id]/page.tsx
 app/page.tsx
 app/pet/[id]/page.tsx
 app/petshop/[id]/page.tsx
@@ -99,7 +102,6 @@ app/profile/edit-pet/[id]/page.tsx
 app/profile/edit/page.tsx
 app/profile/page.tsx
 app/register/complete-profile/page.tsx
-CLAUDE.md
 components/common/CatCard.tsx
 components/common/ProductCard.tsx
 components/home/BlogPreview.tsx
@@ -181,6 +183,17 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Không bao giờ đẩy mấy folder này lên nữa
+.claude/
+ai_agency/
+free-claude-code/
+
+# Các file rác phát sinh khi code
+node_modules/
+.next/
+repomix-output.xml
+.env*
 </file>
 
 <file path="AI_CONTEXT.md">
@@ -305,11 +318,6 @@ export async function GET() {
 <file path="app/api/users/route.ts">
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
-
-// Hàm GET cũ của ông giữ nguyên ở đây...
-export async function GET(request: Request) {
-   // ... (code cũ)
-}
 
 // THÊM HÀM POST: Xử lý Đăng ký tài khoản (Local & Social)
 export async function POST(request: Request) {
@@ -453,7 +461,7 @@ export default function BlogPage() {
               CỘT TRÁI (1/4): TÌM KIẾM & CHỦ ĐỀ
               ========================================= */}
           <div className="lg:w-1/4">
-            <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 sticky top-32">
+            <div className="bg-white/80 backdrop-blur-xl p-6 rounded-[2rem] shadow-sm border border-white/50 sticky top-32">
               
               {/* Ô Tìm kiếm */}
               <div className="mb-8">
@@ -500,7 +508,7 @@ export default function BlogPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {BLOG_POSTS.map((post) => (
-                <article key={post.id} className="bg-white rounded-[2rem] shadow-sm border border-stone-100 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden flex flex-col cursor-pointer">
+                <article key={post.id} className="bg-white/80 backdrop-blur-xl rounded-[2rem] shadow-sm border border-white/50 hover:shadow-xl hover:shadow-pink-100/50 hover:-translate-y-1 transition-all duration-300 group overflow-hidden flex flex-col cursor-pointer">
                   
                   {/* Thumbnail bài viết */}
                   <div className="aspect-[16/10] bg-pink-50 flex items-center justify-center overflow-hidden relative">
@@ -544,12 +552,11 @@ export default function BlogPage() {
 
             {/* Phân trang (Pagination) */}
             <div className="mt-12 flex justify-center items-center gap-2">
-              <button className="w-10 h-10 rounded-full bg-white border border-stone-200 text-stone-400 flex items-center justify-center hover:bg-stone-50 disabled:opacity-50">❮</button>
+              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-400 flex items-center justify-center hover:bg-stone-50 disabled:opacity-50">❮</button>
               <button className="w-10 h-10 rounded-full bg-pink-500 text-white font-bold flex items-center justify-center shadow-md shadow-pink-200">1</button>
-              <button className="w-10 h-10 rounded-full bg-white border border-stone-200 text-stone-600 font-bold flex items-center justify-center hover:border-pink-300 hover:text-pink-500 transition-colors">2</button>
-              <button className="w-10 h-10 rounded-full bg-white border border-stone-200 text-stone-600 flex items-center justify-center hover:bg-stone-50">❯</button>
+              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-600 font-bold flex items-center justify-center hover:border-pink-300 hover:text-pink-500 transition-colors">2</button>
+              <button className="w-10 h-10 rounded-full bg-white/60 backdrop-blur-md border border-white/50 text-stone-600 flex items-center justify-center hover:bg-stone-50">❯</button>
             </div>
-
           </div>
         </div>
       </main>
@@ -660,7 +667,7 @@ export default function CartPage() {
         </div>
 
         {cartItems.length === 0 ? (
-          <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-12 text-center py-20">
+          <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 p-12 text-center py-20">
             <span className="text-7xl opacity-40 block mb-6">🛍️</span>
             <h2 className="text-xl font-bold text-stone-700 mb-2">Giỏ hàng đang trống</h2>
             <p className="text-stone-500 text-sm mb-8">Sen chưa chọn món đồ nào cho Boss cả.</p>
@@ -672,7 +679,7 @@ export default function CartPage() {
           <div className="flex flex-col lg:flex-row gap-8">
             
             <div className="lg:w-2/3 space-y-4">
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-hidden p-6 sm:p-8">
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 overflow-hidden p-6 sm:p-8">
                 <div className="hidden sm:flex text-xs font-bold text-stone-400 uppercase border-b border-stone-100 pb-4 mb-4">
                   <div className="w-1/2">Sản phẩm</div>
                   <div className="w-1/4 text-center">Số lượng</div>
@@ -749,7 +756,7 @@ export default function CartPage() {
             </div>
 
             <div className="lg:w-1/3">
-              <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 sticky top-24">
+              <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] shadow-sm border border-white/50 p-8 sticky top-24">
                 <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2">
                   <span>🧾</span> Tóm tắt đơn hàng
                 </h3>
@@ -770,9 +777,9 @@ export default function CartPage() {
                   <span className="text-3xl font-black text-rose-500">{finalTotal.toLocaleString('vi-VN')}đ</span>
                 </div>
 
-                <button className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 px-6 rounded-xl shadow-md shadow-pink-200 transition-all flex items-center justify-center gap-2 text-lg">
+                <Link href="/checkout" className="w-full bg-pink-500 hover:bg-pink-600 text-white font-bold py-4 px-6 rounded-xl shadow-md shadow-pink-200 transition-all flex items-center justify-center gap-2 text-lg">
                   Tiến hành thanh toán <span>→</span>
-                </button>
+                </Link>
 
                 <p className="text-center text-[10px] text-stone-400 font-bold mt-4 flex items-center justify-center gap-1 uppercase tracking-widest">
                   <span>🔒</span> Thanh toán bảo mật & an toàn
@@ -797,22 +804,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-
-// 🎯 BỘ TỪ ĐIỂN DỊCH MÃ MÀU EMS 
-const EMS_COLORS: Record<string, string> = {
-  'NS11': 'Black Silver Shaded', 'NS 11': 'Black Silver Shaded',
-  'NS22': 'Black Silver Classic Tabby', 'NS 22': 'Black Silver Classic Tabby',
-  'N22': 'Black Classic Tabby', 'N 22': 'Black Classic Tabby',
-  'D22': 'Red Classic Tabby', 'D 22': 'Red Classic Tabby',
-  'W': 'Solid White (Trắng Tinh)', 'N': 'Solid Black (Đen)',
-  'A': 'Solid Blue (Xám Xanh)', 'F': 'Black Tortie (Đồi mồi)',
-};
-
-const getColorName = (code: string) => {
-  if (!code) return 'Đang cập nhật';
-  const cleanCode = code.trim().toUpperCase();
-  return EMS_COLORS[cleanCode] || code;
-};
+import { formatEmsCode } from '@/lib/utils';
 
 export default function PublicCatProfilePage() {
   const params = useParams();
@@ -840,7 +832,7 @@ export default function PublicCatProfilePage() {
 
       // Lấy data bé mèo hiện tại
       if (catId) {
-        const { data } = await supabase.from('cats').select('*').eq('id', catId).single();
+        const { data } = await supabase.from('cats').select('*').eq('id', catId).maybeSingle();
         if (data) {
           setCatData({ ...data, images: data.images || [], medical_history: data.medical_history || [] });
           if (data.images && data.images.length > 0) {
@@ -868,9 +860,25 @@ export default function PublicCatProfilePage() {
   };
 
   // 🎯 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ (READ-ONLY)
-  const PedigreeNode = ({ catIdNode, level, label }: { catIdNode: number | null, level: number, label: string }) => {
+  const PedigreeNode = ({ catIdNode, level, label, visitedIds = [] }: { catIdNode: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (!catIdNode || level > 5) return null;
-    const cat = allCatsList.find(c => c.id === parseInt(catIdNode.toString()));
+    
+    const currentId = parseInt(catIdNode.toString());
+    // BỌC THÉP: Chống lặp vòng phả hệ
+    if (visitedIds.includes(currentId)) {
+      return (
+        <div className="flex items-center group/node transition-all">
+          {level > 1 && <div className="w-10 h-[2px] bg-rose-200 rounded-full"></div>}
+          <div className="w-64 p-3 rounded-2xl border border-rose-400 bg-rose-50 flex items-center gap-3 relative z-10 opacity-70">
+            <span className="text-xl">⚠️</span>
+            <p className="text-xs font-bold text-rose-600">Lỗi lặp vòng phả hệ!</p>
+          </div>
+        </div>
+      );
+    }
+    
+    const newVisited = [...visitedIds, currentId];
+    const cat = allCatsList.find(c => c.id === currentId);
     if (!cat) return null;
 
     const hasFather = !!cat.father_id;
@@ -878,29 +886,14 @@ export default function PublicCatProfilePage() {
     const hasParents = level < 5 && (hasFather || hasMother);
 
     const isCurrent = level === 1;
-    let borderClass = '';
-    let textThemeClass = '';
-    let glowClass = '';
-
-    if (isCurrent) {
-      borderClass = 'border-pink-500 ring-4 ring-pink-100';
-      textThemeClass = 'text-pink-600';
-      glowClass = 'shadow-[0_0_15px_rgba(236,72,153,0.2)]';
-    } else if (cat.gender) {
-      borderClass = 'border-blue-200 hover:border-blue-400';
-      textThemeClass = 'text-blue-500';
-      glowClass = 'hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]';
-    } else {
-      borderClass = 'border-rose-200 hover:border-rose-400';
-      textThemeClass = 'text-rose-500';
-      glowClass = 'hover:shadow-[0_0_15px_rgba(244,63,94,0.2)]';
-    }
+    let borderClass = isCurrent ? 'border-pink-500 ring-4 ring-pink-100' : cat.gender ? 'border-blue-200 hover:border-blue-400' : 'border-rose-200 hover:border-rose-400';
+    let textThemeClass = isCurrent ? 'text-pink-600' : cat.gender ? 'text-blue-500' : 'text-rose-500';
+    let glowClass = isCurrent ? 'shadow-[0_0_15px_rgba(236,72,153,0.2)]' : cat.gender ? 'hover:shadow-[0_0_15px_rgba(59,130,246,0.2)]' : 'hover:shadow-[0_0_15px_rgba(244,63,94,0.2)]';
 
     return (
       <div className="flex items-center group/node transition-all">
         {level > 1 && <div className="w-10 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>}
         
-        {/* Nếu khách click vào ông bà bố mẹ, chuyển sang trang profile của bé đó */}
         <Link href={`/cattery/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-100">
              <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
@@ -908,7 +901,7 @@ export default function PublicCatProfilePage() {
           <div className="overflow-hidden flex-1">
              <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
              <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{getColorName(cat.color)}</p>
+             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -916,8 +909,8 @@ export default function PublicCatProfilePage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-pink-100 py-4 my-2 transition-colors group-hover/node:border-pink-300 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} /></div>}
+               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} /></div>}
+               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} /></div>}
             </div>
           </div>
         )}
@@ -942,7 +935,6 @@ export default function PublicCatProfilePage() {
   );
 
   const isReady = catData.status === 'Sẵn sàng';
-  const colorFullName = getColorName(catData.color);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] text-stone-700 font-sans selection:bg-pink-200 pb-24 pt-20">
@@ -1032,7 +1024,7 @@ export default function PublicCatProfilePage() {
                   </div>
                   <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
                     <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
-                    <p className="text-sm font-bold text-pink-600">{colorFullName}</p>
+                    <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
                   </div>
                   <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
                     <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
@@ -1119,14 +1111,6 @@ export default function PublicCatProfilePage() {
         )}
 
       </div>
-      
-      {/* CSS Nhẹ nhàng cho thanh cuộn ngang */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { height: 8px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: #fdf2f8; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #fbcfe8; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #f472b6; }
-      `}} />
     </div>
   );
 }
@@ -1140,39 +1124,8 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
-// 🌟 GỌI THẺ CATCARD TỪ COMMON VÀO ĐÂY
 import CatCard from '@/components/common/CatCard';
-
-// 🎯 BỘ TỪ ĐIỂN DỊCH MÀU EMS
-const EMS_COLORS: Record<string, string> = {
-  'NS11': 'Black Silver Shaded', 'NS 11': 'Black Silver Shaded',
-  'NS12': 'Black Silver Shell', 'NS 12': 'Black Silver Shell',
-  'N22': 'Black Classic Tabby', 'N 22': 'Black Classic Tabby',
-  'NS22': 'Black Silver Classic Tabby', 'NS 22': 'Black Silver Classic Tabby',
-  'N23': 'Black Mackerel Tabby', 'N 23': 'Black Mackerel Tabby',
-  'NS23': 'Black Silver Mackerel Tabby', 'NS 23': 'Black Silver Mackerel Tabby',
-  'N24': 'Black Spotted Tabby', 'N 24': 'Black Spotted Tabby',
-  'NS24': 'Black Silver Spotted Tabby', 'NS 24': 'Black Silver Spotted Tabby',
-  'D22': 'Red Classic Tabby', 'D 22': 'Red Classic Tabby',
-  'DS22': 'Red Silver Classic Tabby', 'DS 22': 'Red Silver Classic Tabby',
-  'D24': 'Red Spotted Tabby', 'D 24': 'Red Spotted Tabby',
-  'W': 'Solid White', 'N': 'Solid Black', 'A': 'Solid Blue',
-  'D': 'Solid Red', 'E': 'Solid Cream', 'F': 'Black Tortie',
-  'FS': 'Black Tortie Smoke', 'G': 'Blue Tortie',
-  'N03': 'Black Bicolor', 'N 03': 'Black Bicolor',
-  'A03': 'Blue Bicolor', 'A 03': 'Blue Bicolor',
-  'D03': 'Red Bicolor', 'D 03': 'Red Bicolor',
-  'F03': 'Black Tortie Bicolor', 'F 03': 'Black Tortie Bicolor',
-  'N09': 'Black & White', 'N 09': 'Black & White',
-  'NS09': 'Black Silver & White', 'NS 09': 'Black Silver & White',
-  'NS 22 03': 'Black Silver Classic Bicolor', 'NS2203': 'Black Silver Classic Bicolor'
-};
-
-const getColorName = (code: string) => {
-  if (!code) return 'Khác';
-  const cleanCode = code.trim().toUpperCase();
-  return EMS_COLORS[cleanCode] || code;
-};
+import { formatEmsCode } from '@/lib/utils';
 
 const getAgeInMonths = (dob: string) => {
   if (!dob) return 0;
@@ -1223,12 +1176,12 @@ export default function CatteryDetailsPage() {
   }, []);
 
   const breeds = ['Tất cả', ...Array.from(new Set(cats.map(cat => cat.breed || 'Khác')))];
-  const colors = ['Tất cả', ...Array.from(new Set(cats.map(cat => getColorName(cat.color))))];
+  const colors = ['Tất cả', ...Array.from(new Set(cats.map(cat => formatEmsCode(cat.color))))];
   const ages = ['Tất cả', 'Kitten (2-4 tháng)', 'Junior (5-8 tháng)', 'Adult (> 8 tháng)'];
 
   let filteredCats = cats.filter(cat => {
     const matchBreed = filterBreed === 'Tất cả' || cat.breed === filterBreed;
-    const matchColor = filterColor === 'Tất cả' || getColorName(cat.color) === filterColor;
+    const matchColor = filterColor === 'Tất cả' || formatEmsCode(cat.color) === filterColor;
     const matchAge = filterAge === 'Tất cả' || getAgeCategory(cat.dob) === filterAge;
     return matchBreed && matchColor && matchAge;
   });
@@ -1430,6 +1383,351 @@ export default function CatteryDetailsPage() {
 }
 </file>
 
+<file path="app/checkout/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { supabase } from '@/lib/supabase';
+
+export default function CheckoutPage() {
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [userId, setUserId] = useState<number | null>(null);
+  const [cartItems, setCartItems] = useState<any[]>([]);
+  
+  const [customerInfo, setCustomerInfo] = useState({
+    name: '',
+    phone: '',
+    address: ''
+  });
+  const [paymentMethod, setPaymentMethod] = useState('Chuyển khoản / QR Momo');
+
+  useEffect(() => {
+    fetchCartAndUser();
+  }, [router]);
+
+  const fetchCartAndUser = async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      router.push('/login');
+      return;
+    }
+
+    const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
+    
+    if (dbUser) {
+      setUserId(dbUser.userid);
+      // Tự động điền thông tin sẵn nếu có
+      setCustomerInfo({
+        name: dbUser.fullname || '',
+        phone: dbUser.phone || '',
+        address: dbUser.address || ''
+      });
+
+      const { data: items } = await supabase
+        .from('cart_items')
+        .select(`id, quantity, product_id, variant, products ( id, name, price, imageurl, images, stock )`)
+        .eq('user_id', dbUser.userid);
+
+      if (items && items.length > 0) {
+        setCartItems(items);
+      } else {
+        router.push('/cart'); // Giỏ trống thì đá về lại trang giỏ hàng
+      }
+    }
+    setIsLoading(false);
+  };
+
+  const subTotal = cartItems.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
+
+  // 🎯 LOGIC CHỐT ĐƠN (TRANSACTION BỌC THÉP)
+  const handlePlaceOrder = async () => {
+    if (!customerInfo.name || !customerInfo.phone || !customerInfo.address) {
+      alert("Sen vui lòng điền đầy đủ thông tin giao hàng nhé!");
+      return;
+    }
+    setIsSubmitting(true);
+
+    try {
+      // 1. Tạo đơn hàng vào bảng orders
+      const { data: orderData, error: orderError } = await supabase
+        .from('orders')
+        .insert([{
+          userid: userId,
+          customer_name: customerInfo.name,
+          customer_phone: customerInfo.phone,
+          address: customerInfo.address,
+          totalamount: subTotal,
+          paymentmethod: paymentMethod,
+          orderstatus: 'Chờ thanh toán' // Mặc định luôn là Chờ xác nhận
+        }])
+        .select('orderid')
+        .maybeSingle();
+
+      if (orderError || !orderData) throw orderError;
+      const newOrderId = orderData.orderid;
+
+      // 2. Chuyển giỏ hàng sang orderdetails
+      const orderDetails = cartItems.map(item => ({
+        orderid: newOrderId,
+        productid: item.product_id,
+        variant: item.variant,
+        quantity: item.quantity,
+        unitprice: item.products.price
+      }));
+
+      const { error: detailsError } = await supabase.from('orderdetails').insert(orderDetails);
+      if (detailsError) throw detailsError;
+
+      // 3. Trừ Stock trong bảng products
+      for (const item of cartItems) {
+        const newStock = Math.max(0, item.products.stock - item.quantity);
+        await supabase.from('products').update({ stock: newStock }).eq('id', item.product_id);
+      }
+
+      // 4. Dọn sạch giỏ hàng của user này
+      await supabase.from('cart_items').delete().eq('user_id', userId);
+      window.dispatchEvent(new Event('update_cart')); // Báo Header reset số đếm
+
+      // 5. Thành công -> Đẩy sang trang báo thành công
+      router.push(`/checkout/success?orderid=${newOrderId}`);
+
+    } catch (error: any) {
+      alert("Có lỗi xảy ra khi tạo đơn: " + error.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
+      <Header />
+      <main className="pt-32 pb-20 container mx-auto px-4 max-w-6xl relative z-10">
+        <h1 className="text-3xl font-serif font-black text-stone-800 mb-8 flex items-center gap-3">
+          <span>📦</span> Tiến hành thanh toán
+        </h1>
+
+        <div className="flex flex-col lg:flex-row gap-8">
+          {/* CỘT TRÁI: FORM THÔNG TIN */}
+          <div className="lg:w-2/3 space-y-6">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8">
+              <h2 className="text-xl font-bold text-stone-800 mb-6">Thông tin nhận hàng</h2>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Họ và Tên người nhận</label>
+                  <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Tên của Sen..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Số điện thoại</label>
+                  <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Để Shipper gọi..." />
+                </div>
+                <div>
+                  <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Địa chỉ giao hàng</label>
+                  <textarea value={customerInfo.address} onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all resize-none" placeholder="VD: Gần Aeon Mall Lê Chân, Hải Phòng..." />
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8">
+              <h2 className="text-xl font-bold text-stone-800 mb-6">Phương thức thanh toán</h2>
+              <div className="space-y-3">
+                <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'Chuyển khoản / QR Momo' ? 'border-pink-500 bg-pink-50' : 'border-stone-100 hover:border-stone-300'}`}>
+                  <input type="radio" name="payment" value="Chuyển khoản / QR Momo" checked={paymentMethod === 'Chuyển khoản / QR Momo'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-5 h-5 accent-pink-500" />
+                  <span className="font-bold text-stone-700">Chuyển khoản / Mã QR Momo (Khuyên dùng)</span>
+                </label>
+                <label className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all ${paymentMethod === 'COD' ? 'border-pink-500 bg-pink-50' : 'border-stone-100 hover:border-stone-300'}`}>
+                  <input type="radio" name="payment" value="COD" checked={paymentMethod === 'COD'} onChange={(e) => setPaymentMethod(e.target.value)} className="w-5 h-5 accent-pink-500" />
+                  <span className="font-bold text-stone-700">Thanh toán khi nhận hàng (COD)</span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {/* CỘT PHẢI: BILL & ĐẶT HÀNG */}
+          <div className="lg:w-1/3">
+            <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 sticky top-24">
+              <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2"><span>🧾</span> Tóm tắt đơn hàng</h3>
+              
+              <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+                {cartItems.map(item => (
+                  <div key={item.id} className="flex justify-between items-start gap-4">
+                    <div className="flex gap-3">
+                      <div className="w-12 h-12 bg-stone-50 rounded-xl overflow-hidden shrink-0 border border-stone-100">
+                        <img src={item.products?.imageurl || item.products?.images?.[0]} alt="product" className="w-full h-full object-cover" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-bold text-stone-700 line-clamp-2">{item.products?.name}</p>
+                        <p className="text-[10px] font-black text-stone-400 uppercase mt-0.5">SL: {item.quantity} {item.variant !== 'Mặc định' && `| ${item.variant}`}</p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="border-t border-stone-100 pt-6 space-y-3 mb-6">
+                <div className="flex justify-between items-center text-sm font-medium text-stone-500">
+                  <span>Tạm tính</span>
+                  <span>{subTotal.toLocaleString('vi-VN')}đ</span>
+                </div>
+                <div className="flex justify-between items-center text-sm font-medium text-stone-500">
+                  <span>Phí vận chuyển</span>
+                  <span className="text-emerald-500 font-bold uppercase text-xs">Miễn phí</span>
+                </div>
+              </div>
+
+              <div className="flex justify-between items-end mb-8">
+                <span className="text-stone-800 font-bold uppercase text-xs">Tổng cộng</span>
+                <span className="text-3xl font-black text-rose-500">{subTotal.toLocaleString('vi-VN')}đ</span>
+              </div>
+
+              <button onClick={handlePlaceOrder} disabled={isSubmitting} className="w-full bg-stone-900 hover:bg-pink-500 text-white font-black py-4 px-6 rounded-2xl shadow-xl hover:shadow-pink-500/30 transition-all flex items-center justify-center gap-2 disabled:opacity-50">
+                {isSubmitting ? 'ĐANG XỬ LÝ...' : 'ĐẶT HÀNG NGAY'}
+              </button>
+            </div>
+          </div>
+        </div>
+      </main>
+      <Footer />
+    </div>
+  );
+}
+</file>
+
+<file path="app/checkout/success/page.tsx">
+"use client";
+
+import React, { useEffect, useState, Suspense, useRef } from 'react';
+import { useSearchParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { supabase } from '@/lib/supabase';
+
+function PaymentContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const orderId = searchParams.get('orderid');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUploading, setIsUploading] = useState(false);
+  const [orderData, setOrderData] = useState<any>(null);
+
+  // THÔNG TIN TÀI KHOẢN NGÂN HÀNG
+  const BANK_ID = 'Vietcombank'; 
+  const ACCOUNT_NO = '0611001960655'; 
+  const ACCOUNT_NAME = 'NGUYEN TRUNG KIEN';
+
+  useEffect(() => {
+    if (orderId) fetchOrderDetails();
+    else router.push('/');
+  }, [orderId]);
+
+  const fetchOrderDetails = async () => {
+    const { data } = await supabase.from('orders').select('*').eq('orderid', orderId).maybeSingle();
+    if (data) setOrderData(data);
+    setIsLoading(false);
+  };
+
+  // 🎯 LOGIC UPLOAD ẢNH BIÊN LAI VÀ XÁC NHẬN
+  const handleUploadBill = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    setIsUploading(true);
+    const fileExt = file.name.split('.').pop();
+    const fileName = `bill_order_${orderId}_${Date.now()}.${fileExt}`;
+    
+    // Up ảnh tạm vào bucket pet-images của sếp
+    const { error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, file);
+
+    if (!uploadError) {
+      const { data: publicUrlData } = supabase.storage.from('pet-images').getPublicUrl(fileName);
+      const billUrl = publicUrlData.publicUrl;
+
+      // Cập nhật trạng thái đơn thành "Chờ xác nhận" và nhét link bill vào paymentmethod
+      await supabase.from('orders').update({ 
+        orderstatus: 'Chờ xác nhận',
+        paymentmethod: `${orderData.paymentmethod} | BILL: ${billUrl}`
+      }).eq('orderid', orderId);
+
+      // Chuyển hướng sang trang Theo dõi đơn hàng
+      router.push(`/order-tracking/${orderId}`);
+    } else {
+      alert("Lỗi tải ảnh: " + uploadError.message);
+    }
+    setIsUploading(false);
+  };
+
+  if (isLoading) return <div className="min-h-[70vh] flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (!orderData) return <div className="min-h-[70vh] flex flex-col items-center justify-center text-center"><h2 className="text-2xl font-black">Lỗi đơn hàng</h2></div>;
+
+  const amount = orderData.totalamount;
+  const addInfo = `Thanh toan don hang ${orderId}`; 
+  const qrUrl = `https://img.vietqr.io/image/${BANK_ID}-${ACCOUNT_NO}-compact2.png?amount=${amount}&addInfo=${addInfo}&accountName=${ACCOUNT_NAME}`;
+
+  // NẾU KHÁCH CHỌN COD, ĐẨY THẲNG SANG TRANG THEO DÕI LUÔN
+  if (orderData.paymentmethod === 'COD') {
+    router.push(`/order-tracking/${orderId}`);
+    return null;
+  }
+
+  return (
+    <div className="max-w-4xl mx-auto py-20 px-4 animate-fade-in">
+      <input type="file" ref={fileInputRef} onChange={handleUploadBill} accept="image/*" className="hidden" />
+
+      <div className="bg-white/80 backdrop-blur-2xl rounded-[3rem] border border-stone-100 shadow-[0_20px_50px_rgba(0,0,0,0.05)] p-8 md:p-12 text-center">
+        
+        <div className="w-24 h-24 bg-amber-100 text-amber-500 rounded-full flex items-center justify-center text-5xl mx-auto mb-6 shadow-sm">⏳</div>
+        
+        <h1 className="text-3xl md:text-4xl font-black text-stone-800 mb-2 tracking-tight">Đơn hàng chờ thanh toán</h1>
+        <p className="text-stone-500 font-medium mb-8">
+          Mã đơn hàng: <span className="font-black text-pink-500">#{orderId}</span><br/>
+          Hệ thống đã giữ hàng cho sếp. Vui lòng thanh toán để xác nhận đơn!
+        </p>
+
+        <div className="bg-stone-50/80 rounded-[2.5rem] border border-stone-200 p-8 max-w-xl mx-auto mb-8 shadow-inner">
+          <h2 className="text-xl font-black text-stone-800 mb-6">Quét mã VietQR</h2>
+          
+          <div className="bg-white p-4 rounded-[2rem] border-2 border-dashed border-pink-200 inline-block mb-6 shadow-sm relative group">
+            {isUploading && <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-10 flex flex-col items-center justify-center font-bold text-pink-500"><span className="animate-spin text-3xl mb-2">🐾</span>Đang up bill...</div>}
+            <img src={qrUrl} alt="QR" className="w-64 h-64 object-contain rounded-xl" />
+          </div>
+
+          <div className="text-center mb-8">
+             <p className="text-stone-400 text-sm font-bold mb-1">Số tiền cần chuyển:</p>
+             <p className="text-4xl font-black text-rose-500">{amount.toLocaleString('vi-VN')}đ</p>
+          </div>
+
+          <button 
+            onClick={() => fileInputRef.current?.click()}
+            disabled={isUploading}
+            className="w-full bg-pink-500 hover:bg-pink-600 text-white font-black py-4 px-6 rounded-2xl shadow-xl hover:shadow-pink-500/30 transition-all flex items-center justify-center gap-2"
+          >
+            📸 TẢI ẢNH CHỤP BIÊN LAI LÊN
+          </button>
+          <p className="text-xs text-stone-400 mt-4 italic">Sau khi chuyển khoản, sếp nhớ up ảnh màn hình bill để KinVie check lẹ nhé!</p>
+        </div>
+
+        <Link href="/petshop" className="text-stone-400 font-bold hover:text-pink-500 underline">Thanh toán sau, quay lại cửa hàng</Link>
+      </div>
+    </div>
+  );
+}
+
+export default function CheckoutSuccessPage() {
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-700 font-sans"><Header /><main className="pt-32 pb-20 container mx-auto relative z-10"><Suspense fallback={<div>Loading...</div>}><PaymentContent /></Suspense></main><Footer /></div>
+  );
+}
+</file>
+
 <file path="app/dashboard/cafe/page.tsx">
 "use client";
 
@@ -1556,7 +1854,7 @@ export default function BreederCatDetailPage() {
       if (allCats) setAllCatsList(allCats);
 
       if (catId) {
-        const { data, error } = await supabase.from('cats').select(`*, users (*)`).eq('id', catId).single();
+        const { data, error } = await supabase.from('cats').select(`*, users (*)`).eq('id', catId).maybeSingle();
         if (data) {
           let loadedImages = data.images || [];
           while (loadedImages.length < 5) loadedImages.push(''); 
@@ -1838,18 +2136,18 @@ export default function BreederCatDetailPage() {
 
         {/* 🎯 BỘ 4 NÚT QUYỀN LỰC CỦA ADMIN */}
         <div className="flex flex-wrap items-center gap-3 w-full md:w-auto">
-          <button onClick={handleDeleteCat} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-xl text-sm font-bold text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors disabled:opacity-50">
+          <button onClick={handleDeleteCat} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-2xl text-sm font-bold text-rose-500 hover:bg-rose-50 border border-transparent hover:border-rose-100 transition-colors disabled:opacity-50">
             Xóa Vĩnh Viễn
           </button>
           
           {(catData.approval_status === 'Chờ duyệt' || !catData.approval_status || catData.approval_status === 'Đã duyệt') && (
-             <button onClick={handleReject} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white transition-colors shadow-sm disabled:opacity-50 border border-rose-100">
+             <button onClick={handleReject} disabled={isSaving || isUploading} className="cursor-pointer px-5 py-2.5 rounded-2xl text-sm font-bold text-rose-600 bg-rose-50 hover:bg-rose-500 hover:text-white transition-colors shadow-sm disabled:opacity-50 border border-rose-100">
                ✕ Từ chối
              </button>
           )}
 
           {(catData.approval_status === 'Chờ duyệt' || !catData.approval_status || catData.approval_status === 'Từ chối') && (
-             <button onClick={handleApprove} disabled={isSaving || isUploading} className="cursor-pointer px-6 py-2.5 rounded-xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/30 hover:-translate-y-0.5 disabled:opacity-50">
+             <button onClick={handleApprove} disabled={isSaving || isUploading} className="cursor-pointer px-6 py-2.5 rounded-2xl text-sm font-black text-white bg-emerald-500 hover:bg-emerald-600 transition-colors shadow-md shadow-emerald-500/30 hover:-translate-y-0.5 disabled:opacity-50">
                ✓ Phê duyệt
              </button>
           )}
@@ -1859,7 +2157,7 @@ export default function BreederCatDetailPage() {
           <button 
             onClick={handleUpdateCat} 
             disabled={isSaving || isUploading} 
-            className="cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black px-8 py-3 rounded-xl shadow-[0_4px_20px_rgba(249,115,22,0.4)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1 flex items-center gap-2 disabled:opacity-50"
+            className="cursor-pointer bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-black px-8 py-3 rounded-2xl shadow-[0_4px_20px_rgba(249,115,22,0.4)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1 flex items-center gap-2 disabled:opacity-50"
           >
             {isSaving ? 'Đang lưu...' : 'Lưu Thay Đổi 🚀'}
           </button>
@@ -1943,7 +2241,7 @@ export default function BreederCatDetailPage() {
                         key={item.label} 
                         type="button"
                         onClick={() => setCatData({...catData, status: item.label})}
-                        className={`cursor-pointer px-5 py-3 rounded-[14px] text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${
+                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${
                           isSelected ? `${activeColor} shadow-md transform scale-[1.02]` : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
                         }`}
                       >
@@ -1968,7 +2266,7 @@ export default function BreederCatDetailPage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div>
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Trại của Mèo Bố</label>
-                      <select value={fatherBreederId} onChange={(e) => { setFatherBreederId(e.target.value); setCatData({...catData, father_id: null}); }} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
+                      <select value={fatherBreederId} onChange={(e) => { setFatherBreederId(e.target.value); setCatData({...catData, father_id: null}); }} className="w-full bg-white border border-blue-200 px-4 py-3 rounded-2xl text-sm font-bold shadow-sm outline-none appearance-none cursor-pointer">
                         <option value="">-- Chọn Trại giống --</option>
                         {breedersList.map(b => <option key={b.userid} value={b.userid}>{getBreederDisplayName(b)}</option>)}
                       </select>
@@ -1980,7 +2278,7 @@ export default function BreederCatDetailPage() {
                         type="button" 
                         disabled={!fatherBreederId}
                         onClick={() => { setIsFatherDropdownOpen(!isFatherDropdownOpen); setIsMotherDropdownOpen(false); }}
-                        className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
+                        className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-2xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {catData.father_id ? (
                           <div className="flex items-center gap-3">
@@ -2104,7 +2402,7 @@ export default function BreederCatDetailPage() {
                          <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                            {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-orange-500 shadow-sm ring-1 ring-blue-500' : 'bg-white border-stone-200 hover:border-blue-300'}`}>
+                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-2xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-orange-500 shadow-sm ring-1 ring-blue-500' : 'bg-white border-stone-200 hover:border-blue-300'}`}>
                                 <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
                                 <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
                              </div>
@@ -2237,22 +2535,22 @@ export default function BreederCatDetailPage() {
                 <input 
                   type="text" placeholder="Ví dụ: Vaccine 4 bệnh, Dại, Tẩy giun..."
                   value={newRecord.vaccineName} onChange={(e) => setNewRecord({...newRecord, vaccineName: e.target.value})} 
-                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none"
+                  className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Ngày tiêm</label>
-                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
+                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Nhắc lại (Nếu có)</label>
-                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
+                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-2xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-orange-400 focus:ring-2 focus:ring-orange-500/20 outline-none" />
                 </div>
               </div>
             </div>
             <div className="flex justify-end gap-3">
-              <button onClick={() => setIsMedicalModalOpen(false)} className="cursor-pointer px-5 py-2.5 rounded-xl font-bold text-stone-500 hover:bg-stone-100 transition-colors">Hủy</button>
+              <button onClick={() => setIsMedicalModalOpen(false)} className="cursor-pointer px-5 py-2.5 rounded-2xl font-bold text-stone-500 hover:bg-stone-100 transition-colors">Hủy</button>
               <button onClick={addMedicalRecord} className="cursor-pointer px-6 py-2.5 rounded-xl font-bold bg-orange-500 hover:bg-orange-600 text-white shadow-md shadow-orange-500/30 transition-all hover:-translate-y-0.5">Thêm Mũi Tiêm</button>
             </div>
           </div>
@@ -3653,20 +3951,6 @@ export default function CatDetailPage() {
           </motion.div>
         </div>
       )}
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-blob { animation: blob 10s infinite alternate; }
-        @keyframes blob { 
-          0% { transform: translate(0px, 0px) scale(1); } 
-          33% { transform: translate(40px, -60px) scale(1.1); } 
-          66% { transform: translate(-30px, 30px) scale(0.9); } 
-          100% { transform: translate(0px, 0px) scale(1); } 
-        }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #4b5563; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #ef4444; }
-      `}} />
     </div>
   );
 }
@@ -4849,12 +5133,27 @@ export default function PedigreeExplorerPage() {
   // ============================================================================
   // 🌳 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ NGANG (HORIZONTAL TREE) 5 ĐỜI
   // ============================================================================
-  const FamilyTreeNode = ({ catId, level, label }: { catId: number | null, level: number, label: string }) => {
+  const FamilyTreeNode = ({ catId, level, label, visitedIds = [] }: { catId: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (level > 5) return null;
     
+    // BỌC THÉP
+    if (catId && visitedIds.includes(catId)) {
+      return (
+        <div className="flex items-center group/tree relative">
+          {level > 1 && <div className="w-12 h-[2px] bg-stone-300"></div>}
+          <div className="w-64 p-3 rounded-2xl border border-rose-400 bg-rose-50/90 backdrop-blur-xl flex items-center gap-3 relative z-10 shadow-lg">
+            <div className="text-2xl ml-2">⚠️</div>
+            <div>
+               <p className="text-[10px] font-black uppercase tracking-widest mb-0.5 text-rose-500">{label}</p>
+               <p className="text-sm font-bold text-rose-600">Lặp vòng phả hệ!</p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
     const cat = allCats.find(c => c.id === catId);
     
-    // NẾU KHÔNG TÌM THẤY MÈO (CHỖ TRỐNG PHẢ HỆ)
     if (!cat) {
       return (
         <div className="flex items-center group/node relative">
@@ -4870,6 +5169,7 @@ export default function PedigreeExplorerPage() {
       );
     }
 
+    const newVisited = [...visitedIds, cat.id];
     const hasFather = level < 5 && (cat.father_id || true); 
     const hasMother = level < 5 && (cat.mother_id || true);
 
@@ -4879,10 +5179,8 @@ export default function PedigreeExplorerPage() {
 
     return (
       <div className="flex items-center relative group/tree">
-        {/* Đường nối ngang */}
         {level > 1 && <div className="w-12 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>}
         
-        {/* CARD THÔNG TIN NODE */}
         <Link 
           href={getCatProfileRoute(cat)}
           target="_blank" 
@@ -4907,18 +5205,17 @@ export default function PedigreeExplorerPage() {
           </div>
         </Link>
 
-        {/* NHÁNH CHA MẸ */}
         {level < 5 && (
           <div className="flex items-center relative">
             <div className="w-8 h-[2px] bg-stone-300 transition-colors group-hover/tree:bg-teal-300"></div>
             <div className="flex flex-col justify-center border-l-2 border-stone-300 py-6 my-2 relative transition-colors group-hover/tree:border-teal-300">
                <div className="flex items-center relative -left-[2px] mb-8">
                   <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
-                  <FamilyTreeNode catId={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} />
+                  <FamilyTreeNode catId={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} />
                </div>
                <div className="flex items-center relative -left-[2px]">
                   <div className="absolute w-4 h-[2px] bg-stone-300 -left-4 transition-colors group-hover/tree:bg-teal-300"></div>
-                  <FamilyTreeNode catId={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} />
+                  <FamilyTreeNode catId={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} />
                </div>
             </div>
           </div>
@@ -5070,18 +5367,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase
-        .from('users')
-        .select(`fullname, type_id`)
-        .eq('email', user.email)
-        .single();
-
-      if (dbUser?.type_id !== 1 && dbUser?.type_id !== 2) {
-        alert("Khu vực tuyệt mật! Chỉ dành cho quản trị viên.");
-        router.push('/');
-      } else {
-        setAdminName(dbUser?.fullname || 'Admin');
-        setIsAuthorized(true);
+      const { data: dbUser } = await supabase.from('users').select(`fullname, type_id`).eq('email', user.email).maybeSingle();
+      if (!dbUser) {
+        await supabase.auth.signOut();
+        router.push('/login');
+        return;
       }
     };
     checkAuth();
@@ -5704,12 +5994,6 @@ export default function FinancePage() {
           </div>
         )}
       </div>
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        .animate-slide-down { animation: slideDown 0.3s ease-out forwards; transform-origin: top; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes slideDown { from { opacity: 0; transform: scaleY(0.95); } to { opacity: 1; transform: scaleY(1); } }
-      `}} />
     </div>
   );
 }
@@ -5779,7 +6063,7 @@ export default function EmployeeProfilePage() {
       .from('users')
       .select('*')
       .eq('userid', userId)
-      .single();
+      .maybeSingle();
 
     if (data && !error) {
       setProfile({
@@ -5970,14 +6254,6 @@ export default function EmployeeProfilePage() {
 
         </div>
       </div>
-
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        .animate-blob { animation: blob 10s infinite alternate; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        @keyframes blob { 0% { transform: translate(0px, 0px) scale(1); } 33% { transform: translate(30px, -50px) scale(1.1); } 66% { transform: translate(-20px, 20px) scale(0.9); } 100% { transform: translate(0px, 0px) scale(1); } }
-      `}} />
     </div>
   );
 }
@@ -6211,24 +6487,6 @@ export default function HRManagementPage() {
           </div>
         )}
       </div>
-
-      {/* CSS CHO CÁC HIỆU ỨNG CHUYỂN ĐỘNG NGẦU */}
-      <style dangerouslySetInnerHTML={{__html: `
-        .animate-fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes fadeInUp { 
-          from { opacity: 0; transform: translateY(20px); } 
-          to { opacity: 1; transform: translateY(0); } 
-        }
-        .animate-blob { animation: blob 10s infinite alternate; }
-        .animation-delay-2000 { animation-delay: 2s; }
-        .animation-delay-4000 { animation-delay: 4s; }
-        @keyframes blob {
-          0% { transform: translate(0px, 0px) scale(1); }
-          33% { transform: translate(30px, -50px) scale(1.1); }
-          66% { transform: translate(-20px, 20px) scale(0.9); }
-          100% { transform: translate(0px, 0px) scale(1); }
-        }
-      `}} />
     </div>
   );
 }
@@ -6272,7 +6530,7 @@ export default function EditOrderPage() {
       .from('orders')
       .select('*')
       .eq('orderid', orderId)
-      .single();
+      .maybeSingle();
 
     if (orderData) {
       setCustomerInfo({
@@ -6524,16 +6782,7 @@ export default function EditOrderPage() {
 
           </div>
         </div>
-      </div>
-      
-      <style dangerouslySetInnerHTML={{__html: `
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
-        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-        .custom-scrollbar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 10px; }
-        .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d6d3d1; }
-        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-      `}} />
+      </div>     
     </div>
   );
 }
@@ -12371,6 +12620,13 @@ export default function CommunityFeedPage() {
   --radius: 1.5rem;
 }
 
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 8px; }
+  .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: #e7e5e4; border-radius: 10px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb:hover { background: #d6d3d1; }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -12791,6 +13047,132 @@ export default function LoginPage() {
         </div>
 
       </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/order-tracking/[id]/page.tsx">
+"use client";
+
+import React, { useEffect, useState } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import Header from '@/components/layout/Header';
+import Footer from '@/components/layout/Footer';
+import { supabase } from '@/lib/supabase';
+
+export default function OrderTrackingPage() {
+  const params = useParams();
+  const router = useRouter();
+  const orderId = params.id;
+
+  const [isLoading, setIsLoading] = useState(true);
+  const [orderData, setOrderData] = useState<any>(null);
+
+  useEffect(() => {
+    const fetchOrder = async () => {
+      const { data } = await supabase.from('orders').select('*, orderdetails(products(name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
+      if (data) setOrderData(data);
+      setIsLoading(false);
+    };
+    if (orderId) fetchOrder();
+  }, [orderId]);
+
+  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (!orderData) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><h1 className="text-2xl font-black">Không tìm thấy đơn hàng</h1></div>;
+
+  // LOGIC TIMELINE TIẾN TRÌNH
+  const statusFlow = ['Chờ thanh toán', 'Chờ xác nhận', 'Đã thanh toán', 'Đã giao hàng'];
+  const currentStep = statusFlow.indexOf(orderData.orderstatus);
+
+  return (
+    <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
+      <Header />
+      <main className="pt-32 pb-20 container mx-auto px-4 max-w-4xl relative z-10">
+        
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h1 className="text-3xl font-black text-stone-800 tracking-tight">Theo dõi đơn hàng</h1>
+            <p className="text-stone-500 font-bold">Mã đơn: <span className="text-pink-500">#{orderId}</span></p>
+          </div>
+          <Link href="/petshop" className="px-5 py-2.5 bg-white border border-stone-200 rounded-xl font-bold text-sm shadow-sm hover:border-pink-300 hover:text-pink-500 transition-colors">Tiếp tục mua sắm</Link>
+        </div>
+
+        {/* 🎯 BẢNG TIẾN TRÌNH (TIMELINE) */}
+        <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8 md:p-12 mb-8">
+          <div className="relative flex justify-between items-center max-w-2xl mx-auto">
+            <div className="absolute top-1/2 left-0 w-full h-1.5 bg-stone-100 -translate-y-1/2 z-0 rounded-full"></div>
+            
+            {/* Thanh màu chạy (Progress Bar) */}
+            <div 
+              className="absolute top-1/2 left-0 h-1.5 bg-pink-500 -translate-y-1/2 z-0 rounded-full transition-all duration-1000"
+              style={{ width: `${(Math.max(0, currentStep) / (statusFlow.length - 1)) * 100}%` }}
+            ></div>
+
+            {statusFlow.map((status, index) => {
+              const isActive = index <= currentStep;
+              const isCurrent = index === currentStep;
+              return (
+                <div key={status} className="relative z-10 flex flex-col items-center gap-3">
+                  <div className={`w-10 h-10 rounded-full flex items-center justify-center font-black text-sm transition-all duration-500 ${isActive ? 'bg-pink-500 text-white shadow-lg shadow-pink-500/30' : 'bg-white border-4 border-stone-100 text-stone-300'} ${isCurrent ? 'ring-4 ring-pink-100 scale-110' : ''}`}>
+                    {isActive ? '✓' : index + 1}
+                  </div>
+                  <p className={`text-[10px] sm:text-xs font-black uppercase tracking-widest absolute -bottom-8 whitespace-nowrap ${isActive ? 'text-pink-600' : 'text-stone-400'}`}>
+                    {status}
+                  </p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* 🎯 THÔNG TIN CHI TIẾT */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8">
+            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-6">📦 Sản phẩm đã đặt</h3>
+            <div className="space-y-4 max-h-60 overflow-y-auto custom-scrollbar pr-2">
+              {orderData.orderdetails?.map((item: any, idx: number) => (
+                <div key={idx} className="flex gap-4 items-center bg-stone-50 p-3 rounded-2xl border border-stone-100">
+                  <img src={item.products?.imageurl || item.products?.images?.[0] || 'https://via.placeholder.com/100'} className="w-12 h-12 rounded-xl object-cover" />
+                  <div className="flex-1">
+                    <p className="text-xs font-bold text-stone-700 line-clamp-1">{item.products?.name}</p>
+                    <p className="text-[10px] text-stone-500 mt-1">SL: {item.quantity}</p>
+                  </div>
+                  <p className="font-black text-rose-500">{item.unitprice?.toLocaleString()}đ</p>
+                </div>
+              ))}
+            </div>
+            <div className="mt-6 pt-6 border-t border-dashed border-stone-200 flex justify-between items-center">
+              <span className="font-bold text-stone-500">Tổng thanh toán</span>
+              <span className="text-2xl font-black text-rose-500">{orderData.totalamount?.toLocaleString()}đ</span>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8">
+            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-6">📍 Thông tin nhận hàng</h3>
+            <div className="space-y-4 text-sm bg-stone-50 p-5 rounded-2xl border border-stone-100">
+              <p><span className="text-stone-400 font-bold w-20 inline-block">Người nhận:</span> <span className="font-black">{orderData.customer_name}</span></p>
+              <p><span className="text-stone-400 font-bold w-20 inline-block">Điện thoại:</span> <span className="font-black">{orderData.customer_phone}</span></p>
+              <p><span className="text-stone-400 font-bold w-20 inline-block">Địa chỉ:</span> <span className="font-bold">{orderData.address}</span></p>
+              <p className="pt-3 mt-3 border-t border-stone-200">
+                <span className="text-stone-400 font-bold w-20 inline-block">Thanh toán:</span> 
+                <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{orderData.paymentmethod.split('|')[0]}</span>
+              </p>
+            </div>
+            
+            {orderData.orderstatus === 'Chờ thanh toán' && orderData.paymentmethod !== 'COD' && (
+              <div className="mt-6">
+                <Link href={`/checkout/success?orderid=${orderId}`} className="w-full block text-center bg-pink-500 text-white font-black py-4 rounded-xl shadow-md hover:bg-pink-600 transition-colors">
+                  Tiến hành Thanh Toán Ngay
+                </Link>
+              </div>
+            )}
+          </div>
+        </div>
+
+      </main>
+      <Footer />
     </div>
   );
 }
@@ -13511,54 +13893,68 @@ export default function ProductDetailPage() {
 
   // 🌟 HÀM XỬ LÝ THÊM VÀO GIỎ HÀNG CHUẨN (ĐÃ FIX LỖI TÌM KIẾM)
   const handleAddToCart = async () => {
-    if (!currentUserId) {
-      alert("Sen vui lòng đăng nhập để thêm món này vào giỏ hàng nhé! 🛒");
-      router.push('/login');
-      return;
-    }
-
-    setIsAdding(true);
     try {
-      // 1. Kiểm tra xem trong giỏ đã có món này chưa
-      // 🌟 Dùng maybeSingle() thay vì single() để nó không văng lỗi khi giỏ hàng đang trống
-      const { data: existingCartItem, error: fetchError } = await supabase
+      // 1. Kiểm tra đăng nhập
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        alert("Sen cần đăng nhập để thêm Boss vào giỏ nhé!");
+        // router.push('/login'); // Có thể mở comment dòng này để đá về trang login
+        return;
+      }
+
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('userid')
+        .eq('email', user.email)
+        .maybeSingle();
+
+      if (!dbUser) {
+        alert("Không tìm thấy thông tin tài khoản của Sen!");
+        return;
+      }
+
+      // 3. 🎯 LUẬT THÉP: Kiểm tra sản phẩm đã có trong giỏ chưa bằng .maybeSingle()
+      const currentVariant = 'Mặc định';
+      
+      const { data: existingItem, error: checkError } = await supabase
         .from('cart_items')
         .select('*')
-        .eq('user_id', currentUserId)
+        .eq('user_id', dbUser.userid)
         .eq('product_id', product.id)
-        .maybeSingle(); 
+        .eq('variant', currentVariant)
+        .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      if (checkError) throw checkError;
 
-      if (existingCartItem) {
-        // Nếu có rồi thì chỉ cộng thêm số lượng
+      if (existingItem) {
+        // Đã có -> Cộng dồn số lượng
         const { error: updateError } = await supabase
           .from('cart_items')
-          .update({ quantity: existingCartItem.quantity + quantity })
-          .eq('id', existingCartItem.id);
+          .update({ quantity: existingItem.quantity + quantity }) // Thay quantity bằng state số lượng của sếp
+          .eq('id', existingItem.id);
           
         if (updateError) throw updateError;
       } else {
-        // Nếu chưa có thì tạo dòng mới trong Database
-        const { error: insertError } = await supabase.from('cart_items').insert({
-          user_id: currentUserId,
-          product_id: product.id,
-          quantity: quantity
-        });
-        
+        // Chưa có -> Thêm dòng mới
+        const { error: insertError } = await supabase
+          .from('cart_items')
+          .insert([{
+            user_id: dbUser.userid,
+            product_id: product.id,
+            variant: currentVariant,
+            quantity: quantity // Thay quantity bằng state số lượng của sếp
+          }]);
+          
         if (insertError) throw insertError;
       }
 
-      alert(`Đã thêm ${quantity} hộp "${product.name}" vào giỏ hàng thành công! 🐾`);
-      
-      // BẮN TÍN HIỆU CHO HEADER TỰ ĐỘNG CẬP NHẬT SỐ LƯỢNG GIỎ HÀNG
+      // 4. Thành công -> Bắn pháo hoa & Cập nhật số trên Header
+      alert("Đã thêm vào giỏ hàng thành công! 🛍️");
       window.dispatchEvent(new Event('update_cart'));
-      
-    } catch (error) {
+
+    } catch (error: any) {
       console.error("Lỗi thêm giỏ hàng:", error);
-      alert("Ui da, có lỗi xảy ra khi thêm vào giỏ. Sen thử lại nhé!");
-    } finally {
-      setIsAdding(false);
+      alert("Ui da, có lỗi xảy ra khi thêm vào giỏ. Sen thử lại nhé: " + error.message);
     }
   };
 
@@ -15978,10 +16374,6 @@ export default function CompleteProfilePage() {
 }
 </file>
 
-<file path="CLAUDE.md">
-@AGENTS.md
-</file>
-
 <file path="components/common/CatCard.tsx">
 "use client";
 
@@ -18136,7 +18528,52 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 </file>
 
 <file path="lib/utils.ts">
+// lib/utils.ts
 
+export const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
+
+export const SIMPLE_COLORS = [
+  { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
+  { id: 'Trắng', name: 'Trắng tuyền (White)' },
+  { id: 'Đen', name: 'Đen tuyền (Black)' },
+  { id: 'Mướp / Vằn', name: 'Mướp / Vằn (Tabby)' },
+  { id: 'Nhị thể', name: 'Nhị thể (Bicolor)' },
+  { id: 'Tam thể', name: 'Tam thể (Calico)' },
+  { id: 'Đồi mồi', name: 'Đồi mồi (Tortie)' },
+  { id: 'Màu pha khác', name: 'Màu pha khác' }
+];
+
+export const formatEmsCode = (code: string) => {
+  if (!code) return 'Chưa rõ';
+  if (code.includes(' ') || code.length > 5) return code;
+  const baseColors: Record<string, string> = { 'a': 'Blue', 'b': 'Chocolate', 'c': 'Lilac', 'd': 'Red', 'e': 'Cream', 'f': 'Black Tortie', 'g': 'Blue Tortie', 'h': 'Chocolate Tortie', 'j': 'Lilac Tortie', 'n': 'Black' };
+  const patterns: Record<string, string> = { '01': 'Van', '02': 'Harlequin', '03': 'Bicolor', '09': 'White Spotting', '11': 'Shaded', '12': 'Shell', '21': 'Tabby', '22': 'Classic Tabby', '23': 'Mackerel Tabby', '24': 'Spotted Tabby' };
+  let result = [];
+  let base = code[0].toLowerCase();
+  if (baseColors[base]) result.push(baseColors[base]); else return code;
+  if (code.toLowerCase().includes('s')) result.push('Silver');
+  const patternMatch = code.match(/\d{2}/);
+  if (patternMatch && patterns[patternMatch[0]]) result.push(patterns[patternMatch[0]]);
+  return result.join(' ');
+};
+
+export const formatDateDisplay = (dateString: string) => {
+  if (!dateString) return ''; 
+  const [year, month, day] = dateString.split('-'); 
+  return `${day}/${month}/${year}`;
+};
+
+export const getAvatarColor = (name: string) => {
+  const colors = [
+    'bg-gradient-to-br from-purple-500 to-indigo-500', 
+    'bg-gradient-to-br from-fuchsia-500 to-pink-500', 
+    'bg-gradient-to-br from-blue-500 to-cyan-500', 
+    'bg-gradient-to-br from-emerald-500 to-teal-500',
+    'bg-gradient-to-br from-rose-500 to-orange-500'
+  ];
+  const charCode = (name || 'A').charCodeAt(0);
+  return colors[charCode % colors.length];
+};
 </file>
 
 <file path="next.config.ts">
@@ -18453,11 +18890,26 @@ const config: Config = {
   ],
   theme: {
     extend: {
-      fontFamily: {
-        quicksand: ['var(--font-quicksand)', 'sans-serif'], 
+      keyframes: {
+        blob: {
+          '0%, 100%': { transform: 'translate(0px, 0px) scale(1)' },
+          '33%': { transform: 'translate(30px, -50px) scale(1.1)' },
+          '66%': { transform: 'translate(-20px, 20px) scale(0.9)' },
+        },
+          fadeInUp: {
+          'from': { opacity: '0', transform: 'translateY(20px)' },
+          'to': { opacity: '1', transform: 'translateY(0)' }
+        },
+        // Thêm các animation khác tương tự
       },
+      animation: {
+        'blob': 'blob 10s infinite alternate',
+        'fade-in-up': 'fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+      }
     },
-  },
+  }
+  
+  ,
   plugins: [],
 }
 export default config
