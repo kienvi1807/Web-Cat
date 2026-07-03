@@ -57,6 +57,7 @@ app/dashboard/cafe/page.tsx
 app/dashboard/cats/breeders/[id]/page.tsx
 app/dashboard/cats/breeders/page.tsx
 app/dashboard/cats/health/page.tsx
+app/dashboard/cats/inquiries/[id]/page.tsx
 app/dashboard/cats/kinvie/[id]/page.tsx
 app/dashboard/cats/kinvie/add/page.tsx
 app/dashboard/cats/kinvie/page.tsx
@@ -102,6 +103,7 @@ app/profile/add-pet/page.tsx
 app/profile/edit-pet/[id]/page.tsx
 app/profile/edit/page.tsx
 app/profile/page.tsx
+app/quan-ly/inquiries/[id]/page.tsx
 app/register/complete-profile/page.tsx
 components/common/CatCard.tsx
 components/common/ProductCard.tsx
@@ -230,10 +232,12 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - Khi code tính năng cho **KinVie Cattery** (Trại nhân giống Maine Coon, xem phả hệ, thả tim), BẮT BUỘC query từ bảng `cats`.
 - Bảng `pets` là bảng dữ liệu thú cưng chung của khách hàng hoặc dữ liệu cũ, TUYỆT ĐỐI KHÔNG query bảng này khi làm việc với phân khu Cattery để tránh nhầm lẫn logic.
 **Các bảng quan trọng và các cột dữ liệu (cần chú ý kiểu dữ liệu để tránh lỗi Type):**
+- `affiliate_clicks`: `id` (bigint), `product_id` (integer - trỏ về products.id), `user_id` (integer - trỏ về users.userid, có thể NULL nếu khách chưa đăng nhập), `created_at` (timestamp with time zone)
 - `blogs`: `created_at` (timestamp with time zone), `title` (text), `category` (text), `cover_image` (text), `status` (text), `id` (uuid), `content` (jsonb)
 - `cart_items`: `id` (integer), `created_at` (timestamp with time zone), `quantity` (integer), `variant` (text), `product_id` (integer), `user_id` (integer)
 - `cat_likes`: `id` (bigint), `created_at` (timestamp with time zone), `cat_id` (bigint), `user_id` (integer - Trỏ về userid của bảng users)
 - `categories`: `categoryid` (integer), `categoryname` (character varying)
+- `cat_inquiries`: `id` (bigint), `cat_id` (integer - trỏ về cats.id), `customer_id` (integer - trỏ về users.userid, NULL nếu khách chưa đăng nhập), `customer_name` (text), `customer_phone` (text), `customer_zalo` (text), `message` (text), `status` (text: 'Mới'|'Đã liên hệ'|'Đã chốt'|'Hủy'), `created_at` (timestamp with time zone). Sinh ra khi khách bấm "Gửi Yêu Cầu Đón Bé" ở trang `/cattery/[id]`, kèm gửi notification CHỈ cho tài khoản Boss (type_id === 1) — KHÔNG gửi cho staff (type_id 2) hay trại đối tác (type_id 3) vì họ không có quyền xem trang chi tiết. Notification `link` trỏ về `/dashboard/cats/inquiries/{id}`. Trang này (`app/dashboard/cats/inquiries/[id]/page.tsx`) có gác cổng RIÊNG kiểm tra `type_id === 1` ngay trong component, KHÔNG dựa vào check chung của `app/dashboard/layout.tsx` (layout chung hiện chỉ check đăng nhập, chưa check type_id). ⚠️ **LỖ HỔNG ĐÃ BIẾT:** `app/dashboard/layout.tsx` hiện chỉ kiểm tra đăng nhập, CHƯA kiểm tra `type_id`, nghĩa là mọi tài khoản đã đăng nhập (kể cả khách thường) đều gõ được URL `/dashboard/...` và vào xem. Các trang nhạy cảm (như `cat_inquiries`) phải tự gác cổng riêng bằng cách check `type_id` ngay trong component cho tới khi layout chung được vá.
 - `cats`: `color` (character varying), `status` (character varying), `approval_status` (character varying), `gender` (boolean), `has_pedigree` (boolean), `father_id` (integer), `mother_id` (integer), `likes` (integer), `breeder_id` (integer), `created_at` (timestamp with time zone), `posted_date` (date), `breed` (character varying), `id` (integer), `dob` (date), `notes` (text), `medical_history` (jsonb), `name` (character varying), `price` (numeric), `images` (ARRAY)
 - `ems_base_colors`: `code` (character varying), `name` (character varying), `hex` (character varying)
 - `ems_patterns`: `code` (character varying), `name` (character varying)
@@ -242,7 +246,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `feedbacks`: `status` (text), `content` (text), `admin_reply` (text), `type` (text), `created_at` (timestamp with time zone), `userid` (integer), `id` (uuid)
 - `health_records`: `note` (text), `record_date` (date), `petid` (integer), `created_at` (timestamp with time zone), `record_type` (character varying), `id` (integer)
 - `medicalrecords`: `dosenumber` (integer), `recordid` (integer), `nextduedate` (date), `petid` (integer), `administereddate` (date), `createdat` (timestamp with time zone), `notes` (text), `medicinename` (character varying), `recordtype` (character varying)
-- `notifications`: `content` (text), `created_at` (timestamp with time zone), `is_read` (boolean), `user_id` (integer), `id` (integer), `title` (character varying)
+- `notifications`: `content` (text), `created_at` (timestamp with time zone), `is_read` (boolean), `user_id` (integer), `id` (integer), `title` (character varying), `type` (text: 'order_success'|'order_approved'|'cat_inquiry'|'post_like'|'post_comment'|'comment_reply'|'cat_approved'|'cat_rejected'|'system'), `link` (text - đường dẫn điều hướng khi bấm), `related_id` (text - id liên quan, dùng để dedupe/xoá khi unlike), `actor_id` (integer - userid người gây ra thông báo)
 - `orderdetails`: `productid` (integer), `orderdetailid` (integer), `quantity` (integer), `orderid` (integer), `unitprice` (numeric), `petid` (integer), `variant` (text)
 - `orders`: `totalamount` (numeric), `delivery_date` (date), `orderdate` (timestamp with time zone), `orderid` (integer), `customer_phone` (text), `userid` (integer), `address` (text), `customer_name` (text), `paymentmethod` (character varying), `orderstatus` (character varying)
 - `page_banners`: `image_url` (text), `created_at` (timestamp with time zone), `group_id` (bigint), `id` (bigint)
@@ -254,6 +258,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `posts`: `content` (text), `id` (bigint), `user_id` (integer), `created_at` (timestamp with time zone), `image_url` (text)
 - `products`: `origin` (text), `reviews_count` (integer), `rating` (numeric), `discount_percent` (integer), `sales_count` (integer), `created_at` (timestamp with time zone), `expiry_date` (date), `stock` (integer), `price` (numeric), `categoryid` (integer), `id` (integer), `imageurl` (text), `description` (text), `category` (text), `status` (text), `images` (ARRAY), `name` (text), `brand` (text), `is_affiliate` (boolean), `affiliate_url` (text), `affiliate_clicks` (integer)
 - `system_settings`: `zalo` (text), `hotline` (text), `theme_mode` (text), `id` (integer), `email` (text), `facebook_url` (text), `tiktok_url` (text), `instagram_url` (text), `updated_at` (timestamp with time zone)
+- `product_reviews`: `id` (bigint), `product_id` (integer), `order_id` (integer), `user_id` (integer), `rating` (integer 1-5), `comment` (text), `created_at` (timestamp with time zone). Có UNIQUE(product_id, order_id, user_id) — 1 đơn chỉ đánh giá 1 lần cho 1 sản phẩm. Có trigger `trg_update_product_rating` tự động tính lại `products.rating` và `products.reviews_count` mỗi khi insert/update/delete — KHÔNG tự tay update 2 cột đó trong code nữa.
 - `type_users`: `description` (text), `rank_name` (character varying), `role` (character varying), `point_required` (integer), `id` (integer)
 - `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text)
 
@@ -267,6 +272,9 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 4. **Viết lệnh:** Khi có yêu cầu về sửa hoặc thêm mới database, thì cho câu lệnh SQL để sửa chứ đừng chỉ nói chung chung là sửa hay thêm mới cái gì.
 5. **Luồng Thanh toán (Checkout):** Bảng `orders` và `orderdetails` dùng chung khóa `orderid` (integer). Khi tạo đơn hàng thành công, trạng thái mặc định BẮT BUỘC là "Chờ xác nhận" (vì thanh toán qua mã QR Momo/Bank thủ công). Sau khi tạo đơn, BẮT BUỘC phải có lệnh trừ `stock` trong bảng `products` và xóa `cart_items` của user đó.
 6. **Update sau khi cập nhật database:** Sau mỗi lần update/insert/delete database thì đều phải chỉnh sửa file AI_CONTEXT.md này.
+7. **Đơn hàng & Doanh số:** `sales_count` của `products` CHỈ được cộng khi admin đổi `orders.orderstatus` sang "Đã giao hàng" (xem hàm `incrementSalesCount` ở `app/dashboard/operations/orders/page.tsx`), KHÔNG cộng lúc tạo đơn. Tương tự, khách chỉ được để lại `product_reviews` khi có đơn ở trạng thái "Đã giao hàng" chứa đúng sản phẩm đó và chưa đánh giá đơn đó lần nào.
+8. **Hệ thống thông báo (notifications):** Mọi thông báo insert vào bảng `notifications` PHẢI có `type` và `link` rõ ràng để chuông thông báo (Header.tsx) hiển thị đúng icon và điều hướng đúng chỗ. Khi thông báo gắn với hành động có thể "undo" (VD: thích bài viết), phải set `related_id` dạng `${post_id}_${actor_userid}` để khi undo (bỏ thích) thì xoá được đúng thông báo đã gửi, tránh rác. Chuông dùng Supabase Realtime (`postgres_changes`) lắng nghe theo `user_id`, không polling.
+9. **Yêu cầu đón bé (cat_inquiries):** Khi khách gửi form "Gửi Yêu Cầu Đón Bé" ở `/cattery/[id]`, BẮT BUỘC lưu vào bảng `cat_inquiries` (không chỉ gửi notification suông) để còn quản lý lead sau này. Thông báo phải gửi cho TOÀN BỘ user có `type_id` 1 hoặc 2 (staff/boss), CỘNG THÊM trại đối tác nếu `cats.breeder_id` thuộc `type_id` 3 — tránh gửi trùng nếu breeder cũng đang là staff (type_id 1/2).
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.
@@ -962,16 +970,110 @@ export default function PublicCatProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [catData, setCatData] = useState<any>(null);
   const [mainImage, setMainImage] = useState<string>('');
-  
+
   // Dữ liệu dùng cho phả hệ
   const [allCatsList, setAllCatsList] = useState<any[]>([]);
   const [breedersList, setBreedersList] = useState<any[]>([]);
+
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [inquiryName, setInquiryName] = useState('');
+  const [inquiryPhone, setInquiryPhone] = useState('');
+  const [inquiryZalo, setInquiryZalo] = useState('');
+  const [inquiryMessage, setInquiryMessage] = useState('');
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
+  const [currentDbUser, setCurrentDbUser] = useState<any>(null);
+
+  // 🎯 Prefill tên/SĐT nếu khách đã đăng nhập
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: dbUser } = await supabase.from('users').select('userid, fullname, phone').eq('email', user.email).maybeSingle();
+      if (dbUser) {
+        setCurrentDbUser(dbUser);
+        setInquiryName(dbUser.fullname || '');
+        setInquiryPhone(dbUser.phone || '');
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  const handleSubmitInquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 🎯 CHẶN TỰ GỬI YÊU CẦU CHO MÈO CỦA CHÍNH TRẠI MÌNH
+    if (currentDbUser && catData.breeder_id === currentDbUser.userid) {
+      alert('Đây là bé mèo của trại bạn, không thể tự gửi yêu cầu cho chính mình nhé!');
+      return;
+    }
+
+    if (!inquiryName.trim() || !inquiryPhone.trim()) {
+      alert('Sen điền đủ Họ tên và Số điện thoại giúp mình nhé!');
+      return;
+    }
+    setIsSubmittingInquiry(true);
+
+    // 🎯 INSERT + LẤY LẠI ID VỪA TẠO (dùng .select().single() thay vì chỉ insert suông)
+    const { data: insertedInquiry, error: insertError } = await supabase
+      .from('cat_inquiries')
+      .insert({
+        cat_id: catData.id,
+        customer_id: currentDbUser?.userid || null,
+        customer_name: inquiryName.trim(),
+        customer_phone: inquiryPhone.trim(),
+        customer_zalo: inquiryZalo.trim() || null,
+        message: inquiryMessage.trim() || null
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      setIsSubmittingInquiry(false);
+      alert('Lỗi khi gửi yêu cầu: ' + insertError.message);
+      return;
+    }
+
+    // 🎯 2 LOẠI LINK THÔNG BÁO: BOSS VÀO TRANG DASHBOARD, STAFF/BREEDER VÀO TRANG NGOÀI DASHBOARD
+    const bossLink = `/dashboard/cats/inquiries/${insertedInquiry.id}`;
+    const staffOrBreederLink = `/quan-ly/inquiries/${insertedInquiry.id}`;
+
+    const notifTitle = `💌 Có khách yêu cầu đón bé ${catData.name}`;
+    const notifContent = `Khách "${inquiryName.trim()}" - SĐT: ${inquiryPhone.trim()}${inquiryZalo.trim() ? `, Zalo: ${inquiryZalo.trim()}` : ''}.${inquiryMessage.trim() ? ` Lời nhắn: "${inquiryMessage.trim()}"` : ''}`;
+
+    // 🎯 GỬI THÔNG BÁO CHO BOSS + STAFF (type_id 1, 2), CỘNG THÊM BREEDER CHỦ MÈO (type_id 3) NẾU CÓ
+    const { data: bossStaffUsers } = await supabase.from('users').select('userid, type_id').in('type_id', [1, 2]);
+    const recipients = new Map<number, number>(); // userid -> type_id
+    (bossStaffUsers || []).forEach((u: any) => recipients.set(u.userid, u.type_id));
+
+    if (catData.breeder_id) {
+      const { data: breederUser } = await supabase.from('users').select('userid, type_id').eq('userid', catData.breeder_id).maybeSingle();
+      if (breederUser && breederUser.type_id === 3) recipients.set(breederUser.userid, breederUser.type_id);
+    }
+
+    const notifRows = Array.from(recipients.entries()).map(([uid, typeId]) => ({
+      user_id: uid,
+      title: notifTitle,
+      content: notifContent,
+      type: 'cat_inquiry',
+      link: typeId === 1 ? bossLink : staffOrBreederLink,
+      related_id: String(insertedInquiry.id)
+    }));
+
+    if (notifRows.length > 0) {
+      await supabase.from('notifications').insert(notifRows);
+    }
+
+    setIsSubmittingInquiry(false);
+    setIsInquiryModalOpen(false);
+    setInquiryMessage('');
+    alert('✅ Đã gửi yêu cầu! Trại sẽ liên hệ lại với Sen sớm nhất nhé.');
+  };
 
   // 🎯 LẤY DỮ LIỆU TỪ SUPABASE
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
-      
+
       // Lấy danh sách trại & tất cả mèo để vẽ phả hệ
       const { data: breeders } = await supabase.from('users').select('userid, fullname, cattery_name, phone').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -996,8 +1098,8 @@ export default function PublicCatProfilePage() {
 
   // Format Helper
   const formatDateDisplay = (dateString: string) => {
-    if (!dateString) return 'Chưa cập nhật'; 
-    const [year, month, day] = dateString.split('-'); 
+    if (!dateString) return 'Chưa cập nhật';
+    const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   };
 
@@ -1011,7 +1113,7 @@ export default function PublicCatProfilePage() {
   // 🎯 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ (READ-ONLY)
   const PedigreeNode = ({ catIdNode, level, label, visitedIds = [] }: { catIdNode: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (!catIdNode || level > 5) return null;
-    
+
     const currentId = parseInt(catIdNode.toString());
     // BỌC THÉP: Chống lặp vòng phả hệ
     if (visitedIds.includes(currentId)) {
@@ -1025,7 +1127,7 @@ export default function PublicCatProfilePage() {
         </div>
       );
     }
-    
+
     const newVisited = [...visitedIds, currentId];
     const cat = allCatsList.find(c => c.id === currentId);
     if (!cat) return null;
@@ -1042,15 +1144,15 @@ export default function PublicCatProfilePage() {
     return (
       <div className="flex items-center group/node transition-all">
         {level > 1 && <div className="w-10 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>}
-        
+
         <Link href={`/cattery/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-100">
-             <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
+            <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
           </div>
           <div className="overflow-hidden flex-1">
-             <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
-             <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
+            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
+            <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
+            <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -1058,8 +1160,8 @@ export default function PublicCatProfilePage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-pink-100 py-4 my-2 transition-colors group-hover/node:border-pink-300 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} /></div>}
+              {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level + 1} label={`Đời ${level + 1} (Bố)`} visitedIds={newVisited} /></div>}
+              {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level + 1} label={`Đời ${level + 1} (Mẹ)`} visitedIds={newVisited} /></div>}
             </div>
           </div>
         )}
@@ -1084,12 +1186,14 @@ export default function PublicCatProfilePage() {
   );
 
   const isReady = catData.status === 'Sẵn sàng';
+  // 🎯 KIỂM TRA XEM NGƯỜI ĐANG XEM CÓ PHẢI LÀ CHỦ TRẠI CỦA CHÍNH BÉ MÈO NÀY KHÔNG
+  const isOwnCat = !!(currentDbUser && catData.breeder_id === currentDbUser.userid);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] text-stone-700 font-sans selection:bg-pink-200 pb-24 pt-20">
-      
+
       <div className="container mx-auto px-4 max-w-6xl">
-        
+
         {/* Nút Quay Lại */}
         <div className="mb-8">
           <Link href="/cattery" className="inline-flex items-center gap-2 text-sm font-bold text-stone-400 hover:text-pink-500 transition-colors">
@@ -1098,7 +1202,7 @@ export default function PublicCatProfilePage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-10">
-          
+
           {/* ========================================
               CỘT TRÁI: THƯ VIỆN ẢNH (READ-ONLY)
               ======================================== */}
@@ -1106,13 +1210,13 @@ export default function PublicCatProfilePage() {
             {/* Ảnh chính lớn */}
             <div className="relative aspect-[4/5] bg-white rounded-[3rem] p-3 border border-pink-50 shadow-[0_10px_40px_-10px_rgba(236,72,153,0.1)] overflow-hidden">
               <div className="w-full h-full rounded-[2.5rem] overflow-hidden bg-pink-50/50">
-                 <img 
-                   src={mainImage || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=1000&auto=format&fit=crop'} 
-                   alt={catData.name} 
-                   className="w-full h-full object-cover" 
-                 />
+                <img
+                  src={mainImage || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=1000&auto=format&fit=crop'}
+                  alt={catData.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-              
+
               {/* Badge Trạng Thái Nổi */}
               <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg border border-white flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
@@ -1122,15 +1226,15 @@ export default function PublicCatProfilePage() {
                 <span className={isReady ? 'text-emerald-600' : 'text-amber-600'}>{catData.status || 'Đang cập nhật'}</span>
               </div>
             </div>
-            
+
             {/* Ảnh thu nhỏ (Thumbnails) */}
             {catData.images && catData.images.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
                 {catData.images.map((imgUrl: string, idx: number) => {
                   if (!imgUrl) return null;
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       onClick={() => setMainImage(imgUrl)}
                       className={`cursor-pointer relative aspect-square rounded-2xl overflow-hidden border-4 transition-all duration-300 ${mainImage === imgUrl ? 'border-pink-400 shadow-md scale-105' : 'border-white shadow-sm hover:border-pink-200 opacity-70 hover:opacity-100'}`}
                     >
@@ -1146,95 +1250,103 @@ export default function PublicCatProfilePage() {
               CỘT PHẢI: THÔNG TIN CHI TIẾT & LIÊN HỆ
               ======================================== */}
           <div className="w-full lg:w-7/12 flex flex-col">
-            
+
             <div className="bg-white/80 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 border border-pink-50 shadow-[0_20px_50px_-10px_rgba(236,72,153,0.05)] flex-grow">
-               
-               {/* Tên & Trại */}
-               <div className="mb-6">
-                 <p className="text-[11px] font-black text-pink-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                   <span>👑</span> {getBreederName(catData.breeder_id)}
-                 </p>
-                 <h1 className="text-4xl md:text-5xl font-black text-stone-800 tracking-tight leading-none mb-4">
-                   {catData.name}
-                 </h1>
-               </div>
 
-               {/* Bảng Thông Tin Nhanh (Grid) */}
-               <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giống mèo</p>
-                    <p className="text-sm font-bold text-stone-800">{catData.breed}</p>
+              {/* Tên & Trại */}
+              <div className="mb-6">
+                <p className="text-[11px] font-black text-pink-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span>👑</span> {getBreederName(catData.breeder_id)}
+                </p>
+                <h1 className="text-4xl md:text-5xl font-black text-stone-800 tracking-tight leading-none mb-4">
+                  {catData.name}
+                </h1>
+              </div>
+
+              {/* Bảng Thông Tin Nhanh (Grid) */}
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giống mèo</p>
+                  <p className="text-sm font-bold text-stone-800">{catData.breed}</p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giới tính</p>
+                  <p className={`text-sm font-bold ${catData.gender ? 'text-blue-600' : 'text-rose-500'}`}>
+                    {catData.gender ? '♂ Đực (Male)' : '♀ Cái (Female)'}
+                  </p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
+                  <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
+                  <p className="text-sm font-bold text-stone-800">{formatDateDisplay(catData.dob)}</p>
+                </div>
+              </div>
+
+              {/* Giá & Nút Liên Hệ */}
+              <div className="bg-gradient-to-br from-pink-50 to-white p-6 md:p-8 rounded-[2rem] border border-pink-100 relative overflow-hidden mb-8">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/40 blur-3xl rounded-full pointer-events-none"></div>
+
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Giá chuyển nhượng</p>
+                <div className="flex items-end gap-2 mb-6">
+                  <h2 className="text-4xl md:text-5xl font-black text-rose-500">
+                    {catData.price ? catData.price.toLocaleString('vi-VN') : 'Liên hệ'}
+                  </h2>
+                  {catData.price > 0 && <span className="text-xl font-bold text-rose-300 mb-1">VNĐ</span>}
+                </div>
+
+                {/* 🎯 NÚT LIÊN HỆ ĐÓN BÉ (CALL TO ACTION) - ẨN NẾU ĐANG XEM MÈO CỦA CHÍNH TRẠI MÌNH */}
+                {isOwnCat ? (
+                  <div className="w-full px-8 py-5 bg-stone-100 text-stone-400 rounded-2xl font-bold text-sm text-center flex items-center justify-center gap-2">
+                    <span>🏠</span> Đây là bé mèo của trại bạn, không cần gửi yêu cầu đón bé nhé!
                   </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giới tính</p>
-                    <p className={`text-sm font-bold ${catData.gender ? 'text-blue-600' : 'text-rose-500'}`}>
-                      {catData.gender ? '♂ Đực (Male)' : '♀ Cái (Female)'}
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsInquiryModalOpen(true)}
+                      className="w-full group px-8 py-5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-lg hover:from-pink-600 hover:to-rose-600 shadow-[0_10px_30px_rgba(236,72,153,0.3)] transition-all duration-300 flex items-center justify-center gap-3 transform hover:-translate-y-1"
+                    >
+                      <span>💌</span> Gửi Yêu Cầu Đón Bé
+                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    </button>
+                    <p className="text-center text-xs font-medium text-stone-400 mt-4">
+                      *Breeder sẽ liên hệ lại với bạn qua Zalo/SĐT trong vòng 2h.
                     </p>
+                  </>
+                )}
+              </div>
+
+              {/* Lịch Sử Tiêm Phòng & Ghi chú */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>🏥</span> Sức khỏe & Tiêm phòng</h3>
+                  {catData.medical_history && catData.medical_history.length > 0 ? (
+                    <div className="space-y-3">
+                      {catData.medical_history.map((record: any, index: number) => (
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                          <p className="font-bold text-stone-700 text-sm">{record.vaccineName}</p>
+                          <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg mt-2 sm:mt-0 w-fit">
+                            Đã tiêm: {formatDateDisplay(record.dateGiven)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-400 italic">Bé chưa đến tuổi tiêm phòng hoặc chưa cập nhật lịch.</p>
+                  )}
+                </div>
+
+                {catData.notes && (
+                  <div>
+                    <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3 mt-8"><span>📝</span> Đặc điểm tính cách</h3>
+                    <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
+                      <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">{catData.notes}</p>
+                    </div>
                   </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
-                    <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
-                  </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
-                    <p className="text-sm font-bold text-stone-800">{formatDateDisplay(catData.dob)}</p>
-                  </div>
-               </div>
-
-               {/* Giá & Nút Liên Hệ */}
-               <div className="bg-gradient-to-br from-pink-50 to-white p-6 md:p-8 rounded-[2rem] border border-pink-100 relative overflow-hidden mb-8">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/40 blur-3xl rounded-full pointer-events-none"></div>
-                 
-                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Giá chuyển nhượng</p>
-                 <div className="flex items-end gap-2 mb-6">
-                   <h2 className="text-4xl md:text-5xl font-black text-rose-500">
-                     {catData.price ? catData.price.toLocaleString('vi-VN') : 'Liên hệ'}
-                   </h2>
-                   {catData.price > 0 && <span className="text-xl font-bold text-rose-300 mb-1">VNĐ</span>}
-                 </div>
-
-                 {/* 🎯 NÚT LIÊN HỆ ĐÓN BÉ (CALL TO ACTION) */}
-                 <button 
-                   onClick={() => alert('Sẽ mở Modal Form điền thông tin Zalo/SĐT để gửi cho Trại nhé sếp!')}
-                   className="w-full group px-8 py-5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-lg hover:from-pink-600 hover:to-rose-600 shadow-[0_10px_30px_rgba(236,72,153,0.3)] transition-all duration-300 flex items-center justify-center gap-3 transform hover:-translate-y-1"
-                 >
-                   <span>💌</span> Gửi Yêu Cầu Đón Bé
-                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                 </button>
-                 <p className="text-center text-xs font-medium text-stone-400 mt-4">
-                   *Breeder sẽ liên hệ lại với bạn qua Zalo/SĐT trong vòng 2h.
-                 </p>
-               </div>
-
-               {/* Lịch Sử Tiêm Phòng & Ghi chú */}
-               <div className="space-y-6">
-                 <div>
-                   <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>🏥</span> Sức khỏe & Tiêm phòng</h3>
-                   {catData.medical_history && catData.medical_history.length > 0 ? (
-                     <div className="space-y-3">
-                       {catData.medical_history.map((record: any, index: number) => (
-                         <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                           <p className="font-bold text-stone-700 text-sm">{record.vaccineName}</p>
-                           <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg mt-2 sm:mt-0 w-fit">
-                             Đã tiêm: {formatDateDisplay(record.dateGiven)}
-                           </p>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <p className="text-sm text-stone-400 italic">Bé chưa đến tuổi tiêm phòng hoặc chưa cập nhật lịch.</p>
-                   )}
-                 </div>
-
-                 {catData.notes && (
-                   <div>
-                     <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3 mt-8"><span>📝</span> Đặc điểm tính cách</h3>
-                     <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
-                       <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">{catData.notes}</p>
-                     </div>
-                   </div>
-                 )}
-               </div>
+                )}
+              </div>
 
             </div>
           </div>
@@ -1249,17 +1361,49 @@ export default function PublicCatProfilePage() {
               Gia Phả Thuần Chủng <span className="text-3xl">📜</span>
             </h2>
             <p className="text-sm text-stone-500 mb-8">Nguồn gen quý tộc qua 5 thế hệ từ các nhà vô địch.</p>
-            
+
             <div className="overflow-x-auto custom-scrollbar pb-8 pt-4">
-               <div className="min-w-max pr-16">
-                  {/* Bắt đầu vẽ từ con mèo hiện tại (Level 1) */}
-                  <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Bé Mèo Hiện Tại" />
-               </div>
+              <div className="min-w-max pr-16">
+                {/* Bắt đầu vẽ từ con mèo hiện tại (Level 1) */}
+                <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Bé Mèo Hiện Tại" />
+              </div>
             </div>
           </div>
         )}
-
       </div>
+      {isInquiryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsInquiryModalOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-pink-50">
+              <h3 className="text-lg font-black text-stone-800">Gửi yêu cầu đón bé {catData.name}</h3>
+              <button onClick={() => setIsInquiryModalOpen(false)} className="w-8 h-8 flex items-center justify-center bg-stone-100 rounded-full hover:bg-stone-200">✕</button>
+            </div>
+            <form onSubmit={handleSubmitInquiry} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Họ tên *</label>
+                <input value={inquiryName} onChange={(e) => setInquiryName(e.target.value)} required className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Tên của Sen" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Số điện thoại *</label>
+                <input value={inquiryPhone} onChange={(e) => setInquiryPhone(e.target.value)} required type="tel" className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="09xxxxxxxx" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Số Zalo (nếu khác SĐT)</label>
+                <input value={inquiryZalo} onChange={(e) => setInquiryZalo(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Để trống nếu trùng SĐT" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Lời nhắn</label>
+                <textarea value={inquiryMessage} onChange={(e) => setInquiryMessage(e.target.value)} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Sen muốn hỏi thêm điều gì không?" />
+              </div>
+              <button type="submit" disabled={isSubmittingInquiry} className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black shadow-md hover:from-pink-600 hover:to-rose-600 transition-all disabled:opacity-50">
+                {isSubmittingInquiry ? 'Đang gửi...' : 'Gửi yêu cầu ngay'}
+              </button>
+              <p className="text-center text-[11px] text-stone-400 font-medium">*Trại sẽ liên hệ lại qua SĐT/Zalo trong vòng 2h.</p>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -3273,6 +3417,236 @@ export default function HealthAndBreedingPage() {
           </div>
         )}
 
+      </div>
+    </div>
+  );
+}
+</file>
+
+<file path="app/dashboard/cats/inquiries/[id]/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+
+const STATUS_OPTIONS = ['Mới', 'Đã liên hệ', 'Đã chốt', 'Hủy'];
+
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case 'Mới': return 'bg-sky-50 text-sky-600 border-sky-200 animate-pulse';
+    case 'Đã liên hệ': return 'bg-amber-50 text-amber-600 border-amber-200';
+    case 'Đã chốt': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    case 'Hủy': return 'bg-stone-100 text-stone-400 border-stone-200';
+    default: return 'bg-stone-100 text-stone-400 border-stone-200';
+  }
+};
+
+export default function InquiryDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const inquiryId = params.id;
+
+  const [inquiry, setInquiry] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  // 🎯 GÁC CỔNG: CHỈ TÀI KHOẢN BOSS (type_id === 1) MỚI ĐƯỢC XEM TRANG NÀY
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  const [isBoss, setIsBoss] = useState(false);
+
+  useEffect(() => {
+    const checkBossAccess = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+
+      const { data: dbUser } = await supabase.from('users').select('type_id').eq('email', user.email).maybeSingle();
+      if (dbUser?.type_id === 1) {
+        setIsBoss(true);
+      }
+      setIsCheckingAuth(false);
+    };
+    checkBossAccess();
+  }, [router]);
+
+  // 🎯 CHỈ FETCH DỮ LIỆU KHI ĐÃ XÁC NHẬN LÀ BOSS
+  useEffect(() => {
+    if (!isBoss) return;
+    const fetchInquiry = async () => {
+      setIsLoading(true);
+      const { data } = await supabase
+        .from('cat_inquiries')
+        .select('*, cats(id, name, images, breed, price, breeder_id), users(fullname, avatarurl, email)')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      if (data) setInquiry(data);
+      setIsLoading(false);
+    };
+    if (inquiryId) fetchInquiry();
+  }, [inquiryId, isBoss]);
+
+  useEffect(() => {
+    const fetchInquiry = async () => {
+      setIsLoading(true);
+      const { data } = await supabase
+        .from('cat_inquiries')
+        .select('*, cats(id, name, images, breed, price, breeder_id), users(fullname, avatarurl, email)')
+        .eq('id', inquiryId)
+        .maybeSingle();
+      if (data) setInquiry(data);
+      setIsLoading(false);
+    };
+    if (inquiryId) fetchInquiry();
+  }, [inquiryId]);
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    setIsUpdating(true);
+    const { error } = await supabase.from('cat_inquiries').update({ status: newStatus }).eq('id', inquiryId);
+    if (!error) setInquiry((prev: any) => ({ ...prev, status: newStatus }));
+    setIsUpdating(false);
+  };
+
+  // 🎯 CHỜ XÁC THỰC XONG MỚI RENDER GÌ CẢ
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
+        Đang xác thực quyền truy cập...
+      </div>
+    );
+  };
+
+  // 🎯 KHÔNG PHẢI BOSS -> CHẶN LUÔN, KHÔNG CHO XEM BẤT CỨ GÌ
+  if (!isBoss) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
+        <span className="text-6xl mb-4">🔒</span>
+        <h2 className="text-2xl font-black text-stone-700">Bạn không có quyền truy cập trang này.</h2>
+        <p className="text-sm text-stone-400 mt-2">Chỉ tài khoản Boss mới được xem chi tiết yêu cầu đón bé.</p>
+        <Link href="/dashboard" className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-full font-bold hover:bg-pink-600 transition-colors">Về Dashboard</Link>
+      </div>
+    );
+  };
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
+      Đang tải yêu cầu...
+    </div>
+  );
+
+  if (!inquiry) return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
+      <span className="text-6xl mb-4">😿</span>
+      <h2 className="text-2xl font-black">Không tìm thấy yêu cầu này.</h2>
+      <Link href="/dashboard" className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-full font-bold hover:bg-pink-600 transition-colors">Về Dashboard</Link>
+    </div>
+  );
+
+  const cat = inquiry.cats;
+  const catAdminLink = cat ? (cat.breeder_id === 1 ? `/dashboard/cats/kinvie/${cat.id}` : `/dashboard/cats/breeders/${cat.id}`) : null;
+  const zaloTarget = inquiry.customer_zalo || inquiry.customer_phone;
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] pb-24 relative overflow-hidden selection:bg-pink-200">
+      <BackgroundGlow />
+
+      <div className="max-w-3xl mx-auto px-6 pt-12 relative z-10">
+        <Link href="/dashboard" className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-pink-600 hover:bg-white px-5 py-2.5 rounded-full font-black text-sm mb-8 transition-all w-fit">
+          <span className="transition-transform group-hover:-translate-x-1">←</span> Quay lại Dashboard
+        </Link>
+
+        <div className="bg-white/80 backdrop-blur-xl border border-white rounded-[2.5rem] p-6 md:p-10 shadow-sm">
+
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-2xl md:text-3xl font-black text-stone-800 flex items-center gap-3">
+              💌 Yêu cầu đón bé
+            </h1>
+            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusStyle(inquiry.status)}`}>
+              {inquiry.status}
+            </span>
+          </div>
+
+          {/* THÔNG TIN BÉ MÈO */}
+          {cat && (
+            <Link href={catAdminLink || '#'} className="flex items-center gap-4 bg-pink-50/50 border border-pink-100 rounded-2xl p-4 mb-8 hover:bg-pink-50 transition-colors group">
+              <img
+                src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=200&auto=format&fit=crop'}
+                className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-sm"
+                alt={cat.name}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-stone-800 group-hover:text-pink-600 transition-colors">{cat.name}</p>
+                <p className="text-xs text-stone-500">{cat.breed} · {cat.price ? cat.price.toLocaleString('vi-VN') + 'đ' : 'Liên hệ'}</p>
+              </div>
+              <span className="text-pink-400 group-hover:translate-x-1 transition-transform">→</span>
+            </Link>
+          )}
+
+          {/* THÔNG TIN KHÁCH HÀNG */}
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>👤</span> Thông tin khách hàng</h3>
+            <div className="bg-stone-50 rounded-2xl p-5 border border-stone-100 flex items-center gap-4 mb-4">
+              <img
+                src={inquiry.users?.avatarurl || `https://ui-avatars.com/api/?name=${encodeURIComponent(inquiry.customer_name)}&background=fce7f3&color=db2777`}
+                className="w-12 h-12 rounded-full object-cover border border-white shadow-sm"
+                alt="avatar"
+              />
+              <div>
+                <p className="font-black text-stone-800">{inquiry.customer_name}</p>
+                <p className="text-xs text-stone-400">{inquiry.users ? 'Khách đã có tài khoản' : 'Khách vãng lai'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <a href={`tel:${inquiry.customer_phone}`} className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+                <span className="text-2xl">📞</span>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Điện thoại</p>
+                  <p className="font-bold text-stone-800">{inquiry.customer_phone}</p>
+                </div>
+              </a>
+              <a href={`https://zalo.me/${zaloTarget}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100 hover:border-sky-300 hover:bg-sky-50/30 transition-colors">
+                <span className="text-2xl">💬</span>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Zalo</p>
+                  <p className="font-bold text-stone-800">{inquiry.customer_zalo || `${inquiry.customer_phone} (trùng SĐT)`}</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          {/* LỜI NHẮN */}
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3"><span>📝</span> Lời nhắn của khách</h3>
+            <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
+              <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">
+                {inquiry.message || <span className="italic text-stone-400">Khách không để lại lời nhắn gì thêm.</span>}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-400 font-bold mt-3">Gửi lúc: {new Date(inquiry.created_at).toLocaleString('vi-VN')}</p>
+          </div>
+
+          {/* CẬP NHẬT TRẠNG THÁI */}
+          <div>
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3"><span>🔄</span> Cập nhật trạng thái</h3>
+            <div className="flex flex-wrap gap-3">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => handleUpdateStatus(opt)}
+                  disabled={isUpdating || inquiry.status === opt}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
+                    inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </div>
     </div>
   );
@@ -5552,6 +5926,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
+        // 🎯 CHỈ BOSS (type_id === 1) MỚI ĐƯỢC VÀO DASHBOARD, CÁC LOẠI TÀI KHOẢN KHÁC ĐÁ VỀ TRANG CHỦ
+        if (dbUser.type_id !== 1) {
+          router.push('/');
+          return;
+        }
+
         setAdminName(dbUser.fullname);
         setIsAuthorized(true);
       } catch (err) {
@@ -5615,8 +5995,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.path}
                 title={item.name} // Tooltip hiện chữ khi sidebar đang thu nhỏ
                 className={`flex items-center gap-4 px-3 py-3.5 rounded-2xl font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap ${isActive
-                    ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]'
-                    : 'text-stone-400 hover:bg-stone-900 hover:text-pink-100 border-l-4 border-transparent'
+                  ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]'
+                  : 'text-stone-400 hover:bg-stone-900 hover:text-pink-100 border-l-4 border-transparent'
                   }`}
               >
                 {/* Lớp ánh sáng chạy xẹt qua khi hover (Chỉ hiện khi sidebar bung ra) */}
@@ -7299,7 +7679,7 @@ const ORDER_STATUSES = ['Tất cả', 'Chờ xác nhận', 'Đã đặt hàng', 
 
 const getAvatarColor = (name: string) => {
   const colors = [
-    'bg-rose-500', 'bg-lime-500', 'bg-emerald-500', 'bg-amber-500', 
+    'bg-rose-500', 'bg-lime-500', 'bg-emerald-500', 'bg-amber-500',
     'bg-purple-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500'
   ];
   const charCode = (name || 'A').charCodeAt(0);
@@ -7309,13 +7689,13 @@ const getAvatarColor = (name: string) => {
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Các state cho bộ lọc
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilterStatus, setSelectedFilterStatus] = useState('Tất cả');
   // 🎯 State lọc theo Ngày giao hàng (Pate)
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
-  
+
   const [expandedOrderId, setExpandedOrderId] = useState<any>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any>(null);
@@ -7358,13 +7738,33 @@ export default function OrderManagementPage() {
 
   const handleUpdateStatus = async () => {
     if (!activeOrder) return;
-    
+
     const { error } = await supabase
       .from('orders')
       .update({ orderstatus: newStatus })
       .eq('orderid', activeOrder.orderid);
 
     if (!error) {
+      // 🎯 CỘNG DỒN "ĐÃ BÁN" (sales_count) CHO SẢN PHẨM KHI ĐƠN CHUYỂN SANG "ĐÃ GIAO HÀNG"
+      // Chỉ cộng khi trạng thái TRƯỚC ĐÓ chưa phải "Đã giao hàng" -> tránh cộng lặp nếu sếp lỡ lưu lại 2 lần
+      if (newStatus === 'Đã giao hàng' && activeOrder.orderstatus !== 'Đã giao hàng') {
+        await incrementSalesCount(activeOrder.items);
+      }
+
+      if (newStatus === 'Đã giao hàng' && activeOrder.orderstatus !== 'Đã giao hàng') {
+        await incrementSalesCount(activeOrder.items);
+
+        // 🔔 BÁO CHO KHÁCH BIẾT ĐƠN ĐÃ GIAO XONG, KÈM LINK QUA ĐÁNH GIÁ
+        await supabase.from('notifications').insert([{
+          user_id: activeOrder.userid,
+          title: '🎉 Đơn hàng đã giao thành công!',
+          content: `Đơn hàng #${activeOrder.orderid} đã giao thành công. Sen đánh giá sản phẩm giúp shop nhé!`,
+          type: 'order_success',
+          link: `/order-tracking/${activeOrder.orderid}#review`,
+          related_id: String(activeOrder.orderid)
+        }]);
+      }
+
       setOrders(orders.map(o => o.orderid === activeOrder.orderid ? { ...o, orderstatus: newStatus } : o));
       setIsStatusModalOpen(false);
       alert("✅ Đã cập nhật trạng thái đơn hàng!");
@@ -7373,10 +7773,32 @@ export default function OrderManagementPage() {
     }
   };
 
+  // 🎯 HÀM CỘNG "ĐÃ BÁN" CHO TỪNG SẢN PHẨM TRONG ĐƠN (chạy khi đơn giao thành công)
+  const incrementSalesCount = async (items: any[]) => {
+    if (!items || items.length === 0) return;
+
+    for (const item of items) {
+      if (!item.productid) continue;
+
+      const { data: prod, error: fetchErr } = await supabase
+        .from('products')
+        .select('sales_count')
+        .eq('id', item.productid)
+        .maybeSingle();
+
+      if (fetchErr || !prod) continue;
+
+      await supabase
+        .from('products')
+        .update({ sales_count: (prod.sales_count || 0) + Number(item.quantity || 1) })
+        .eq('id', item.productid);
+    }
+  };
+
   // 🎯 DUYỆT ĐƠN NHANH: Chờ xác nhận -> Đang vận chuyển
   const handleApproveOrder = async (order: any) => {
     if (!window.confirm(`Duyệt đơn #${order.orderid} và chuyển sang "Đang vận chuyển"?`)) return;
-    
+
     const { error } = await supabase
       .from('orders')
       .update({ orderstatus: 'Đang vận chuyển' })
@@ -7384,6 +7806,17 @@ export default function OrderManagementPage() {
 
     if (!error) {
       setOrders(orders.map(o => o.orderid === order.orderid ? { ...o, orderstatus: 'Đang vận chuyển' } : o));
+
+      // 🔔 BÁO CHO KHÁCH BIẾT ĐƠN ĐÃ ĐƯỢC DUYỆT VÀ ĐANG GIAO
+      await supabase.from('notifications').insert([{
+        user_id: order.userid,
+        title: '🚚 Đơn hàng đã được phê duyệt!',
+        content: `Đơn hàng #${order.orderid} của bạn đã được duyệt và đang trên đường tới ngay.`,
+        type: 'order_approved',
+        link: `/order-tracking/${order.orderid}`,
+        related_id: String(order.orderid)
+      }]);
+
       alert("✅ Đã duyệt đơn! Đơn hàng chuyển sang Đang vận chuyển.");
     } else {
       alert("Lỗi khi duyệt đơn: " + error.message);
@@ -7405,12 +7838,12 @@ export default function OrderManagementPage() {
 
   // 🎯 LOGIC LỌC ĐƠN HÀNG
   const filteredOrders = orders.filter(o => {
-    const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (o.customer_phone || '').includes(searchQuery) ||
-                          (o.orderid?.toString() || '').includes(searchQuery);
-    
+    const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.customer_phone || '').includes(searchQuery) ||
+      (o.orderid?.toString() || '').includes(searchQuery);
+
     const matchesStatus = selectedFilterStatus === 'Tất cả' || o.orderstatus === selectedFilterStatus;
-    
+
     // Logic lọc theo Ngày giao hàng
     let matchesDeliveryDate = true;
     if (deliveryDateFilter) {
@@ -7421,7 +7854,7 @@ export default function OrderManagementPage() {
         matchesDeliveryDate = orderDelDate.startsWith(deliveryDateFilter);
       }
     }
-    
+
     return matchesSearch && matchesStatus && matchesDeliveryDate;
   });
 
@@ -7451,12 +7884,12 @@ export default function OrderManagementPage() {
       <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-blue-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
-        
+
         {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
           <div>
-            <Link 
-              href="/dashboard/operations" 
+            <Link
+              href="/dashboard/operations"
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-blue-600 hover:bg-white hover:text-blue-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(37,99,235,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
@@ -7465,15 +7898,15 @@ export default function OrderManagementPage() {
               Đơn hàng & vận chuyển
             </h1>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
             {/* Thanh tìm kiếm Text */}
             <div className="relative flex-1 lg:w-72 group">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </span>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Tìm mã đơn, tên, SĐT..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -7483,18 +7916,18 @@ export default function OrderManagementPage() {
 
             {/* 🎯 BỘ LỌC TÌM NGÀY GIAO HÀNG */}
             <div className="relative lg:w-48 group">
-               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
-                  🗓️
-               </span>
-               <input 
-                  type="date" 
-                  value={deliveryDateFilter}
-                  onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
-               />
-               {deliveryDateFilter && (
-                  <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>
-               )}
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
+                🗓️
+              </span>
+              <input
+                type="date"
+                value={deliveryDateFilter}
+                onChange={(e) => setDeliveryDateFilter(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
+              />
+              {deliveryDateFilter && (
+                <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>
+              )}
             </div>
 
             <Link href="/dashboard/operations/orders/add" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(37,99,235,0.25)] hover:shadow-[0_8px_25px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
@@ -7509,11 +7942,10 @@ export default function OrderManagementPage() {
             <button
               key={status}
               onClick={() => setSelectedFilterStatus(status)}
-              className={`cursor-pointer px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
-                selectedFilterStatus === status 
-                  ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20' 
-                  : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
-              }`}
+              className={`cursor-pointer px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${selectedFilterStatus === status
+                ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20'
+                : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
+                }`}
             >
               {status}
             </button>
@@ -7522,31 +7954,31 @@ export default function OrderManagementPage() {
 
         {/* 🎯 BẢNG TỔNG HỢP PATE TƯƠI */}
         {(totalPateBoxes > 0 || deliveryDateFilter) && (
-           <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 to-rose-50 rounded-[2rem] border border-orange-100 shadow-[0_8px_30px_rgb(249,115,22,0.06)] flex flex-col md:flex-row items-start md:items-center gap-6 animate-fade-in">
-              <div className="w-16 h-16 bg-white border-2 border-orange-100 text-orange-500 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">🥫</div>
-              <div className="flex-1">
-                 <h3 className="text-xl font-black text-stone-800 mb-3 flex items-center gap-2">
-                    Tổng hợp Pate cần làm 
-                    {deliveryDateFilter && <span className="text-sm font-bold bg-orange-100 text-orange-700 px-3 py-1 rounded-lg">Ngày giao: {new Date(deliveryDateFilter).toLocaleDateString('vi-VN')}</span>}
-                 </h3>
-                 
-                 {totalPateBoxes === 0 ? (
-                    <p className="text-stone-500 font-bold text-sm">Không có đơn Pate nào trong khoảng thời gian này.</p>
-                 ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                       <span className="px-4 py-2 bg-orange-500 text-white font-black text-sm rounded-xl shadow-md">
-                         Tổng cộng: {totalPateBoxes} hộp
-                       </span>
-                       <span className="text-stone-300">|</span>
-                       {Object.entries(pateSummary).map(([name, qty]) => (
-                          <span key={name} className="px-4 py-2 bg-white border border-orange-200 text-orange-700 font-bold text-sm rounded-xl shadow-sm">
-                            {name}: <span className="font-black text-lg">{qty}</span>
-                          </span>
-                       ))}
-                    </div>
-                 )}
-              </div>
-           </div>
+          <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 to-rose-50 rounded-[2rem] border border-orange-100 shadow-[0_8px_30px_rgb(249,115,22,0.06)] flex flex-col md:flex-row items-start md:items-center gap-6 animate-fade-in">
+            <div className="w-16 h-16 bg-white border-2 border-orange-100 text-orange-500 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">🥫</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-stone-800 mb-3 flex items-center gap-2">
+                Tổng hợp Pate cần làm
+                {deliveryDateFilter && <span className="text-sm font-bold bg-orange-100 text-orange-700 px-3 py-1 rounded-lg">Ngày giao: {new Date(deliveryDateFilter).toLocaleDateString('vi-VN')}</span>}
+              </h3>
+
+              {totalPateBoxes === 0 ? (
+                <p className="text-stone-500 font-bold text-sm">Không có đơn Pate nào trong khoảng thời gian này.</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="px-4 py-2 bg-orange-500 text-white font-black text-sm rounded-xl shadow-md">
+                    Tổng cộng: {totalPateBoxes} hộp
+                  </span>
+                  <span className="text-stone-300">|</span>
+                  {Object.entries(pateSummary).map(([name, qty]) => (
+                    <span key={name} className="px-4 py-2 bg-white border border-orange-200 text-orange-700 font-bold text-sm rounded-xl shadow-sm">
+                      {name}: <span className="font-black text-lg">{qty}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* DANH SÁCH ĐƠN HÀNG */}
@@ -7557,16 +7989,16 @@ export default function OrderManagementPage() {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-32 bg-white/50 backdrop-blur-sm rounded-[2.5rem] border border-stone-200/50 shadow-sm">
-             <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📭</div>
-             <h3 className="text-xl font-black text-stone-700 mb-2">Chưa có đơn hàng nào</h3>
-             <p className="text-stone-500">Hãy thử thay đổi bộ lọc hoặc tạo đơn hàng mới.</p>
+            <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📭</div>
+            <h3 className="text-xl font-black text-stone-700 mb-2">Chưa có đơn hàng nào</h3>
+            <p className="text-stone-500">Hãy thử thay đổi bộ lọc hoặc tạo đơn hàng mới.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5">
             {filteredOrders.map((order) => {
               const rawDate = order.orderdate || order.created_at;
-              const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }) : '---';
-              
+              const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '---';
+
               // Lấy ngày giao hàng để hiển thị
               const rawDeliveryDate = order.delivery_date || order.deliverydate;
               const displayDeliveryDate = rawDeliveryDate ? new Date(rawDeliveryDate).toLocaleDateString('vi-VN') : null;
@@ -7583,13 +8015,12 @@ export default function OrderManagementPage() {
               const billUrl = billMatch ? billMatch[1] : null;
 
               return (
-                <div 
-                  key={order.orderid} 
-                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${
-                    isExpanded ? 'border-blue-300 shadow-[0_20px_40px_rgba(59,130,246,0.08)]' : 'border-stone-200/60 shadow-sm hover:border-blue-200 hover:shadow-md'
-                  }`}
+                <div
+                  key={order.orderid}
+                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${isExpanded ? 'border-blue-300 shadow-[0_20px_40px_rgba(59,130,246,0.08)]' : 'border-stone-200/60 shadow-sm hover:border-blue-200 hover:shadow-md'
+                    }`}
                 >
-                  <div 
+                  <div
                     onClick={() => setExpandedOrderId(isExpanded ? null : order.orderid)}
                     className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 cursor-pointer gap-4"
                   >
@@ -7601,7 +8032,7 @@ export default function OrderManagementPage() {
                       <div>
                         <div className="flex items-center gap-3 mb-1">
                           <h3 className="font-bold text-stone-800 text-lg">{order.customer_name}</h3>
-                          <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">ID: #{String(order.orderid).substring(0,6).toUpperCase()}</span>
+                          <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">ID: #{String(order.orderid).substring(0, 6).toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-stone-500">
                           <span className="font-medium">{order.customer_phone}</span>
@@ -7612,13 +8043,13 @@ export default function OrderManagementPage() {
                     </div>
 
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full md:w-auto gap-4 md:gap-8 pl-17 md:pl-0">
-                      
+
                       {/* Hiển thị ngày hẹn giao nếu có */}
                       {displayDeliveryDate && (
-                         <div className="bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-xl">
-                            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Ngày hẹn giao</p>
-                            <p className="font-bold text-orange-700 text-sm">{displayDeliveryDate}</p>
-                         </div>
+                        <div className="bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-xl">
+                          <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Ngày hẹn giao</p>
+                          <p className="font-bold text-orange-700 text-sm">{displayDeliveryDate}</p>
+                        </div>
                       )}
 
                       <div className="text-left md:text-right">
@@ -7651,8 +8082,8 @@ export default function OrderManagementPage() {
                                   </div>
                                   <div>
                                     <p className="font-bold text-stone-700">
-                                       {item.name}
-                                       {item.name?.toLowerCase().includes('pate') && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md font-black">PATE</span>}
+                                      {item.name}
+                                      {item.name?.toLowerCase().includes('pate') && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md font-black">PATE</span>}
                                     </p>
                                     <p className="text-xs text-stone-500 font-medium">SL: {item.quantity} x {item.price.toLocaleString()}đ</p>
                                   </div>
@@ -7681,9 +8112,9 @@ export default function OrderManagementPage() {
                                 📸 Ảnh biên lai khách gửi
                               </h4>
                               <a href={billUrl} target="_blank" rel="noopener noreferrer" className="block">
-                                <img 
-                                  src={billUrl} 
-                                  alt="Biên lai chuyển khoản" 
+                                <img
+                                  src={billUrl}
+                                  alt="Biên lai chuyển khoản"
                                   className="w-full max-h-64 object-contain rounded-2xl border border-stone-200 hover:opacity-80 transition-opacity cursor-pointer bg-stone-50"
                                 />
                               </a>
@@ -7700,19 +8131,19 @@ export default function OrderManagementPage() {
                                 ✅ Duyệt đơn & Chuyển vận chuyển
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={() => {
                                 setActiveOrder(order);
                                 setNewStatus(order.orderstatus || 'Đã đặt hàng');
                                 setIsStatusModalOpen(true);
-                              }} 
+                              }}
                               className="cursor-pointer col-span-2 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 border border-blue-200/50"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                               Cập nhật trạng thái
                             </button>
-                            
-                            <Link 
+
+                            <Link
                               href={`/dashboard/operations/orders/${order.orderid}/edit`}
                               className="cursor-pointer py-3.5 bg-white border border-stone-200 text-stone-700 rounded-2xl font-bold hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
                             >
@@ -7737,7 +8168,7 @@ export default function OrderManagementPage() {
         {isStatusModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
             <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md cursor-pointer" onClick={() => setIsStatusModalOpen(false)}></div>
-            
+
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">
                 <h3 className="text-2xl font-black text-stone-800 tracking-tight">Cập nhật đơn hàng</h3>
@@ -7748,14 +8179,13 @@ export default function OrderManagementPage() {
 
               <div className="space-y-3 mb-8">
                 {ORDER_STATUSES.filter(s => s !== 'Tất cả').map(status => (
-                  <label 
-                    key={status} 
+                  <label
+                    key={status}
                     onClick={() => setNewStatus(status)}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
-                      newStatus === status 
-                        ? 'border-blue-500 bg-blue-50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] transform scale-[1.02]' 
-                        : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50'
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${newStatus === status
+                      ? 'border-blue-500 bg-blue-50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] transform scale-[1.02]'
+                      : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50'
+                      }`}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${newStatus === status ? 'border-blue-500' : 'border-stone-300'}`}>
                       {newStatus === status && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>}
@@ -7766,13 +8196,13 @@ export default function OrderManagementPage() {
               </div>
 
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setIsStatusModalOpen(false)}
                   className="cursor-pointer flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
                 >
                   Đóng
                 </button>
-                <button 
+                <button
                   onClick={handleUpdateStatus}
                   className="cursor-pointer flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
                 >
@@ -7785,7 +8215,8 @@ export default function OrderManagementPage() {
 
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .custom-scrollbar::-webkit-scrollbar { height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
@@ -12326,27 +12757,37 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
 // ==========================================
 // COMPONENT 1: THẺ BÀI VIẾT (POST CARD)
 // ==========================================
-function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any, onDelete: (id: number) => void }) {
+function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
+  post: any,
+  currentUser: any,
+  onDelete: (id: number) => void,
+  isTarget?: boolean,
+  autoOpenComments?: boolean
+}) {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
-  
+
   // 🎯 THÊM STATE ĐẾM SỐ BÌNH LUẬN
   const [commentsCount, setCommentsCount] = useState(0);
-  
+
   // 🎯 STATE QUẢN LÝ XEM THÊM CHỮ
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // 🎯 MỚI: STATE QUẢN LÝ BÌNH LUẬN TRẢ LỜI & PHÂN TRANG
-  const [replyingTo, setReplyingTo] = useState<{id: number, name: string} | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: number, name: string, userId?: number } | null>(null);
   const [showAllComments, setShowAllComments] = useState(false);
   const [expandedReplyIds, setExpandedReplyIds] = useState<number[]>([]);
 
@@ -12363,11 +12804,11 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       // 2. Cập nhật lại giao diện (Xóa luôn cả bình luận con nếu đang xóa bình luận cha)
       setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId));
-      
+
       // 3. Trừ đi số đếm (Trừ đi số lượng bình luận vừa bị xóa)
       const removedCount = comments.filter(c => c.id === commentId || c.parent_id === commentId).length;
       setCommentsCount(prev => Math.max(0, prev - removedCount));
-      
+
     } catch (error) {
       alert("Lỗi khi xóa bình luận!");
     }
@@ -12384,6 +12825,29 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
     window.addEventListener('resize', checkOverflow);
     return () => window.removeEventListener('resize', checkOverflow);
   }, [post.content]);
+
+  // 🎯 DEEP-LINK TỪ THÔNG BÁO: tự cuộn tới bài, bật bình luận, highlight tạm thời
+  useEffect(() => {
+    if (!isTarget) return;
+    setIsHighlighted(true);
+    const scrollTimer = setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+    const fadeTimer = setTimeout(() => setIsHighlighted(false), 2500);
+
+    if (autoOpenComments) {
+      setShowComments(true);
+      if (comments.length === 0) {
+        supabase
+          .from('post_comments')
+          .select('*, users(cattery_name, fullname, avatarurl)')
+          .eq('post_id', post.id)
+          .order('created_at', { ascending: true })
+          .then(({ data }) => { if (data) setComments(data); });
+      }
+    }
+    return () => { clearTimeout(scrollTimer); clearTimeout(fadeTimer); };
+  }, [isTarget, autoOpenComments]);
 
   // 🎯 GOM CHUNG LẤY LIKE VÀ LẤY SỐ BÌNH LUẬN VÀO 1 CHỖ
   useEffect(() => {
@@ -12413,8 +12877,20 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
     if (newLikeState) {
       await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUser.userid });
+      if (post.user_id !== currentUser.userid) {
+        await supabase.from('notifications').insert([{
+          user_id: post.user_id,
+          title: 'Có người thích bài viết của bạn',
+          content: `${currentUser.cattery_name || currentUser.fullname || 'Một Sen'} đã thích bài viết của bạn.`,
+          type: 'post_like',
+          link: `/feed?postId=${post.id}`, // 🎯 thêm postId để deep-link
+          related_id: `${post.id}_${currentUser.userid}`, actor_id: currentUser.userid
+        }]);
+      }
     } else {
       await supabase.from('post_likes').delete().match({ post_id: post.id, user_id: currentUser.userid });
+      // 🎯 xoá thông báo đã gửi trước đó để tránh rác khi bỏ thích
+      await supabase.from('notifications').delete().match({ related_id: `${post.id}_${currentUser.userid}`, type: 'post_like' });
     }
   };
 
@@ -12433,27 +12909,39 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
   const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newComment.trim()) return;
+    const contentText = newComment.trim();
 
-    // 🎯 THÊM PARENT_ID VÀO DATA NẾU ĐANG TRẢ LỜI
-    const commentData = { 
-      post_id: post.id, 
-      user_id: currentUser.userid, 
-      content: newComment.trim(),
-      parent_id: replyingTo ? replyingTo.id : null 
-    };
-
+    const commentData = { post_id: post.id, user_id: currentUser.userid, content: contentText, parent_id: replyingTo ? replyingTo.id : null };
     const optimisticComment = {
       ...commentData, id: Date.now(),
       users: { fullname: currentUser.cattery_name || currentUser.fullname || 'Bạn', avatarurl: currentUser.avatarurl },
       created_at: new Date().toISOString()
     };
-    
+
     setComments([...comments, optimisticComment]);
+    const wasReplyingTo = replyingTo;
     setNewComment('');
-    setReplyingTo(null); // Reset lại trạng thái sau khi gửi
+    setReplyingTo(null);
 
     await supabase.from('post_comments').insert(commentData);
     setCommentsCount(prev => prev + 1);
+
+    const commenterName = currentUser.cattery_name || currentUser.fullname || 'Một Sen';
+    if (wasReplyingTo?.userId && wasReplyingTo.userId !== currentUser.userid) {
+      await supabase.from('notifications').insert([{
+        user_id: wasReplyingTo.userId, title: 'Có người trả lời bình luận của bạn',
+        content: `${commenterName} đã trả lời: "${contentText.slice(0, 80)}"`,
+        type: 'comment_reply', link: `/feed?postId=${post.id}&openComments=1`, // 🎯
+        related_id: String(post.id), actor_id: currentUser.userid
+      }]);
+    } else if (!wasReplyingTo && post.user_id !== currentUser.userid) {
+      await supabase.from('notifications').insert([{
+        user_id: post.user_id, title: 'Có bình luận mới về bài viết của bạn',
+        content: `${commenterName} đã bình luận: "${contentText.slice(0, 80)}"`,
+        type: 'post_comment', link: `/feed?postId=${post.id}&openComments=1`, // 🎯
+        related_id: String(post.id), actor_id: currentUser.userid
+      }]);
+    }
   };
 
   const handleDeletePost = async () => {
@@ -12476,15 +12964,19 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
   const hiddenCommentsCount = topLevelComments.length - 5;
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-pink-50 overflow-hidden mb-6 hover:shadow-md transition-shadow relative">
+    <div
+      ref={cardRef}
+      id={`post-${post.id}`}
+      className="bg-white rounded-3xl shadow-sm border border-pink-50 overflow-hidden mb-6 hover:shadow-md transition-shadow relative"
+    >
       <div className="flex flex-col p-5 pb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-              <img src={authorAvatar} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
-              <div>
-                <h4 className="font-bold text-stone-800">{authorName}</h4>
-                <span className="text-xs text-stone-400">{new Date(post.created_at).toLocaleDateString('vi-VN')}</span>
-              </div>
+            <img src={authorAvatar} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
+            <div>
+              <h4 className="font-bold text-stone-800">{authorName}</h4>
+              <span className="text-xs text-stone-400">{new Date(post.created_at).toLocaleDateString('vi-VN')}</span>
+            </div>
           </div>
           {isOwner && (
             <button onClick={handleDeletePost} className="w-9 h-9 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -12492,7 +12984,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
             </button>
           )}
         </div>
-        
+
         {taggedPets.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
             <span className="text-xs text-stone-400">Cùng với:</span>
@@ -12508,14 +13000,14 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       {post.content && (
         <div className="px-5 pb-3">
-          <p 
+          <p
             ref={textRef}
             className={`text-sm text-stone-700 whitespace-pre-wrap break-words transition-all duration-300 ${!isExpanded ? 'line-clamp-1' : ''}`}
           >
             {post.content}
           </p>
           {isOverflowing && (
-            <button 
+            <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-stone-400 font-medium text-[13px] mt-1 hover:text-stone-600 transition-colors"
             >
@@ -12524,17 +13016,17 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
           )}
         </div>
       )}
-      
+
       {post.image_url && (
         <div className="relative w-full border-y border-stone-100 bg-stone-900 flex items-center justify-center max-h-[75vh] overflow-hidden">
-          <div 
+          <div
             className="absolute inset-0 w-full h-full bg-cover bg-center blur-2xl opacity-50 scale-110"
             style={{ backgroundImage: `url(${post.image_url})` }}
           ></div>
-          <img 
-            src={post.image_url} 
-            alt="Post" 
-            className="relative z-10 w-full h-auto max-h-[75vh] object-contain drop-shadow-2xl" 
+          <img
+            src={post.image_url}
+            alt="Post"
+            className="relative z-10 w-full h-auto max-h-[75vh] object-contain drop-shadow-2xl"
           />
         </div>
       )}
@@ -12557,12 +13049,12 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       {showComments && (
         <div className="p-5 bg-stone-50/50">
-          
+
           {/* NÚT XEM THÊM NẾU > 5 BÌNH LUẬN GỐC */}
           {!showAllComments && hiddenCommentsCount > 0 && (
-             <button onClick={() => setShowAllComments(true)} className="text-[13px] font-bold text-stone-400 hover:text-stone-600 mb-4 inline-block">
-               Xem thêm {hiddenCommentsCount} bình luận...
-             </button>
+            <button onClick={() => setShowAllComments(true)} className="text-[13px] font-bold text-stone-400 hover:text-stone-600 mb-4 inline-block">
+              Xem thêm {hiddenCommentsCount} bình luận...
+            </button>
           )}
 
           <div className="space-y-5 mb-4 max-h-80 overflow-y-auto custom-scrollbar">
@@ -12578,7 +13070,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
               return (
                 <div key={cmt.id} className="flex flex-col gap-2">
-                  
+
                   {/* BÌNH LUẬN CHA */}
                   <div className="flex gap-3">
                     <img src={cmt.users?.avatarurl || 'https://ui-avatars.com/api/?name=U&background=f3f4f6'} className="w-8 h-8 rounded-full border border-stone-200 shrink-0" alt="avt" />
@@ -12588,17 +13080,17 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                         <p className="text-sm text-stone-600">{cmt.content}</p>
                       </div>
                       <div className="flex items-center gap-3 mt-1.5 ml-2">
-                        <span className="text-[10px] font-medium text-stone-400">{new Date(cmt.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
-                        <button 
-                          onClick={() => setReplyingTo({id: cmt.id, name: commenterName})} 
+                        <span className="text-[10px] font-medium text-stone-400">{new Date(cmt.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <button
+                          onClick={() => setReplyingTo({ id: cmt.id, name: commenterName, userId: cmt.user_id })}
                           className="text-[11px] font-bold text-stone-500 hover:text-pink-500"
                         >
                           Trả lời
                         </button>
-                        
+
                         {/* 🌟 NÚT XÓA BÌNH LUẬN CHA (Chỉ hiện nếu đúng là chủ cmt) */}
                         {currentUser && currentUser.userid === cmt.user_id && (
-                          <button 
+                          <button
                             onClick={() => handleDeleteComment(cmt.id)}
                             className="text-[11px] font-bold text-stone-400 hover:text-rose-500"
                           >
@@ -12612,7 +13104,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                   {/* DANH SÁCH BÌNH LUẬN CON (THỤT VÀO TRONG) */}
                   {replies.length > 0 && (
                     <div className="pl-11 space-y-3 mt-1">
-                      
+
                       {/* Dùng displayedReplies thay vì replies */}
                       {displayedReplies.map(reply => (
                         <div key={reply.id} className="flex gap-2 items-start">
@@ -12623,7 +13115,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                               <p className="text-[13px] text-stone-600">{reply.content}</p>
                             </div>
                             <span className="text-[10px] font-medium text-stone-400 mt-1 ml-2 block">
-                              {new Date(reply.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                              {new Date(reply.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </div>
@@ -12631,7 +13123,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
                       {/* 🌟 NÚT XEM THÊM BÌNH LUẬN CON (NẰM NGAY DƯỚI BÌNH LUẬN THỨ 3) */}
                       {!isReplyExpanded && hiddenRepliesCount > 0 && (
-                        <button 
+                        <button
                           onClick={() => setExpandedReplyIds(prev => [...prev, cmt.id])}
                           className="text-[11px] font-bold text-stone-400 hover:text-stone-600 flex items-center gap-1.5 mt-2 ml-1"
                         >
@@ -12659,12 +13151,12 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
               )}
               <form onSubmit={handleSendComment} className={`flex items-center gap-3 bg-white p-2 border border-stone-200 shadow-sm ${replyingTo ? 'rounded-b-2xl' : 'rounded-full'}`}>
                 {!replyingTo && <img src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} className="w-8 h-8 rounded-full border border-pink-100" alt="me" />}
-                <input 
-                  type="text" 
-                  value={newComment} 
-                  onChange={(e) => setNewComment(e.target.value)} 
-                  placeholder={replyingTo ? `Viết câu trả lời...` : "Khen Boss một câu đi Sen..."} 
-                  className="flex-1 bg-transparent border-none px-2 py-1 text-sm focus:outline-none focus:ring-0 placeholder:text-stone-400" 
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={replyingTo ? `Viết câu trả lời...` : "Khen Boss một câu đi Sen..."}
+                  className="flex-1 bg-transparent border-none px-2 py-1 text-sm focus:outline-none focus:ring-0 placeholder:text-stone-400"
                 />
                 <button type="submit" disabled={!newComment.trim()} className="w-9 h-9 flex items-center justify-center text-white bg-pink-500 disabled:bg-stone-300 rounded-full transition-colors shrink-0">
                   <svg className="w-4 h-4 ml-[-2px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
@@ -12682,12 +13174,16 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 // ==========================================
 // COMPONENT CHÍNH: TRANG FEED VÀ ĐĂNG BÀI
 // ==========================================
-export default function CommunityFeedPage() {
+function FeedContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const targetPostId = searchParams.get('postId') ? Number(searchParams.get('postId')) : null;
+  const shouldOpenComments = searchParams.get('openComments') === '1';
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [myPets, setMyPets] = useState<any[]>([]); // 🎯 MỚI: Chứa danh sách mèo của người dùng
   const [selectedPets, setSelectedPets] = useState<number[]>([]); // 🎯 MỚI: Mèo được chọn để tag
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCaption, setNewCaption] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -12698,13 +13194,13 @@ export default function CommunityFeedPage() {
     const initData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       let userId = null;
-      
+
       if (session) {
         const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).single();
         if (dbUser) {
           setCurrentUser(dbUser);
           userId = dbUser.userid;
-          
+
           // Lấy danh sách mèo của user
           const { data: petsData } = await supabase.from('pets').select('*').eq('ownerid', userId);
           if (petsData) setMyPets(petsData);
@@ -12720,7 +13216,7 @@ export default function CommunityFeedPage() {
           post_pets(pets(petid, petname, imageurl))
         `)
         .order('created_at', { ascending: false });
-      
+
       if (data) setPosts(data);
     };
     initData();
@@ -12739,7 +13235,7 @@ export default function CommunityFeedPage() {
   };
 
   const togglePetSelection = (petId: number) => {
-    setSelectedPets(prev => 
+    setSelectedPets(prev =>
       prev.includes(petId) ? prev.filter(id => id !== petId) : [...prev, petId]
     );
   };
@@ -12773,10 +13269,10 @@ export default function CommunityFeedPage() {
     }
 
     const postData = { user_id: currentUser.userid, content: newCaption.trim(), image_url: uploadedImageUrl };
-    
+
     // 1. Tạo bài viết
     const { data: newPost, error: postError } = await supabase.from('posts').insert(postData).select('*, users(cattery_name, fullname, avatarurl)').single();
-    
+
     if (postError) {
       alert("Lỗi lưu bài viết: " + postError.message);
       setIsPosting(false);
@@ -12788,7 +13284,7 @@ export default function CommunityFeedPage() {
     if (selectedPets.length > 0) {
       const petTags = selectedPets.map(petId => ({ post_id: newPost.id, pet_id: petId }));
       await supabase.from('post_pets').insert(petTags);
-      
+
       // Xây dựng cục data ảo để nối vào bài viết vừa tạo cho nó hiện lên ngay lập tức
       attachedPets = selectedPets.map(id => {
         const petObj = myPets.find(p => p.petid === id);
@@ -12798,14 +13294,21 @@ export default function CommunityFeedPage() {
 
     // Gắn mảng tag ảo vào bài viết để render
     const completePost = { ...newPost, post_pets: attachedPets };
-    setPosts([completePost, ...posts]); 
-    handleCloseModal(); 
+    setPosts([completePost, ...posts]);
+    handleCloseModal();
     setIsPosting(false);
   };
 
   const handleRemovePostFromUI = (deletedPostId: number) => {
     setPosts(posts.filter(post => post.id !== deletedPostId));
   };
+
+  useEffect(() => {
+    if (targetPostId && posts.some(p => p.id === targetPostId)) {
+      const timer = setTimeout(() => router.replace('/feed', { scroll: false }), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [targetPostId, posts, router]);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] pt-24 pb-20">
@@ -12831,7 +13334,7 @@ export default function CommunityFeedPage() {
               </button>
             </>
           ) : (
-             <div className="w-full flex items-center justify-between px-4 py-2">
+            <div className="w-full flex items-center justify-between px-4 py-2">
               <span className="text-stone-500 text-sm font-medium">Đăng nhập để khoe Boss nhé!</span>
               <Link href="/login" className="px-5 py-1.5 bg-pink-500 text-white text-sm font-bold rounded-full hover:bg-pink-600 transition-colors">Đăng Nhập</Link>
             </div>
@@ -12855,7 +13358,7 @@ export default function CommunityFeedPage() {
                   <span className="font-bold text-stone-800">{currentUser.cattery_name || currentUser.fullname}</span>
                 </div>
 
-                <textarea 
+                <textarea
                   value={newCaption} onChange={(e) => setNewCaption(e.target.value)}
                   placeholder="Chia sẻ đôi điều về bức ảnh này..."
                   className="w-full bg-transparent border-none focus:ring-0 resize-none text-lg placeholder:text-stone-400 mb-4 px-2"
@@ -12869,12 +13372,12 @@ export default function CommunityFeedPage() {
                   </div>
                 ) : (
                   <div className="mb-4">
-                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-pink-100 border-dashed rounded-2xl cursor-pointer bg-pink-50/30 hover:bg-pink-50 transition-colors">
-                        <div className="flex flex-col items-center justify-center text-pink-400">
-                           <span className="text-2xl font-bold mb-1">+</span><span className="text-sm font-bold">Thêm ảnh Boss</span>
-                        </div>
-                        <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                     </label>
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-pink-100 border-dashed rounded-2xl cursor-pointer bg-pink-50/30 hover:bg-pink-50 transition-colors">
+                      <div className="flex flex-col items-center justify-center text-pink-400">
+                        <span className="text-2xl font-bold mb-1">+</span><span className="text-sm font-bold">Thêm ảnh Boss</span>
+                      </div>
+                      <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                    </label>
                   </div>
                 )}
 
@@ -12911,10 +13414,27 @@ export default function CommunityFeedPage() {
 
         {/* FEED BÀI VIẾT */}
         <div className="space-y-6">
-          {posts.map((post) => <PostCard key={post.id} post={post} currentUser={currentUser} onDelete={handleRemovePostFromUI} />)}
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              onDelete={handleRemovePostFromUI}
+              isTarget={targetPostId === post.id}
+              autoOpenComments={shouldOpenComments && targetPostId === post.id}
+            />
+          ))}
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CommunityFeedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>}>
+      <FeedContent />
+    </Suspense>
   );
 }
 </file>
@@ -13399,15 +13919,61 @@ export default function OrderTrackingPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [orderData, setOrderData] = useState<any>(null);
+  const [dbUserId, setDbUserId] = useState<number | null>(null);
+  const [myReviews, setMyReviews] = useState<Record<number, boolean>>({});
+  const [ratingDrafts, setRatingDrafts] = useState<Record<number, number>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchOrder = async () => {
-      const { data } = await supabase.from('orders').select('*, orderdetails(products(name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
+      const { data } = await supabase.from('orders').select('*, orderdetails(products(id, name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
       if (data) setOrderData(data);
       setIsLoading(false);
     };
     if (orderId) fetchOrder();
   }, [orderId]);
+
+  useEffect(() => {
+    const fetchDbUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).maybeSingle();
+      if (dbUser) setDbUserId(dbUser.userid);
+    };
+    fetchDbUser();
+  }, []);
+
+  useEffect(() => {
+    if (!dbUserId || !orderData || orderData.orderstatus !== 'Đã giao hàng') return;
+    const checkReviewed = async () => {
+      const { data } = await supabase.from('product_reviews').select('product_id').eq('order_id', orderId).eq('user_id', dbUserId);
+      const map: Record<number, boolean> = {};
+      (data || []).forEach((r: any) => { map[r.product_id] = true; });
+      setMyReviews(map);
+    };
+    checkReviewed();
+  }, [dbUserId, orderData, orderId]);
+
+  // tự cuộn xuống phần đánh giá khi bấm từ thông báo (?#review)
+  useEffect(() => {
+    if (!isLoading && orderData && window.location.hash === '#review') {
+      setTimeout(() => document.getElementById('review')?.scrollIntoView({ behavior: 'smooth' }), 300);
+    }
+  }, [isLoading, orderData]);
+
+  const handleSubmitReview = async (productId: number) => {
+    if (!dbUserId) return;
+    setSubmittingId(productId);
+    const { error } = await supabase.from('product_reviews').insert({
+      product_id: productId, order_id: Number(orderId), user_id: dbUserId,
+      rating: ratingDrafts[productId] || 5, comment: (commentDrafts[productId] || '').trim()
+    });
+    setSubmittingId(null);
+    if (error) return alert('Lỗi khi gửi đánh giá: ' + error.message);
+    alert('✅ Cảm ơn Sen đã đánh giá!');
+    setMyReviews(prev => ({ ...prev, [productId]: true }));
+  };
 
   if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
   if (!orderData) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><h1 className="text-2xl font-black">Không tìm thấy đơn hàng</h1></div>;
@@ -13420,7 +13986,7 @@ export default function OrderTrackingPage() {
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
       <Header />
       <main className="pt-32 pb-20 container mx-auto px-4 max-w-4xl relative z-10">
-        
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-black text-stone-800 tracking-tight">Theo dõi đơn hàng</h1>
@@ -13433,9 +13999,9 @@ export default function OrderTrackingPage() {
         <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8 md:p-12 mb-8">
           <div className="relative flex justify-between items-center max-w-2xl mx-auto">
             <div className="absolute top-1/2 left-0 w-full h-1.5 bg-stone-100 -translate-y-1/2 z-0 rounded-full"></div>
-            
+
             {/* Thanh màu chạy (Progress Bar) */}
-            <div 
+            <div
               className="absolute top-1/2 left-0 h-1.5 bg-pink-500 -translate-y-1/2 z-0 rounded-full transition-all duration-1000"
               style={{ width: `${(Math.max(0, currentStep) / (statusFlow.length - 1)) * 100}%` }}
             ></div>
@@ -13486,11 +14052,11 @@ export default function OrderTrackingPage() {
               <p><span className="text-stone-400 font-bold w-20 inline-block">Điện thoại:</span> <span className="font-black">{orderData.customer_phone}</span></p>
               <p><span className="text-stone-400 font-bold w-20 inline-block">Địa chỉ:</span> <span className="font-bold">{orderData.address}</span></p>
               <p className="pt-3 mt-3 border-t border-stone-200">
-                <span className="text-stone-400 font-bold w-20 inline-block">Thanh toán:</span> 
+                <span className="text-stone-400 font-bold w-20 inline-block">Thanh toán:</span>
                 <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{orderData.paymentmethod.split('|')[0]}</span>
               </p>
             </div>
-            
+
             {orderData.orderstatus === 'Chờ thanh toán' && orderData.paymentmethod !== 'COD' && (
               <div className="mt-6">
                 <Link href={`/checkout/success?orderid=${orderId}`} className="w-full block text-center bg-pink-500 text-white font-black py-4 rounded-xl shadow-md hover:bg-pink-600 transition-colors">
@@ -13501,6 +14067,52 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
+        {orderData.orderstatus === 'Đã giao hàng' && (
+          <div id="review" className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8 mt-8">
+            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-6">⭐ Đánh giá sản phẩm đã nhận</h3>
+            <div className="space-y-6">
+              {orderData.orderdetails?.map((item: any, idx: number) => {
+                const pid = item.products?.id;
+                if (!pid) return null;
+                return (
+                  <div key={idx} className="flex flex-col md:flex-row gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                    <img src={item.products?.imageurl || item.products?.images?.[0] || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded-xl object-cover shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-stone-700 mb-2">{item.products?.name}</p>
+                      {myReviews[pid] ? (
+                        <p className="text-xs font-bold text-emerald-500">✅ Sen đã đánh giá sản phẩm này rồi. Cảm ơn Sen!</p>
+                      ) : (
+                        <>
+                          <div className="flex gap-1 mb-2">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button key={star} onClick={() => setRatingDrafts(prev => ({ ...prev, [pid]: star }))} className="text-xl">
+                                {star <= (ratingDrafts[pid] || 5) ? '⭐' : '☆'}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={commentDrafts[pid] || ''}
+                            onChange={(e) => setCommentDrafts(prev => ({ ...prev, [pid]: e.target.value }))}
+                            placeholder="Sen thấy sản phẩm thế nào?"
+                            className="w-full text-xs p-3 rounded-xl border border-stone-200 mb-2 resize-none"
+                            rows={2}
+                          />
+                          <button
+                            onClick={() => handleSubmitReview(pid)}
+                            disabled={submittingId === pid}
+                            className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-black disabled:opacity-50"
+                          >
+                            {submittingId === pid ? 'Đang gửi...' : 'Gửi đánh giá'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
       <Footer />
     </div>
@@ -14179,15 +14791,21 @@ import Link from 'next/link';
 export default function ProductDetailPage() {
   const { id } = useParams();
   const router = useRouter();
-  
+
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
-  
+
   // 🌟 KHAI BÁO STATE QUẢN LÝ USER VÀ TRẠNG THÁI ADD CART
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [isAdding, setIsAdding] = useState(false);
+  const [dbUserId, setDbUserId] = useState<number | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [eligibleOrderId, setEligibleOrderId] = useState<number | null>(null);
+  const [myRating, setMyRating] = useState(5);
+  const [myComment, setMyComment] = useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   useEffect(() => {
     // 1. LẤY THÔNG TIN USER ĐỂ BIẾT AI ĐANG THÊM VÀO GIỎ
@@ -14221,6 +14839,56 @@ export default function ProductDetailPage() {
     if (id) fetchProduct();
   }, [id]);
 
+  // Lấy userid dạng số (int) để dùng cho bảng reviews
+  useEffect(() => {
+    const fetchDbUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).maybeSingle();
+      if (dbUser) setDbUserId(dbUser.userid);
+    };
+    fetchDbUser();
+  }, []);
+
+  // Lấy danh sách đánh giá + kiểm tra khách có được đánh giá không (đã mua & đã giao & chưa review)
+  useEffect(() => {
+    if (!id) return;
+    const fetchReviews = async () => {
+      const { data } = await supabase
+        .from('product_reviews')
+        .select('*, users(fullname)')
+        .eq('product_id', id)
+        .order('created_at', { ascending: false });
+      if (data) setReviews(data);
+    };
+    fetchReviews();
+  }, [id]);
+
+  useEffect(() => {
+    if (!dbUserId || !id) return;
+    const checkEligibility = async () => {
+      const { data: purchases } = await supabase
+        .from('orderdetails')
+        .select('orderid, orders!inner(orderid, userid, orderstatus)')
+        .eq('productid', id)
+        .eq('orders.userid', dbUserId)
+        .eq('orders.orderstatus', 'Đã giao hàng');
+
+      if (!purchases || purchases.length === 0) return;
+
+      const { data: myReviews } = await supabase
+        .from('product_reviews')
+        .select('order_id')
+        .eq('product_id', id)
+        .eq('user_id', dbUserId);
+
+      const reviewedIds = (myReviews || []).map(r => r.order_id);
+      const unreviewed = purchases.find((p: any) => !reviewedIds.includes(p.orderid));
+      if (unreviewed) setEligibleOrderId(unreviewed.orderid);
+    };
+    checkEligibility();
+  }, [dbUserId, id]);
+
   // 🌟 HÀM XỬ LÝ THÊM VÀO GIỎ HÀNG CHUẨN (ĐÃ FIX LỖI TÌM KIẾM)
   const handleAddToCart = async () => {
     try {
@@ -14245,7 +14913,7 @@ export default function ProductDetailPage() {
 
       // 3. 🎯 LUẬT THÉP: Kiểm tra sản phẩm đã có trong giỏ chưa bằng .maybeSingle()
       const currentVariant = 'Mặc định';
-      
+
       const { data: existingItem, error: checkError } = await supabase
         .from('cart_items')
         .select('*')
@@ -14262,7 +14930,7 @@ export default function ProductDetailPage() {
           .from('cart_items')
           .update({ quantity: existingItem.quantity + quantity }) // Thay quantity bằng state số lượng của sếp
           .eq('id', existingItem.id);
-          
+
         if (updateError) throw updateError;
       } else {
         // Chưa có -> Thêm dòng mới
@@ -14274,7 +14942,7 @@ export default function ProductDetailPage() {
             variant: currentVariant,
             quantity: quantity // Thay quantity bằng state số lượng của sếp
           }]);
-          
+
         if (insertError) throw insertError;
       }
 
@@ -14288,6 +14956,25 @@ export default function ProductDetailPage() {
     }
   };
 
+  const handleSubmitReview = async () => {
+    if (!eligibleOrderId || !dbUserId) return;
+    setIsSubmittingReview(true);
+    const { error } = await supabase.from('product_reviews').insert({
+      product_id: id, order_id: eligibleOrderId, user_id: dbUserId,
+      rating: myRating, comment: myComment.trim()
+    });
+    setIsSubmittingReview(false);
+    if (error) return alert("Lỗi khi gửi đánh giá: " + error.message);
+
+    alert("✅ Cảm ơn Sen đã đánh giá!");
+    setEligibleOrderId(null); setMyComment(''); setMyRating(5);
+
+    const { data } = await supabase.from('product_reviews').select('*, users(fullname)').eq('product_id', id).order('created_at', { ascending: false });
+    if (data) setReviews(data);
+    const { data: updated } = await supabase.from('products').select('rating, reviews_count').eq('id', id).maybeSingle();
+    if (updated) setProduct((prev: any) => ({ ...prev, ...updated }));
+  };
+
   if (isLoading) return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFFBFD]">
       <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
@@ -14297,8 +14984,8 @@ export default function ProductDetailPage() {
 
   if (!product) return <div className="min-h-screen flex items-center justify-center font-bold">Không tìm thấy sản phẩm sếp ơi! 😿</div>;
 
-  const finalPrice = product.discount_percent > 0 
-    ? product.price * (1 - product.discount_percent / 100) 
+  const finalPrice = product.discount_percent > 0
+    ? product.price * (1 - product.discount_percent / 100)
     : product.price;
 
   // 🌟 FIX LỖI ẢNH: Ưu tiên cột imageurl, nếu trống thì tìm ở cột images, cuối cùng mới dùng ảnh mặc định
@@ -14309,7 +14996,7 @@ export default function ProductDetailPage() {
       <Header />
 
       <main className="pt-32 pb-24 container mx-auto px-4 lg:px-12 relative z-10">
-        
+
         <nav className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-stone-400 mb-8">
           <Link href="/" className="hover:text-orange-500 transition-colors">Trang chủ</Link>
           <span>/</span>
@@ -14319,12 +15006,12 @@ export default function ProductDetailPage() {
         </nav>
 
         <div className="flex flex-col lg:flex-row gap-12 lg:items-start">
-          
+
           {/* CỘT TRÁI: HÌNH ẢNH */}
-          <div className="lg:w-1/2 sticky top-32">
+          <div className="lg:w-1/2 lg:sticky lg:top-32">
             <div className="relative aspect-square rounded-[3.5rem] bg-white border border-orange-50 shadow-[0_30px_70px_-20px_rgba(249,115,22,0.15)] overflow-hidden group flex items-center justify-center">
-              <img 
-                src={displayImageUrl} 
+              <img
+                src={displayImageUrl}
                 alt={product.name}
                 className="w-full h-full object-contain p-12 group-hover:scale-105 transition-transform duration-700"
                 onError={(e) => {
@@ -14348,7 +15035,7 @@ export default function ProductDetailPage() {
               <h1 className="text-4xl md:text-5xl font-black text-stone-800 leading-tight mb-4">
                 {product.name}
               </h1>
-              
+
               <div className="flex items-center gap-6 text-sm">
                 <div className="flex items-center gap-1 text-amber-400">
                   {[...Array(5)].map((_, i) => (
@@ -14363,37 +15050,37 @@ export default function ProductDetailPage() {
 
             {/* GIÁ CẢ */}
             <div className="bg-white/60 backdrop-blur-md p-8 rounded-[2.5rem] border border-orange-50 shadow-sm flex items-center justify-between">
-               <div>
-                  <p className="text-4xl font-black text-orange-500">
-                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}
+              <div>
+                <p className="text-4xl font-black text-orange-500">
+                  {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}
+                </p>
+                {product.discount_percent > 0 && (
+                  <p className="text-lg text-stone-400 line-through font-bold mt-1">
+                    {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
                   </p>
-                  {product.discount_percent > 0 && (
-                    <p className="text-lg text-stone-400 line-through font-bold mt-1">
-                       {new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(product.price)}
-                    </p>
-                  )}
-               </div>
-               <div className={`px-4 py-2 rounded-xl text-xs font-black uppercase ${product.stock > 0 ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
-                  {product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Hết hàng'}
-               </div>
+                )}
+              </div>
+              <div className={`px-4 py-2 rounded-xl text-xs font-black uppercase ${product.stock > 0 ? 'bg-emerald-50 text-emerald-500' : 'bg-rose-50 text-rose-500'}`}>
+                {product.stock > 0 ? `Còn ${product.stock} sản phẩm` : 'Hết hàng'}
+              </div>
             </div>
 
             {/* CHỌN SỐ LƯỢNG & MUA */}
             <div className="flex flex-col sm:flex-row gap-4 pt-4">
               <div className="flex items-center bg-white border border-stone-200 rounded-2xl p-1 shadow-sm">
-                <button 
+                <button
                   onClick={() => setQuantity(Math.max(1, quantity - 1))}
                   className="w-12 h-12 flex items-center justify-center text-xl font-bold hover:bg-stone-50 rounded-xl transition-all"
                 >
                   −
                 </button>
-                <input 
-                  type="number" 
-                  value={quantity} 
+                <input
+                  type="number"
+                  value={quantity}
                   onChange={(e) => setQuantity(parseInt(e.target.value) || 1)}
                   className="w-16 text-center font-black text-lg focus:outline-none bg-transparent"
                 />
-                <button 
+                <button
                   onClick={() => setQuantity(quantity + 1)}
                   className="w-12 h-12 flex items-center justify-center text-xl font-bold hover:bg-stone-50 rounded-xl transition-all"
                 >
@@ -14401,14 +15088,13 @@ export default function ProductDetailPage() {
                 </button>
               </div>
 
-              <button 
+              <button
                 onClick={handleAddToCart}
                 disabled={isAdding || product.stock === 0}
-                className={`flex-1 font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${
-                  product.stock === 0 
-                    ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
-                    : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-orange-200 active:scale-95'
-                }`}
+                className={`flex-1 font-black py-4 rounded-2xl shadow-xl flex items-center justify-center gap-3 transition-all ${product.stock === 0
+                  ? 'bg-stone-200 text-stone-400 cursor-not-allowed'
+                  : 'bg-stone-900 text-white hover:bg-orange-500 hover:shadow-orange-200 active:scale-95'
+                  }`}
               >
                 {isAdding ? (
                   <span className="animate-spin text-2xl">⚙️</span>
@@ -14465,6 +15151,55 @@ export default function ProductDetailPage() {
           </div>
         </div>
 
+        {/* 🌟 ĐÁNH GIÁ TỪ KHÁCH HÀNG */}
+        <div className="mt-16 bg-white rounded-[2.5rem] border border-orange-50 shadow-sm p-8 md:p-10">
+          <div className="flex items-center justify-between flex-wrap gap-4 mb-8">
+            <h2 className="text-2xl font-black text-stone-800">Đánh giá từ khách hàng</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-3xl font-black text-amber-500">{(product.rating || 0).toFixed(1)}</span>
+              <div className="flex flex-col">
+                <div className="flex items-center gap-0.5 text-amber-400">
+                  {[1, 2, 3, 4, 5].map(s => <span key={s}>{s <= Math.round(product.rating || 0) ? '★' : '☆'}</span>)}
+                </div>
+                <span className="text-xs text-stone-400 font-bold">{product.reviews_count || 0} đánh giá</span>
+              </div>
+            </div>
+          </div>
+
+          {eligibleOrderId && (
+            <div className="bg-orange-50/50 border border-orange-100 rounded-[2rem] p-6 mb-8">
+              <h3 className="font-bold text-stone-800 mb-4">Sen đã nhận hàng — để lại đánh giá nhé!</h3>
+              <div className="flex items-center gap-1 mb-4">
+                {[1, 2, 3, 4, 5].map(s => (
+                  <svg key={s} onClick={() => setMyRating(s)} className={`w-7 h-7 cursor-pointer ${s <= myRating ? 'text-amber-400 fill-amber-400' : 'text-stone-300 fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
+                  </svg>
+                ))}
+              </div>
+              <textarea value={myComment} onChange={(e) => setMyComment(e.target.value)} rows={3} placeholder="Sản phẩm dùng thế nào Sen ơi..." className="w-full bg-white border border-stone-200 rounded-2xl px-5 py-4 text-sm font-medium outline-none focus:border-orange-300 mb-4 resize-none" />
+              <button onClick={handleSubmitReview} disabled={isSubmittingReview} className="bg-orange-500 hover:bg-orange-600 text-white font-bold px-6 py-3 rounded-2xl transition-all disabled:opacity-60">
+                {isSubmittingReview ? 'Đang gửi...' : 'Gửi đánh giá'}
+              </button>
+            </div>
+          )}
+
+          <div className="space-y-6">
+            {reviews.length === 0 ? (
+              <p className="text-stone-400 font-medium text-center py-8">Chưa có đánh giá nào cho sản phẩm này.</p>
+            ) : reviews.map((r) => (
+              <div key={r.id} className="border-b border-stone-100 pb-6 last:border-0">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-stone-700">{r.users?.fullname || 'Khách hàng'}</span>
+                  <span className="text-xs text-stone-400">{new Date(r.created_at).toLocaleDateString('vi-VN')}</span>
+                </div>
+                <div className="flex items-center gap-0.5 text-amber-400 mb-2">
+                  {[1, 2, 3, 4, 5].map(s => <span key={s}>{s <= r.rating ? '★' : '☆'}</span>)}
+                </div>
+                {r.comment && <p className="text-stone-600 text-sm leading-relaxed">{r.comment}</p>}
+              </div>
+            ))}
+          </div>
+        </div>
       </main>
       <Footer />
     </div>
@@ -14486,6 +15221,7 @@ export default function PetshopPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>('Tất cả');
   const [sortOption, setSortOption] = useState<string>('popular');
+  const [filterMinRating, setFilterMinRating] = useState<number>(0);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -14496,7 +15232,7 @@ export default function PetshopPage() {
           .select('*')
           // Tạm thời em lấy TẤT CẢ sản phẩm để sếp test (Bỏ lọc 'Sẵn sàng')
           // Nếu sếp muốn chỉ lấy hàng Sẵn sàng thì thêm lại: .eq('status', 'Sẵn sàng')
-          .order('created_at', { ascending: false }); 
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         if (data && Array.isArray(data)) {
@@ -14523,7 +15259,9 @@ export default function PetshopPage() {
   let filteredProducts = safeProducts.filter(product => {
     if (!product) return false;
     const catStr = product.category ? String(product.category).trim() : 'Khác';
-    return filterCategory === 'Tất cả' || catStr === filterCategory;
+    const matchesCategory = filterCategory === 'Tất cả' || catStr === filterCategory;
+    const matchesRating = filterMinRating === 0 || Number(product.rating || 0) >= filterMinRating;
+    return matchesCategory && matchesRating;
   });
 
   // 🌟 FIX LỖI SẬP WEB 3: Hàm tính giá an toàn, không bao giờ bị lỗi tính toán (NaN)
@@ -14548,7 +15286,7 @@ export default function PetshopPage() {
       <Header />
 
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10">
-        
+
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b border-pink-100 pb-6">
           <div>
             <div className="flex items-center gap-3 mb-4">
@@ -14563,7 +15301,7 @@ export default function PetshopPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           <div className="lg:w-1/4">
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 sticky top-32">
               <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-stone-800">
@@ -14574,33 +15312,58 @@ export default function PetshopPage() {
                 {categories.map(category => {
                   // Ép về string để so sánh an toàn
                   const catStr = String(category);
-                  const icon = (catStr.includes('Thức ăn') || catStr.includes('Pate')) ? '🥫' : 
-                               catStr.includes('Đồ chơi') ? '🧶' : 
-                               (catStr.includes('Chăm sóc') || catStr.includes('Cát')) ? '🛁' : 
-                               catStr === 'Tất cả' ? '📦' : '🎀';
+                  const icon = (catStr.includes('Thức ăn') || catStr.includes('Pate')) ? '🥫' :
+                    catStr.includes('Đồ chơi') ? '🧶' :
+                      (catStr.includes('Chăm sóc') || catStr.includes('Cát')) ? '🛁' :
+                        catStr === 'Tất cả' ? '📦' : '🎀';
 
                   return (
-                    <button 
+                    <button
                       key={catStr}
                       onClick={() => setFilterCategory(catStr)}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                        filterCategory === catStr 
-                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200' 
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterCategory === catStr
+                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200'
                           : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
-                      }`}
+                        }`}
                     >
                       <span className="flex items-center gap-2">
                         {icon} {catStr}
                       </span>
-                      
+
                       <span className="bg-white px-2 py-0.5 rounded-md text-xs text-stone-400 shadow-sm border border-stone-100">
-                        {catStr === 'Tất cả' 
-                          ? safeProducts.length 
+                        {catStr === 'Tất cả'
+                          ? safeProducts.length
                           : safeProducts.filter(p => String(p?.category).trim() === catStr).length}
                       </span>
                     </button>
                   );
                 })}
+                <div className="mt-8">
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-stone-800">
+                    <span>⭐</span> Đánh Giá
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {[0, 4, 3, 2].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setFilterMinRating(star)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterMinRating === star
+                            ? 'bg-amber-50 text-amber-600 font-bold border border-amber-200'
+                            : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
+                          }`}
+                      >
+                        {star === 0 ? <span>Tất cả</span> : (
+                          <>
+                            <span className="flex items-center gap-0.5 text-amber-400">
+                              {[1, 2, 3, 4, 5].map(s => <span key={s}>{s <= star ? '★' : '☆'}</span>)}
+                            </span>
+                            <span>trở lên</span>
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-8 bg-gradient-to-br from-pink-400 to-rose-400 rounded-2xl p-5 text-white shadow-md relative overflow-hidden group cursor-pointer">
@@ -14614,9 +15377,9 @@ export default function PetshopPage() {
           </div>
 
           <div className="lg:w-3/4">
-            
+
             <div className="flex justify-end mb-4">
-              <select 
+              <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
                 className="bg-white border border-stone-200 px-4 py-2 rounded-xl text-sm font-bold text-stone-600 focus:outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100 shadow-sm cursor-pointer transition-all"
@@ -14645,10 +15408,11 @@ export default function PetshopPage() {
                 <span className="text-5xl mb-4 grayscale opacity-40">📦</span>
                 <h3 className="text-xl font-bold text-stone-700 mb-2">Chưa có hàng!</h3>
                 <p className="text-stone-500">Danh mục này hiện chưa có sản phẩm. Bạn vui lòng xem món khác nhé.</p>
-                <button 
+                <button
                   onClick={() => {
                     setFilterCategory('Tất cả');
                     setSortOption('popular');
+                    setFilterMinRating(0);
                   }}
                   className="mt-6 bg-orange-50 text-orange-500 px-6 py-3 rounded-full font-bold hover:bg-orange-100 transition-colors"
                 >
@@ -16493,6 +17257,235 @@ export default function ProfilePage() {
 }
 </file>
 
+<file path="app/quan-ly/inquiries/[id]/page.tsx">
+"use client";
+
+import React, { useState, useEffect } from 'react';
+import { useParams, useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+
+const STATUS_OPTIONS = ['Mới', 'Đã liên hệ', 'Đã chốt', 'Hủy'];
+
+const getStatusStyle = (status: string) => {
+  switch (status) {
+    case 'Mới': return 'bg-sky-50 text-sky-600 border-sky-200 animate-pulse';
+    case 'Đã liên hệ': return 'bg-amber-50 text-amber-600 border-amber-200';
+    case 'Đã chốt': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
+    case 'Hủy': return 'bg-stone-100 text-stone-400 border-stone-200';
+    default: return 'bg-stone-100 text-stone-400 border-stone-200';
+  }
+};
+
+// 🎯 TRANG NÀY DÀNH CHO STAFF (type_id=2) VÀ BREEDER (type_id=3), NẰM NGOÀI /dashboard
+// Boss vẫn dùng trang cũ /dashboard/cats/inquiries/[id]
+export default function StaffBreederInquiryDetailPage() {
+  const params = useParams();
+  const router = useRouter();
+  const inquiryId = params.id;
+
+  const [inquiry, setInquiry] = useState<any>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
+
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+  // 'staff' | 'breeder' | null -> null nghĩa là không có quyền
+  const [accessLevel, setAccessLevel] = useState<'staff' | 'breeder' | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+
+  useEffect(() => {
+    const checkAccessAndLoad = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { router.push('/login'); return; }
+
+      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
+
+      // 🎯 CHỈ STAFF (2) VÀ BREEDER (3) MỚI ĐƯỢC VÀO. BOSS/KHÁCH THƯỜNG -> CHẶN.
+      if (!dbUser || (dbUser.type_id !== 2 && dbUser.type_id !== 3)) {
+        setAccessDenied(true);
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      const { data: inquiryData } = await supabase
+        .from('cat_inquiries')
+        .select('*, cats(id, name, images, breed, price, breeder_id), users(fullname, avatarurl, email)')
+        .eq('id', inquiryId)
+        .maybeSingle();
+
+      if (!inquiryData) {
+        setIsCheckingAuth(false);
+        setIsLoading(false);
+        return;
+      }
+
+      // 🎯 BREEDER CHỈ ĐƯỢC XEM YÊU CẦU CỦA MÈO THUỘC CHÍNH TRẠI MÌNH
+      if (dbUser.type_id === 3 && inquiryData.cats?.breeder_id !== dbUser.userid) {
+        setAccessDenied(true);
+        setIsCheckingAuth(false);
+        return;
+      }
+
+      setAccessLevel(dbUser.type_id === 2 ? 'staff' : 'breeder');
+      setInquiry(inquiryData);
+      setIsCheckingAuth(false);
+      setIsLoading(false);
+    };
+
+    if (inquiryId) checkAccessAndLoad();
+  }, [inquiryId, router]);
+
+  const handleUpdateStatus = async (newStatus: string) => {
+    setIsUpdating(true);
+    const { error } = await supabase.from('cat_inquiries').update({ status: newStatus }).eq('id', inquiryId);
+    if (!error) setInquiry((prev: any) => ({ ...prev, status: newStatus }));
+    setIsUpdating(false);
+  };
+
+  if (isCheckingAuth) {
+    return (
+      <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
+        Đang xác thực quyền truy cập...
+      </div>
+    );
+  }
+
+  if (accessDenied) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
+        <span className="text-6xl mb-4">🔒</span>
+        <h2 className="text-2xl font-black text-stone-700">Bạn không có quyền truy cập trang này.</h2>
+        <p className="text-sm text-stone-400 mt-2">Chỉ Nhân viên hoặc Trại đối tác liên quan mới được xem yêu cầu này.</p>
+        <Link href="/" className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-full font-bold hover:bg-pink-600 transition-colors">Về trang chủ</Link>
+      </div>
+    );
+  }
+
+  if (isLoading) return (
+    <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
+      Đang tải yêu cầu...
+    </div>
+  );
+
+  if (!inquiry) return (
+    <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
+      <span className="text-6xl mb-4">😿</span>
+      <h2 className="text-2xl font-black">Không tìm thấy yêu cầu này.</h2>
+      <Link href="/" className="mt-6 px-6 py-3 bg-pink-500 text-white rounded-full font-bold hover:bg-pink-600 transition-colors">Về trang chủ</Link>
+    </div>
+  );
+
+  const cat = inquiry.cats;
+  // 🎯 Trang này ngoài dashboard nên trỏ ra trang public của mèo, không trỏ vào /dashboard/cats/... (staff/breeder không vào được dashboard)
+  const catPublicLink = cat ? `/cattery/${cat.id}` : null;
+  const zaloTarget = inquiry.customer_zalo || inquiry.customer_phone;
+
+  return (
+    <div className="min-h-screen bg-[#F8F9FA] pb-24 relative overflow-hidden selection:bg-pink-200">
+      <BackgroundGlow />
+
+      <div className="max-w-3xl mx-auto px-6 pt-12 relative z-10">
+        <Link href="/" className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-pink-600 hover:bg-white px-5 py-2.5 rounded-full font-black text-sm mb-8 transition-all w-fit">
+          <span className="transition-transform group-hover:-translate-x-1">←</span> Quay lại trang chủ
+        </Link>
+
+        <div className="bg-white/80 backdrop-blur-xl border border-white rounded-[2.5rem] p-6 md:p-10 shadow-sm">
+
+          <div className="flex items-center justify-between mb-8">
+            <h1 className="text-2xl md:text-3xl font-black text-stone-800 flex items-center gap-3">
+              💌 Yêu cầu đón bé
+            </h1>
+            <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border ${getStatusStyle(inquiry.status)}`}>
+              {inquiry.status}
+            </span>
+          </div>
+
+          {/* THÔNG TIN BÉ MÈO */}
+          {cat && (
+            <Link href={catPublicLink || '#'} className="flex items-center gap-4 bg-pink-50/50 border border-pink-100 rounded-2xl p-4 mb-8 hover:bg-pink-50 transition-colors group">
+              <img
+                src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=200&auto=format&fit=crop'}
+                className="w-16 h-16 rounded-xl object-cover border-2 border-white shadow-sm"
+                alt={cat.name}
+              />
+              <div className="flex-1 min-w-0">
+                <p className="font-black text-stone-800 group-hover:text-pink-600 transition-colors">{cat.name}</p>
+                <p className="text-xs text-stone-500">{cat.breed} · {cat.price ? cat.price.toLocaleString('vi-VN') + 'đ' : 'Liên hệ'}</p>
+              </div>
+              <span className="text-pink-400 group-hover:translate-x-1 transition-transform">→</span>
+            </Link>
+          )}
+
+          {/* THÔNG TIN KHÁCH HÀNG */}
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>👤</span> Thông tin khách hàng</h3>
+            <div className="bg-stone-50 rounded-2xl p-5 border border-stone-100 flex items-center gap-4 mb-4">
+              <img
+                src={inquiry.users?.avatarurl || `https://ui-avatars.com/api/?name=${encodeURIComponent(inquiry.customer_name)}&background=fce7f3&color=db2777`}
+                className="w-12 h-12 rounded-full object-cover border border-white shadow-sm"
+                alt="avatar"
+              />
+              <div>
+                <p className="font-black text-stone-800">{inquiry.customer_name}</p>
+                <p className="text-xs text-stone-400">{inquiry.users ? 'Khách đã có tài khoản' : 'Khách vãng lai'}</p>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <a href={`tel:${inquiry.customer_phone}`} className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100 hover:border-emerald-300 hover:bg-emerald-50/30 transition-colors">
+                <span className="text-2xl">📞</span>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Điện thoại</p>
+                  <p className="font-bold text-stone-800">{inquiry.customer_phone}</p>
+                </div>
+              </a>
+              <a href={`https://zalo.me/${zaloTarget}`} target="_blank" rel="noreferrer" className="flex items-center gap-3 bg-white p-4 rounded-2xl border border-stone-100 hover:border-sky-300 hover:bg-sky-50/30 transition-colors">
+                <span className="text-2xl">💬</span>
+                <div>
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Zalo</p>
+                  <p className="font-bold text-stone-800">{inquiry.customer_zalo || `${inquiry.customer_phone} (trùng SĐT)`}</p>
+                </div>
+              </a>
+            </div>
+          </div>
+
+          {/* LỜI NHẮN */}
+          <div className="mb-8">
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3"><span>📝</span> Lời nhắn của khách</h3>
+            <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
+              <p className="text-sm text-stone-700 leading-relaxed whitespace-pre-line">
+                {inquiry.message || <span className="italic text-stone-400">Khách không để lại lời nhắn gì thêm.</span>}
+              </p>
+            </div>
+            <p className="text-[11px] text-stone-400 font-bold mt-3">Gửi lúc: {new Date(inquiry.created_at).toLocaleString('vi-VN')}</p>
+          </div>
+
+          {/* CẬP NHẬT TRẠNG THÁI */}
+          <div>
+            <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3"><span>🔄</span> Cập nhật trạng thái</h3>
+            <div className="flex flex-wrap gap-3">
+              {STATUS_OPTIONS.map(opt => (
+                <button
+                  key={opt}
+                  onClick={() => handleUpdateStatus(opt)}
+                  disabled={isUpdating || inquiry.status === opt}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
+                    inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+</file>
+
 <file path="app/register/complete-profile/page.tsx">
 'use client'
 
@@ -16879,11 +17872,6 @@ export default function ProductCard({ product }: { product: any }) {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // State cho phần Rating
-  const [currentRating, setCurrentRating] = useState(product.rating || 5);
-  const [reviewsCount, setReviewsCount] = useState(product.reviews_count || 0);
-  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
-
   // 🌟 STATE CHO QUICK ADD MODAL
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -16999,20 +17987,6 @@ export default function ProductCard({ product }: { product: any }) {
     }
   };
 
-  const handleRate = async (e: React.MouseEvent, starValue: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!currentUserId) return alert("Vui lòng đăng nhập để đánh giá!");
-    const newReviewsCount = reviewsCount + 1;
-    const newRating = ((currentRating * reviewsCount) + starValue) / newReviewsCount;
-    const roundedRating = Math.round(newRating * 10) / 10;
-    setCurrentRating(roundedRating);
-    setReviewsCount(newReviewsCount);
-    try {
-      await supabase.from('products').update({ rating: roundedRating, reviews_count: newReviewsCount }).eq('id', product.id);
-    } catch (error) {}
-  };
-
   const imageUrl = product.imageurl || (product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/400x400/ffedd5/ea580c?text=Beam+Petshop');
   const rawPrice = product.price || 0;
   const discount = product.discount_percent || 0;
@@ -17055,13 +18029,13 @@ export default function ProductCard({ product }: { product: any }) {
           </div>
           
           <div className="flex items-center justify-between text-xs mt-1 mb-4">
-            <div className="flex items-center gap-1 group/rating relative">
+            <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
-                <svg key={star} onClick={(e) => handleRate(e, star)} onMouseEnter={() => setHoveredStar(star)} onMouseLeave={() => setHoveredStar(null)} className={`w-4 h-4 cursor-pointer transition-colors duration-200 ${(hoveredStar ? star <= hoveredStar : star <= Math.round(currentRating)) ? 'text-amber-400 fill-amber-400' : 'text-stone-300 fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg key={star} className={`w-4 h-4 ${star <= Math.round(product.rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-stone-300 fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               ))}
-              <span className="text-stone-400 ml-1 font-bold">({reviewsCount})</span>
+              <span className="text-stone-400 ml-1 font-bold">({product.reviews_count || 0})</span>
             </div>
             <div className="text-stone-500 font-medium">Đã bán: <span className="text-stone-700 font-bold">{product.sales_count || 0}</span></div>
           </div>
@@ -18362,19 +19336,23 @@ export default function GlobalLoading() {
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { usePathname } from 'next/navigation';
-import { supabase } from '@/lib/supabase'; 
+import { usePathname, useRouter } from 'next/navigation';
+import { supabase } from '@/lib/supabase';
 
 export default function Header() {
   const pathname = usePathname();
-  
-  const [isLoadingAuth, setIsLoadingAuth] = useState(true); 
-  const [isLoggedIn, setIsLoggedIn] = useState(false);       
-  const [isAdmin, setIsAdmin] = useState(false); 
-  const [cartItemCount, setCartItemCount] = useState(0);       
+  const router = useRouter();
+
+  const [isLoadingAuth, setIsLoadingAuth] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [cartItemCount, setCartItemCount] = useState(0);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [isNotifOpen, setIsNotifOpen] = useState(false);
+
   // 🌟 LƯU LẠI USER ID ĐỂ DÙNG CHO VIỆC ĐẾM GIỎ HÀNG
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
@@ -18389,6 +19367,19 @@ export default function Header() {
       .select('*', { count: 'exact', head: true })
       .eq('user_id', userId);
     setCartItemCount(count || 0);
+  };
+
+  const fetchNotifications = async (userId: string) => {
+    const { data } = await supabase
+      .from('notifications')
+      .select('*')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(20);
+    if (data) {
+      setNotifications(data);
+      setUnreadCount(data.filter((n: any) => !n.is_read).length);
+    }
   };
 
   useEffect(() => {
@@ -18424,8 +19415,9 @@ export default function Header() {
           if (!isStaffOrBoss) {
             fetchCartCount(dbUser.userid); // Gọi hàm đếm giỏ hàng
           } else {
-            setCartItemCount(0); 
+            setCartItemCount(0);
           }
+          fetchNotifications(dbUser.userid);
 
           let finalUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture;
           if (finalUrl) {
@@ -18437,9 +19429,9 @@ export default function Header() {
             } else if (finalUrl.includes('googleusercontent.com')) {
               finalUrl = finalUrl.replace('s96-c', 's400-c');
             }
-            
+
             if (typeof finalUrl === 'string' && finalUrl.trim() !== '') {
-               setAvatarUrl(finalUrl);
+              setAvatarUrl(finalUrl);
             }
           }
         }
@@ -18462,6 +19454,9 @@ export default function Header() {
         setIsAdmin(false);
         setIsLoadingAuth(false);
         setCurrentUserId(null);
+        setNotifications([]);
+        setUnreadCount(0);
+        setIsNotifOpen(false);
       }
     });
 
@@ -18484,6 +19479,32 @@ export default function Header() {
     return () => window.removeEventListener('update_cart', handleCartUpdate);
   }, [currentUserId]);
 
+  // 🔔 REALTIME: lắng nghe thông báo mới đến ngay lập tức
+  useEffect(() => {
+    if (!currentUserId) return;
+    const channel = supabase
+      .channel(`notifications-${currentUserId}`)
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` }, (payload) => {
+        setNotifications(prev => [payload.new, ...prev].slice(0, 20));
+        setUnreadCount(prev => prev + 1);
+      })
+      .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'notifications', filter: `user_id=eq.${currentUserId}` }, (payload) => {
+        setNotifications(prev => prev.filter(n => n.id !== payload.old.id));
+      })
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [currentUserId]);
+
+  const handleClickNotification = async (notif: any) => {
+    if (!notif.is_read) {
+      await supabase.from('notifications').update({ is_read: true }).eq('id', notif.id);
+      setNotifications(prev => prev.map(n => n.id === notif.id ? { ...n, is_read: true } : n));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+    }
+    setIsNotifOpen(false);
+    if (notif.link) router.push(notif.link);
+  };
+
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
   const wrapperSize = isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
   const spinRingSize = isShopPage ? 'w-16 h-16 md:w-20 md:h-20' : 'w-20 h-20 md:w-28 md:h-28';
@@ -18494,8 +19515,9 @@ export default function Header() {
   return (
     <>
       <header className="fixed top-0 w-full z-40 bg-white/70 backdrop-blur-md border-b border-pink-50">
-        
-        <style dangerouslySetInnerHTML={{__html: `
+
+        <style dangerouslySetInnerHTML={{
+          __html: `
           @keyframes run-front { 0% { transform: rotate(30deg); } 100% { transform: rotate(-40deg); } }
           @keyframes run-back { 0% { transform: rotate(-40deg); } 100% { transform: rotate(30deg); } }
           @keyframes tail-wag { 0% { transform: rotate(10deg); } 100% { transform: rotate(-20deg); } }
@@ -18508,8 +19530,8 @@ export default function Header() {
         `}} />
 
         <div className="container mx-auto px-4 h-20 flex items-center justify-between relative">
-          
-          <button 
+
+          <button
             onClick={() => setIsMobileMenuOpen(true)}
             className="md:hidden z-20 w-10 h-10 flex items-center justify-center text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
           >
@@ -18524,28 +19546,28 @@ export default function Header() {
 
           <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2 z-10">
             <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
-               <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
-                 <div className="absolute -top-4 md:-top-5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-10 md:h-10 text-pink-400 drop-shadow-sm">
-                   <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
-                     <g className="cat-body-group">
-                        <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round"/>
-                        <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round"/>
-                        <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
-                        <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round"/>
-                        <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{animationDelay: '0.1s', opacity: 0.6}}/>
-                        <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
-                        <circle cx="75" cy="35" r="14" className="stroke-none" />
-                        <polygon points="68,25 65,10 78,25" className="stroke-none" />
-                        <polygon points="82,25 85,10 72,25" className="stroke-none" />
-                     </g>
-                   </svg>
-                 </div>
-                 <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[8px] md:text-[10px] opacity-60">🐾</div>
-                 <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[8px] md:text-[10px] opacity-30">🐾</div>
-               </div>
-               <div className={`absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 transition-all duration-300 ${logoSize}`}>
-                 <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
-               </div>
+              <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
+                <div className="absolute -top-4 md:-top-5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-10 md:h-10 text-pink-400 drop-shadow-sm">
+                  <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
+                    <g className="cat-body-group">
+                      <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round" />
+                      <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round" />
+                      <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
+                      <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round" />
+                      <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
+                      <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
+                      <circle cx="75" cy="35" r="14" className="stroke-none" />
+                      <polygon points="68,25 65,10 78,25" className="stroke-none" />
+                      <polygon points="82,25 85,10 72,25" className="stroke-none" />
+                    </g>
+                  </svg>
+                </div>
+                <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[8px] md:text-[10px] opacity-60">🐾</div>
+                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[8px] md:text-[10px] opacity-30">🐾</div>
+              </div>
+              <div className={`absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 transition-all duration-300 ${logoSize}`}>
+                <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
+              </div>
             </div>
             {isShopPage && (
               <span className="font-serif italic font-bold text-[10px] md:text-sm text-pink-500 md:-mt-1 whitespace-nowrap bg-white/50 px-2 rounded-full">
@@ -18563,7 +19585,48 @@ export default function Header() {
                 <span>⚙️</span> Quản lý
               </Link>
             )}
-            
+
+            {isLoggedIn && !isLoadingAuth && (
+              <div className="relative">
+                <button onClick={() => setIsNotifOpen(p => !p)} className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
+                  <span className="text-xl md:text-2xl">🔔</span>
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-1.5 min-w-[18px] md:min-w-[20px] h-4 md:h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {isNotifOpen && (
+                  <>
+                    <div className="fixed inset-0 z-30" onClick={() => setIsNotifOpen(false)}></div>
+                    <div className="absolute right-0 mt-3 w-80 max-h-[28rem] overflow-y-auto bg-white rounded-[1.5rem] shadow-2xl border border-stone-100 z-40 custom-scrollbar">
+                      <div className="p-4 border-b border-stone-100 font-black text-stone-700 text-sm sticky top-0 bg-white rounded-t-[1.5rem]">Thông báo</div>
+                      {notifications.length === 0 ? (
+                        <p className="p-6 text-center text-xs text-stone-400 font-bold">Chưa có thông báo nào 🐾</p>
+                      ) : notifications.map((notif) => (
+                        <button
+                          key={notif.id}
+                          onClick={() => handleClickNotification(notif)}
+                          className={`w-full text-left px-4 py-3 border-b border-stone-50 hover:bg-pink-50/50 transition-colors flex gap-3 items-start ${!notif.is_read ? 'bg-pink-50/30' : ''}`}
+                        >
+                          <span className="text-lg shrink-0 mt-0.5">
+                            {notif.type === 'order_success' ? '📦' : notif.type === 'order_approved' ? '🚚' : notif.type === 'cat_inquiry' ? '💌' :  notif.type === 'post_like' ? '❤️' : (notif.type === 'post_comment' || notif.type === 'comment_reply') ? '💬' : '🔔'}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-black text-stone-800 line-clamp-1">{notif.title}</p>
+                            <p className="text-[11px] text-stone-500 line-clamp-2 mt-0.5">{notif.content}</p>
+                            <p className="text-[9px] text-stone-300 font-bold mt-1">{new Date(notif.created_at).toLocaleString('vi-VN')}</p>
+                          </div>
+                          {!notif.is_read && <span className="w-2 h-2 rounded-full bg-rose-500 shrink-0 mt-1.5"></span>}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
+
             {isLoggedIn && !isAdmin && !isLoadingAuth && (
               <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
                 <span className="text-xl md:text-2xl">🛒</span>
@@ -18579,14 +19642,14 @@ export default function Header() {
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-stone-200 animate-pulse border-2 border-white shadow-sm"></div>
             ) : isLoggedIn ? (
               <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
-                 <img 
-                    src={safeAvatarUrl} 
-                    alt="Avatar" 
-                    className="w-full h-full object-cover" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
-                    }}
-                 />
+                <img
+                  src={safeAvatarUrl}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+                  }}
+                />
               </Link>
             ) : (
               <Link href="/login" className="text-xs md:text-sm font-bold text-pink-500 hover:text-pink-600 transition-colors">
@@ -18600,9 +19663,9 @@ export default function Header() {
       {/* OVERLAY MENU ĐIỆN THOẠI */}
       <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
         <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}></div>
-        
+
         <div className={`absolute top-0 left-0 w-[85%] max-w-[360px] h-[100dvh] bg-white shadow-2xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col rounded-r-[2rem] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-          
+
           <div className="flex items-center justify-between p-6 border-b border-pink-50 bg-pink-50/20">
             <div className="flex flex-col">
               <span className="font-serif italic font-black text-2xl text-pink-500">KinVie</span>
@@ -18621,16 +19684,16 @@ export default function Header() {
               { name: 'Cộng Đồng Sen', href: '/feed', icon: '🌟' },
               { name: 'Blog Kiến Thức', href: '/blog', icon: '📖' }
             ].map((item) => (
-              <Link 
-                key={item.name} 
-                href={item.href} 
+              <Link
+                key={item.name}
+                href={item.href}
                 className={`flex items-center gap-4 p-4 rounded-2xl transition-all border ${pathname === item.href ? 'bg-pink-500 border-pink-500 text-white shadow-lg shadow-pink-200' : 'bg-white border-stone-100 hover:border-pink-200 text-stone-700 shadow-sm'}`}
               >
                 <span className="text-2xl">{item.icon}</span>
                 <span className="font-black text-[17px]">{item.name}</span>
               </Link>
             ))}
-            
+
             {isLoggedIn && isAdmin && !isLoadingAuth && (
               <Link href="/dashboard" className="flex items-center gap-4 p-4 rounded-2xl bg-stone-900 border-stone-900 text-white shadow-lg shadow-stone-300 mt-2">
                 <span className="text-2xl">⚙️</span>
@@ -18642,18 +19705,18 @@ export default function Header() {
           {/* AVATAR TRONG MENU MOBILE */}
           <div className="p-6 border-t border-pink-100 bg-white shrink-0 shadow-[0_-10px_20px_rgba(0,0,0,0.02)]">
             {isLoadingAuth ? (
-               <div className="flex items-center justify-center py-4">
-                 <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
-               </div>
+              <div className="flex items-center justify-center py-4">
+                <div className="w-6 h-6 border-2 border-pink-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
             ) : isLoggedIn ? (
               <div className="flex items-center gap-4">
-                <img 
-                    src={safeAvatarUrl} 
-                    className="w-12 h-12 rounded-full border-2 border-pink-200 object-cover shadow-sm" 
-                    alt="user" 
-                    onError={(e) => {
-                      (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
-                    }}
+                <img
+                  src={safeAvatarUrl}
+                  className="w-12 h-12 rounded-full border-2 border-pink-200 object-cover shadow-sm"
+                  alt="user"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+                  }}
                 />
                 <div className="flex flex-col">
                   <span className="font-bold text-stone-800 text-sm">Chào Boss!</span>

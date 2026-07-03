@@ -11,6 +11,7 @@ export default function PetshopPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [filterCategory, setFilterCategory] = useState<string>('Tất cả');
   const [sortOption, setSortOption] = useState<string>('popular');
+  const [filterMinRating, setFilterMinRating] = useState<number>(0);
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -21,7 +22,7 @@ export default function PetshopPage() {
           .select('*')
           // Tạm thời em lấy TẤT CẢ sản phẩm để sếp test (Bỏ lọc 'Sẵn sàng')
           // Nếu sếp muốn chỉ lấy hàng Sẵn sàng thì thêm lại: .eq('status', 'Sẵn sàng')
-          .order('created_at', { ascending: false }); 
+          .order('created_at', { ascending: false });
 
         if (error) throw error;
         if (data && Array.isArray(data)) {
@@ -48,7 +49,9 @@ export default function PetshopPage() {
   let filteredProducts = safeProducts.filter(product => {
     if (!product) return false;
     const catStr = product.category ? String(product.category).trim() : 'Khác';
-    return filterCategory === 'Tất cả' || catStr === filterCategory;
+    const matchesCategory = filterCategory === 'Tất cả' || catStr === filterCategory;
+    const matchesRating = filterMinRating === 0 || Number(product.rating || 0) >= filterMinRating;
+    return matchesCategory && matchesRating;
   });
 
   // 🌟 FIX LỖI SẬP WEB 3: Hàm tính giá an toàn, không bao giờ bị lỗi tính toán (NaN)
@@ -73,7 +76,7 @@ export default function PetshopPage() {
       <Header />
 
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10">
-        
+
         <div className="mb-8 flex flex-col md:flex-row md:items-end justify-between border-b border-pink-100 pb-6">
           <div>
             <div className="flex items-center gap-3 mb-4">
@@ -88,7 +91,7 @@ export default function PetshopPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           <div className="lg:w-1/4">
             <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-100 sticky top-32">
               <h3 className="font-bold text-lg mb-6 flex items-center gap-2 text-stone-800">
@@ -99,33 +102,58 @@ export default function PetshopPage() {
                 {categories.map(category => {
                   // Ép về string để so sánh an toàn
                   const catStr = String(category);
-                  const icon = (catStr.includes('Thức ăn') || catStr.includes('Pate')) ? '🥫' : 
-                               catStr.includes('Đồ chơi') ? '🧶' : 
-                               (catStr.includes('Chăm sóc') || catStr.includes('Cát')) ? '🛁' : 
-                               catStr === 'Tất cả' ? '📦' : '🎀';
+                  const icon = (catStr.includes('Thức ăn') || catStr.includes('Pate')) ? '🥫' :
+                    catStr.includes('Đồ chơi') ? '🧶' :
+                      (catStr.includes('Chăm sóc') || catStr.includes('Cát')) ? '🛁' :
+                        catStr === 'Tất cả' ? '📦' : '🎀';
 
                   return (
-                    <button 
+                    <button
                       key={catStr}
                       onClick={() => setFilterCategory(catStr)}
-                      className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                        filterCategory === catStr 
-                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200' 
+                      className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterCategory === catStr
+                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200'
                           : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
-                      }`}
+                        }`}
                     >
                       <span className="flex items-center gap-2">
                         {icon} {catStr}
                       </span>
-                      
+
                       <span className="bg-white px-2 py-0.5 rounded-md text-xs text-stone-400 shadow-sm border border-stone-100">
-                        {catStr === 'Tất cả' 
-                          ? safeProducts.length 
+                        {catStr === 'Tất cả'
+                          ? safeProducts.length
                           : safeProducts.filter(p => String(p?.category).trim() === catStr).length}
                       </span>
                     </button>
                   );
                 })}
+                <div className="mt-8">
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-stone-800">
+                    <span>⭐</span> Đánh Giá
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {[0, 4, 3, 2].map((star) => (
+                      <button
+                        key={star}
+                        onClick={() => setFilterMinRating(star)}
+                        className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterMinRating === star
+                            ? 'bg-amber-50 text-amber-600 font-bold border border-amber-200'
+                            : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
+                          }`}
+                      >
+                        {star === 0 ? <span>Tất cả</span> : (
+                          <>
+                            <span className="flex items-center gap-0.5 text-amber-400">
+                              {[1, 2, 3, 4, 5].map(s => <span key={s}>{s <= star ? '★' : '☆'}</span>)}
+                            </span>
+                            <span>trở lên</span>
+                          </>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               </div>
 
               <div className="mt-8 bg-gradient-to-br from-pink-400 to-rose-400 rounded-2xl p-5 text-white shadow-md relative overflow-hidden group cursor-pointer">
@@ -139,9 +167,9 @@ export default function PetshopPage() {
           </div>
 
           <div className="lg:w-3/4">
-            
+
             <div className="flex justify-end mb-4">
-              <select 
+              <select
                 value={sortOption}
                 onChange={(e) => setSortOption(e.target.value)}
                 className="bg-white border border-stone-200 px-4 py-2 rounded-xl text-sm font-bold text-stone-600 focus:outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100 shadow-sm cursor-pointer transition-all"
@@ -170,10 +198,11 @@ export default function PetshopPage() {
                 <span className="text-5xl mb-4 grayscale opacity-40">📦</span>
                 <h3 className="text-xl font-bold text-stone-700 mb-2">Chưa có hàng!</h3>
                 <p className="text-stone-500">Danh mục này hiện chưa có sản phẩm. Bạn vui lòng xem món khác nhé.</p>
-                <button 
+                <button
                   onClick={() => {
                     setFilterCategory('Tất cả');
                     setSortOption('popular');
+                    setFilterMinRating(0);
                   }}
                   className="mt-6 bg-orange-50 text-orange-500 px-6 py-3 rounded-full font-bold hover:bg-orange-100 transition-colors"
                 >

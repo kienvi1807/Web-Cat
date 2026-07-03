@@ -9,11 +9,6 @@ export default function ProductCard({ product }: { product: any }) {
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   
-  // State cho phần Rating
-  const [currentRating, setCurrentRating] = useState(product.rating || 5);
-  const [reviewsCount, setReviewsCount] = useState(product.reviews_count || 0);
-  const [hoveredStar, setHoveredStar] = useState<number | null>(null);
-
   // 🌟 STATE CHO QUICK ADD MODAL
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -129,20 +124,6 @@ export default function ProductCard({ product }: { product: any }) {
     }
   };
 
-  const handleRate = async (e: React.MouseEvent, starValue: number) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (!currentUserId) return alert("Vui lòng đăng nhập để đánh giá!");
-    const newReviewsCount = reviewsCount + 1;
-    const newRating = ((currentRating * reviewsCount) + starValue) / newReviewsCount;
-    const roundedRating = Math.round(newRating * 10) / 10;
-    setCurrentRating(roundedRating);
-    setReviewsCount(newReviewsCount);
-    try {
-      await supabase.from('products').update({ rating: roundedRating, reviews_count: newReviewsCount }).eq('id', product.id);
-    } catch (error) {}
-  };
-
   const imageUrl = product.imageurl || (product.images && product.images.length > 0 ? product.images[0] : 'https://placehold.co/400x400/ffedd5/ea580c?text=Beam+Petshop');
   const rawPrice = product.price || 0;
   const discount = product.discount_percent || 0;
@@ -185,13 +166,13 @@ export default function ProductCard({ product }: { product: any }) {
           </div>
           
           <div className="flex items-center justify-between text-xs mt-1 mb-4">
-            <div className="flex items-center gap-1 group/rating relative">
+            <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
-                <svg key={star} onClick={(e) => handleRate(e, star)} onMouseEnter={() => setHoveredStar(star)} onMouseLeave={() => setHoveredStar(null)} className={`w-4 h-4 cursor-pointer transition-colors duration-200 ${(hoveredStar ? star <= hoveredStar : star <= Math.round(currentRating)) ? 'text-amber-400 fill-amber-400' : 'text-stone-300 fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
+                <svg key={star} className={`w-4 h-4 ${star <= Math.round(product.rating || 0) ? 'text-amber-400 fill-amber-400' : 'text-stone-300 fill-transparent'}`} viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2">
                   <path strokeLinecap="round" strokeLinejoin="round" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z" />
                 </svg>
               ))}
-              <span className="text-stone-400 ml-1 font-bold">({reviewsCount})</span>
+              <span className="text-stone-400 ml-1 font-bold">({product.reviews_count || 0})</span>
             </div>
             <div className="text-stone-500 font-medium">Đã bán: <span className="text-stone-700 font-bold">{product.sales_count || 0}</span></div>
           </div>

@@ -4,27 +4,37 @@ import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
+import { Suspense } from 'react';
 
 // ==========================================
 // COMPONENT 1: THẺ BÀI VIẾT (POST CARD)
 // ==========================================
-function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any, onDelete: (id: number) => void }) {
+function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
+  post: any,
+  currentUser: any,
+  onDelete: (id: number) => void,
+  isTarget?: boolean,
+  autoOpenComments?: boolean
+}) {
   const [isLiked, setIsLiked] = useState(false);
   const [likesCount, setLikesCount] = useState(0);
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState<any[]>([]);
   const [newComment, setNewComment] = useState('');
-  
+
   // 🎯 THÊM STATE ĐẾM SỐ BÌNH LUẬN
   const [commentsCount, setCommentsCount] = useState(0);
-  
+
   // 🎯 STATE QUẢN LÝ XEM THÊM CHỮ
   const [isExpanded, setIsExpanded] = useState(false);
   const [isOverflowing, setIsOverflowing] = useState(false);
   const textRef = useRef<HTMLParagraphElement>(null);
+  const [isHighlighted, setIsHighlighted] = useState(false);
+  const cardRef = useRef<HTMLDivElement>(null);
 
   // 🎯 MỚI: STATE QUẢN LÝ BÌNH LUẬN TRẢ LỜI & PHÂN TRANG
-  const [replyingTo, setReplyingTo] = useState<{id: number, name: string} | null>(null);
+  const [replyingTo, setReplyingTo] = useState<{ id: number, name: string, userId?: number } | null>(null);
   const [showAllComments, setShowAllComments] = useState(false);
   const [expandedReplyIds, setExpandedReplyIds] = useState<number[]>([]);
 
@@ -41,11 +51,11 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       // 2. Cập nhật lại giao diện (Xóa luôn cả bình luận con nếu đang xóa bình luận cha)
       setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId));
-      
+
       // 3. Trừ đi số đếm (Trừ đi số lượng bình luận vừa bị xóa)
       const removedCount = comments.filter(c => c.id === commentId || c.parent_id === commentId).length;
       setCommentsCount(prev => Math.max(0, prev - removedCount));
-      
+
     } catch (error) {
       alert("Lỗi khi xóa bình luận!");
     }
@@ -62,6 +72,29 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
     window.addEventListener('resize', checkOverflow);
     return () => window.removeEventListener('resize', checkOverflow);
   }, [post.content]);
+
+  // 🎯 DEEP-LINK TỪ THÔNG BÁO: tự cuộn tới bài, bật bình luận, highlight tạm thời
+  useEffect(() => {
+    if (!isTarget) return;
+    setIsHighlighted(true);
+    const scrollTimer = setTimeout(() => {
+      cardRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }, 300);
+    const fadeTimer = setTimeout(() => setIsHighlighted(false), 2500);
+
+    if (autoOpenComments) {
+      setShowComments(true);
+      if (comments.length === 0) {
+        supabase
+          .from('post_comments')
+          .select('*, users(cattery_name, fullname, avatarurl)')
+          .eq('post_id', post.id)
+          .order('created_at', { ascending: true })
+          .then(({ data }) => { if (data) setComments(data); });
+      }
+    }
+    return () => { clearTimeout(scrollTimer); clearTimeout(fadeTimer); };
+  }, [isTarget, autoOpenComments]);
 
   // 🎯 GOM CHUNG LẤY LIKE VÀ LẤY SỐ BÌNH LUẬN VÀO 1 CHỖ
   useEffect(() => {
@@ -91,8 +124,20 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
     if (newLikeState) {
       await supabase.from('post_likes').insert({ post_id: post.id, user_id: currentUser.userid });
+      if (post.user_id !== currentUser.userid) {
+        await supabase.from('notifications').insert([{
+          user_id: post.user_id,
+          title: 'Có người thích bài viết của bạn',
+          content: `${currentUser.cattery_name || currentUser.fullname || 'Một Sen'} đã thích bài viết của bạn.`,
+          type: 'post_like',
+          link: `/feed?postId=${post.id}`, // 🎯 thêm postId để deep-link
+          related_id: `${post.id}_${currentUser.userid}`, actor_id: currentUser.userid
+        }]);
+      }
     } else {
       await supabase.from('post_likes').delete().match({ post_id: post.id, user_id: currentUser.userid });
+      // 🎯 xoá thông báo đã gửi trước đó để tránh rác khi bỏ thích
+      await supabase.from('notifications').delete().match({ related_id: `${post.id}_${currentUser.userid}`, type: 'post_like' });
     }
   };
 
@@ -111,27 +156,39 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
   const handleSendComment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!currentUser || !newComment.trim()) return;
+    const contentText = newComment.trim();
 
-    // 🎯 THÊM PARENT_ID VÀO DATA NẾU ĐANG TRẢ LỜI
-    const commentData = { 
-      post_id: post.id, 
-      user_id: currentUser.userid, 
-      content: newComment.trim(),
-      parent_id: replyingTo ? replyingTo.id : null 
-    };
-
+    const commentData = { post_id: post.id, user_id: currentUser.userid, content: contentText, parent_id: replyingTo ? replyingTo.id : null };
     const optimisticComment = {
       ...commentData, id: Date.now(),
       users: { fullname: currentUser.cattery_name || currentUser.fullname || 'Bạn', avatarurl: currentUser.avatarurl },
       created_at: new Date().toISOString()
     };
-    
+
     setComments([...comments, optimisticComment]);
+    const wasReplyingTo = replyingTo;
     setNewComment('');
-    setReplyingTo(null); // Reset lại trạng thái sau khi gửi
+    setReplyingTo(null);
 
     await supabase.from('post_comments').insert(commentData);
     setCommentsCount(prev => prev + 1);
+
+    const commenterName = currentUser.cattery_name || currentUser.fullname || 'Một Sen';
+    if (wasReplyingTo?.userId && wasReplyingTo.userId !== currentUser.userid) {
+      await supabase.from('notifications').insert([{
+        user_id: wasReplyingTo.userId, title: 'Có người trả lời bình luận của bạn',
+        content: `${commenterName} đã trả lời: "${contentText.slice(0, 80)}"`,
+        type: 'comment_reply', link: `/feed?postId=${post.id}&openComments=1`, // 🎯
+        related_id: String(post.id), actor_id: currentUser.userid
+      }]);
+    } else if (!wasReplyingTo && post.user_id !== currentUser.userid) {
+      await supabase.from('notifications').insert([{
+        user_id: post.user_id, title: 'Có bình luận mới về bài viết của bạn',
+        content: `${commenterName} đã bình luận: "${contentText.slice(0, 80)}"`,
+        type: 'post_comment', link: `/feed?postId=${post.id}&openComments=1`, // 🎯
+        related_id: String(post.id), actor_id: currentUser.userid
+      }]);
+    }
   };
 
   const handleDeletePost = async () => {
@@ -154,15 +211,19 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
   const hiddenCommentsCount = topLevelComments.length - 5;
 
   return (
-    <div className="bg-white rounded-3xl shadow-sm border border-pink-50 overflow-hidden mb-6 hover:shadow-md transition-shadow relative">
+    <div
+      ref={cardRef}
+      id={`post-${post.id}`}
+      className="bg-white rounded-3xl shadow-sm border border-pink-50 overflow-hidden mb-6 hover:shadow-md transition-shadow relative"
+    >
       <div className="flex flex-col p-5 pb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-              <img src={authorAvatar} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
-              <div>
-                <h4 className="font-bold text-stone-800">{authorName}</h4>
-                <span className="text-xs text-stone-400">{new Date(post.created_at).toLocaleDateString('vi-VN')}</span>
-              </div>
+            <img src={authorAvatar} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
+            <div>
+              <h4 className="font-bold text-stone-800">{authorName}</h4>
+              <span className="text-xs text-stone-400">{new Date(post.created_at).toLocaleDateString('vi-VN')}</span>
+            </div>
           </div>
           {isOwner && (
             <button onClick={handleDeletePost} className="w-9 h-9 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-50 rounded-full transition-colors">
@@ -170,7 +231,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
             </button>
           )}
         </div>
-        
+
         {taggedPets.length > 0 && (
           <div className="flex flex-wrap items-center gap-2 mt-1 mb-2">
             <span className="text-xs text-stone-400">Cùng với:</span>
@@ -186,14 +247,14 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       {post.content && (
         <div className="px-5 pb-3">
-          <p 
+          <p
             ref={textRef}
             className={`text-sm text-stone-700 whitespace-pre-wrap break-words transition-all duration-300 ${!isExpanded ? 'line-clamp-1' : ''}`}
           >
             {post.content}
           </p>
           {isOverflowing && (
-            <button 
+            <button
               onClick={() => setIsExpanded(!isExpanded)}
               className="text-stone-400 font-medium text-[13px] mt-1 hover:text-stone-600 transition-colors"
             >
@@ -202,17 +263,17 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
           )}
         </div>
       )}
-      
+
       {post.image_url && (
         <div className="relative w-full border-y border-stone-100 bg-stone-900 flex items-center justify-center max-h-[75vh] overflow-hidden">
-          <div 
+          <div
             className="absolute inset-0 w-full h-full bg-cover bg-center blur-2xl opacity-50 scale-110"
             style={{ backgroundImage: `url(${post.image_url})` }}
           ></div>
-          <img 
-            src={post.image_url} 
-            alt="Post" 
-            className="relative z-10 w-full h-auto max-h-[75vh] object-contain drop-shadow-2xl" 
+          <img
+            src={post.image_url}
+            alt="Post"
+            className="relative z-10 w-full h-auto max-h-[75vh] object-contain drop-shadow-2xl"
           />
         </div>
       )}
@@ -235,12 +296,12 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
       {showComments && (
         <div className="p-5 bg-stone-50/50">
-          
+
           {/* NÚT XEM THÊM NẾU > 5 BÌNH LUẬN GỐC */}
           {!showAllComments && hiddenCommentsCount > 0 && (
-             <button onClick={() => setShowAllComments(true)} className="text-[13px] font-bold text-stone-400 hover:text-stone-600 mb-4 inline-block">
-               Xem thêm {hiddenCommentsCount} bình luận...
-             </button>
+            <button onClick={() => setShowAllComments(true)} className="text-[13px] font-bold text-stone-400 hover:text-stone-600 mb-4 inline-block">
+              Xem thêm {hiddenCommentsCount} bình luận...
+            </button>
           )}
 
           <div className="space-y-5 mb-4 max-h-80 overflow-y-auto custom-scrollbar">
@@ -256,7 +317,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
               return (
                 <div key={cmt.id} className="flex flex-col gap-2">
-                  
+
                   {/* BÌNH LUẬN CHA */}
                   <div className="flex gap-3">
                     <img src={cmt.users?.avatarurl || 'https://ui-avatars.com/api/?name=U&background=f3f4f6'} className="w-8 h-8 rounded-full border border-stone-200 shrink-0" alt="avt" />
@@ -266,17 +327,17 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                         <p className="text-sm text-stone-600">{cmt.content}</p>
                       </div>
                       <div className="flex items-center gap-3 mt-1.5 ml-2">
-                        <span className="text-[10px] font-medium text-stone-400">{new Date(cmt.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}</span>
-                        <button 
-                          onClick={() => setReplyingTo({id: cmt.id, name: commenterName})} 
+                        <span className="text-[10px] font-medium text-stone-400">{new Date(cmt.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}</span>
+                        <button
+                          onClick={() => setReplyingTo({ id: cmt.id, name: commenterName, userId: cmt.user_id })}
                           className="text-[11px] font-bold text-stone-500 hover:text-pink-500"
                         >
                           Trả lời
                         </button>
-                        
+
                         {/* 🌟 NÚT XÓA BÌNH LUẬN CHA (Chỉ hiện nếu đúng là chủ cmt) */}
                         {currentUser && currentUser.userid === cmt.user_id && (
-                          <button 
+                          <button
                             onClick={() => handleDeleteComment(cmt.id)}
                             className="text-[11px] font-bold text-stone-400 hover:text-rose-500"
                           >
@@ -290,7 +351,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                   {/* DANH SÁCH BÌNH LUẬN CON (THỤT VÀO TRONG) */}
                   {replies.length > 0 && (
                     <div className="pl-11 space-y-3 mt-1">
-                      
+
                       {/* Dùng displayedReplies thay vì replies */}
                       {displayedReplies.map(reply => (
                         <div key={reply.id} className="flex gap-2 items-start">
@@ -301,7 +362,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
                               <p className="text-[13px] text-stone-600">{reply.content}</p>
                             </div>
                             <span className="text-[10px] font-medium text-stone-400 mt-1 ml-2 block">
-                              {new Date(reply.created_at).toLocaleTimeString('vi-VN', {hour: '2-digit', minute:'2-digit'})}
+                              {new Date(reply.created_at).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}
                             </span>
                           </div>
                         </div>
@@ -309,7 +370,7 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 
                       {/* 🌟 NÚT XEM THÊM BÌNH LUẬN CON (NẰM NGAY DƯỚI BÌNH LUẬN THỨ 3) */}
                       {!isReplyExpanded && hiddenRepliesCount > 0 && (
-                        <button 
+                        <button
                           onClick={() => setExpandedReplyIds(prev => [...prev, cmt.id])}
                           className="text-[11px] font-bold text-stone-400 hover:text-stone-600 flex items-center gap-1.5 mt-2 ml-1"
                         >
@@ -337,12 +398,12 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
               )}
               <form onSubmit={handleSendComment} className={`flex items-center gap-3 bg-white p-2 border border-stone-200 shadow-sm ${replyingTo ? 'rounded-b-2xl' : 'rounded-full'}`}>
                 {!replyingTo && <img src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} className="w-8 h-8 rounded-full border border-pink-100" alt="me" />}
-                <input 
-                  type="text" 
-                  value={newComment} 
-                  onChange={(e) => setNewComment(e.target.value)} 
-                  placeholder={replyingTo ? `Viết câu trả lời...` : "Khen Boss một câu đi Sen..."} 
-                  className="flex-1 bg-transparent border-none px-2 py-1 text-sm focus:outline-none focus:ring-0 placeholder:text-stone-400" 
+                <input
+                  type="text"
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  placeholder={replyingTo ? `Viết câu trả lời...` : "Khen Boss một câu đi Sen..."}
+                  className="flex-1 bg-transparent border-none px-2 py-1 text-sm focus:outline-none focus:ring-0 placeholder:text-stone-400"
                 />
                 <button type="submit" disabled={!newComment.trim()} className="w-9 h-9 flex items-center justify-center text-white bg-pink-500 disabled:bg-stone-300 rounded-full transition-colors shrink-0">
                   <svg className="w-4 h-4 ml-[-2px]" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" /></svg>
@@ -360,12 +421,16 @@ function PostCard({ post, currentUser, onDelete }: { post: any, currentUser: any
 // ==========================================
 // COMPONENT CHÍNH: TRANG FEED VÀ ĐĂNG BÀI
 // ==========================================
-export default function CommunityFeedPage() {
+function FeedContent() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const targetPostId = searchParams.get('postId') ? Number(searchParams.get('postId')) : null;
+  const shouldOpenComments = searchParams.get('openComments') === '1';
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
   const [myPets, setMyPets] = useState<any[]>([]); // 🎯 MỚI: Chứa danh sách mèo của người dùng
   const [selectedPets, setSelectedPets] = useState<number[]>([]); // 🎯 MỚI: Mèo được chọn để tag
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newCaption, setNewCaption] = useState('');
   const [imageFile, setImageFile] = useState<File | null>(null);
@@ -376,13 +441,13 @@ export default function CommunityFeedPage() {
     const initData = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       let userId = null;
-      
+
       if (session) {
         const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).single();
         if (dbUser) {
           setCurrentUser(dbUser);
           userId = dbUser.userid;
-          
+
           // Lấy danh sách mèo của user
           const { data: petsData } = await supabase.from('pets').select('*').eq('ownerid', userId);
           if (petsData) setMyPets(petsData);
@@ -398,7 +463,7 @@ export default function CommunityFeedPage() {
           post_pets(pets(petid, petname, imageurl))
         `)
         .order('created_at', { ascending: false });
-      
+
       if (data) setPosts(data);
     };
     initData();
@@ -417,7 +482,7 @@ export default function CommunityFeedPage() {
   };
 
   const togglePetSelection = (petId: number) => {
-    setSelectedPets(prev => 
+    setSelectedPets(prev =>
       prev.includes(petId) ? prev.filter(id => id !== petId) : [...prev, petId]
     );
   };
@@ -451,10 +516,10 @@ export default function CommunityFeedPage() {
     }
 
     const postData = { user_id: currentUser.userid, content: newCaption.trim(), image_url: uploadedImageUrl };
-    
+
     // 1. Tạo bài viết
     const { data: newPost, error: postError } = await supabase.from('posts').insert(postData).select('*, users(cattery_name, fullname, avatarurl)').single();
-    
+
     if (postError) {
       alert("Lỗi lưu bài viết: " + postError.message);
       setIsPosting(false);
@@ -466,7 +531,7 @@ export default function CommunityFeedPage() {
     if (selectedPets.length > 0) {
       const petTags = selectedPets.map(petId => ({ post_id: newPost.id, pet_id: petId }));
       await supabase.from('post_pets').insert(petTags);
-      
+
       // Xây dựng cục data ảo để nối vào bài viết vừa tạo cho nó hiện lên ngay lập tức
       attachedPets = selectedPets.map(id => {
         const petObj = myPets.find(p => p.petid === id);
@@ -476,14 +541,21 @@ export default function CommunityFeedPage() {
 
     // Gắn mảng tag ảo vào bài viết để render
     const completePost = { ...newPost, post_pets: attachedPets };
-    setPosts([completePost, ...posts]); 
-    handleCloseModal(); 
+    setPosts([completePost, ...posts]);
+    handleCloseModal();
     setIsPosting(false);
   };
 
   const handleRemovePostFromUI = (deletedPostId: number) => {
     setPosts(posts.filter(post => post.id !== deletedPostId));
   };
+
+  useEffect(() => {
+    if (targetPostId && posts.some(p => p.id === targetPostId)) {
+      const timer = setTimeout(() => router.replace('/feed', { scroll: false }), 2500);
+      return () => clearTimeout(timer);
+    }
+  }, [targetPostId, posts, router]);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] pt-24 pb-20">
@@ -509,7 +581,7 @@ export default function CommunityFeedPage() {
               </button>
             </>
           ) : (
-             <div className="w-full flex items-center justify-between px-4 py-2">
+            <div className="w-full flex items-center justify-between px-4 py-2">
               <span className="text-stone-500 text-sm font-medium">Đăng nhập để khoe Boss nhé!</span>
               <Link href="/login" className="px-5 py-1.5 bg-pink-500 text-white text-sm font-bold rounded-full hover:bg-pink-600 transition-colors">Đăng Nhập</Link>
             </div>
@@ -533,7 +605,7 @@ export default function CommunityFeedPage() {
                   <span className="font-bold text-stone-800">{currentUser.cattery_name || currentUser.fullname}</span>
                 </div>
 
-                <textarea 
+                <textarea
                   value={newCaption} onChange={(e) => setNewCaption(e.target.value)}
                   placeholder="Chia sẻ đôi điều về bức ảnh này..."
                   className="w-full bg-transparent border-none focus:ring-0 resize-none text-lg placeholder:text-stone-400 mb-4 px-2"
@@ -547,12 +619,12 @@ export default function CommunityFeedPage() {
                   </div>
                 ) : (
                   <div className="mb-4">
-                     <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-pink-100 border-dashed rounded-2xl cursor-pointer bg-pink-50/30 hover:bg-pink-50 transition-colors">
-                        <div className="flex flex-col items-center justify-center text-pink-400">
-                           <span className="text-2xl font-bold mb-1">+</span><span className="text-sm font-bold">Thêm ảnh Boss</span>
-                        </div>
-                        <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
-                     </label>
+                    <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-pink-100 border-dashed rounded-2xl cursor-pointer bg-pink-50/30 hover:bg-pink-50 transition-colors">
+                      <div className="flex flex-col items-center justify-center text-pink-400">
+                        <span className="text-2xl font-bold mb-1">+</span><span className="text-sm font-bold">Thêm ảnh Boss</span>
+                      </div>
+                      <input type="file" accept="image/*" onChange={handleImageSelect} className="hidden" />
+                    </label>
                   </div>
                 )}
 
@@ -589,9 +661,26 @@ export default function CommunityFeedPage() {
 
         {/* FEED BÀI VIẾT */}
         <div className="space-y-6">
-          {posts.map((post) => <PostCard key={post.id} post={post} currentUser={currentUser} onDelete={handleRemovePostFromUI} />)}
+          {posts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              currentUser={currentUser}
+              onDelete={handleRemovePostFromUI}
+              isTarget={targetPostId === post.id}
+              autoOpenComments={shouldOpenComments && targetPostId === post.id}
+            />
+          ))}
         </div>
       </main>
     </div>
+  );
+}
+
+export default function CommunityFeedPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>}>
+      <FeedContent />
+    </Suspense>
   );
 }

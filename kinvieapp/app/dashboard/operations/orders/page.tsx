@@ -8,7 +8,7 @@ const ORDER_STATUSES = ['Tất cả', 'Chờ xác nhận', 'Đã đặt hàng', 
 
 const getAvatarColor = (name: string) => {
   const colors = [
-    'bg-rose-500', 'bg-lime-500', 'bg-emerald-500', 'bg-amber-500', 
+    'bg-rose-500', 'bg-lime-500', 'bg-emerald-500', 'bg-amber-500',
     'bg-purple-500', 'bg-cyan-500', 'bg-pink-500', 'bg-indigo-500'
   ];
   const charCode = (name || 'A').charCodeAt(0);
@@ -18,13 +18,13 @@ const getAvatarColor = (name: string) => {
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   // Các state cho bộ lọc
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilterStatus, setSelectedFilterStatus] = useState('Tất cả');
   // 🎯 State lọc theo Ngày giao hàng (Pate)
   const [deliveryDateFilter, setDeliveryDateFilter] = useState('');
-  
+
   const [expandedOrderId, setExpandedOrderId] = useState<any>(null);
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any>(null);
@@ -67,13 +67,33 @@ export default function OrderManagementPage() {
 
   const handleUpdateStatus = async () => {
     if (!activeOrder) return;
-    
+
     const { error } = await supabase
       .from('orders')
       .update({ orderstatus: newStatus })
       .eq('orderid', activeOrder.orderid);
 
     if (!error) {
+      // 🎯 CỘNG DỒN "ĐÃ BÁN" (sales_count) CHO SẢN PHẨM KHI ĐƠN CHUYỂN SANG "ĐÃ GIAO HÀNG"
+      // Chỉ cộng khi trạng thái TRƯỚC ĐÓ chưa phải "Đã giao hàng" -> tránh cộng lặp nếu sếp lỡ lưu lại 2 lần
+      if (newStatus === 'Đã giao hàng' && activeOrder.orderstatus !== 'Đã giao hàng') {
+        await incrementSalesCount(activeOrder.items);
+      }
+
+      if (newStatus === 'Đã giao hàng' && activeOrder.orderstatus !== 'Đã giao hàng') {
+        await incrementSalesCount(activeOrder.items);
+
+        // 🔔 BÁO CHO KHÁCH BIẾT ĐƠN ĐÃ GIAO XONG, KÈM LINK QUA ĐÁNH GIÁ
+        await supabase.from('notifications').insert([{
+          user_id: activeOrder.userid,
+          title: '🎉 Đơn hàng đã giao thành công!',
+          content: `Đơn hàng #${activeOrder.orderid} đã giao thành công. Sen đánh giá sản phẩm giúp shop nhé!`,
+          type: 'order_success',
+          link: `/order-tracking/${activeOrder.orderid}#review`,
+          related_id: String(activeOrder.orderid)
+        }]);
+      }
+
       setOrders(orders.map(o => o.orderid === activeOrder.orderid ? { ...o, orderstatus: newStatus } : o));
       setIsStatusModalOpen(false);
       alert("✅ Đã cập nhật trạng thái đơn hàng!");
@@ -82,10 +102,32 @@ export default function OrderManagementPage() {
     }
   };
 
+  // 🎯 HÀM CỘNG "ĐÃ BÁN" CHO TỪNG SẢN PHẨM TRONG ĐƠN (chạy khi đơn giao thành công)
+  const incrementSalesCount = async (items: any[]) => {
+    if (!items || items.length === 0) return;
+
+    for (const item of items) {
+      if (!item.productid) continue;
+
+      const { data: prod, error: fetchErr } = await supabase
+        .from('products')
+        .select('sales_count')
+        .eq('id', item.productid)
+        .maybeSingle();
+
+      if (fetchErr || !prod) continue;
+
+      await supabase
+        .from('products')
+        .update({ sales_count: (prod.sales_count || 0) + Number(item.quantity || 1) })
+        .eq('id', item.productid);
+    }
+  };
+
   // 🎯 DUYỆT ĐƠN NHANH: Chờ xác nhận -> Đang vận chuyển
   const handleApproveOrder = async (order: any) => {
     if (!window.confirm(`Duyệt đơn #${order.orderid} và chuyển sang "Đang vận chuyển"?`)) return;
-    
+
     const { error } = await supabase
       .from('orders')
       .update({ orderstatus: 'Đang vận chuyển' })
@@ -93,6 +135,17 @@ export default function OrderManagementPage() {
 
     if (!error) {
       setOrders(orders.map(o => o.orderid === order.orderid ? { ...o, orderstatus: 'Đang vận chuyển' } : o));
+
+      // 🔔 BÁO CHO KHÁCH BIẾT ĐƠN ĐÃ ĐƯỢC DUYỆT VÀ ĐANG GIAO
+      await supabase.from('notifications').insert([{
+        user_id: order.userid,
+        title: '🚚 Đơn hàng đã được phê duyệt!',
+        content: `Đơn hàng #${order.orderid} của bạn đã được duyệt và đang trên đường tới ngay.`,
+        type: 'order_approved',
+        link: `/order-tracking/${order.orderid}`,
+        related_id: String(order.orderid)
+      }]);
+
       alert("✅ Đã duyệt đơn! Đơn hàng chuyển sang Đang vận chuyển.");
     } else {
       alert("Lỗi khi duyệt đơn: " + error.message);
@@ -114,12 +167,12 @@ export default function OrderManagementPage() {
 
   // 🎯 LOGIC LỌC ĐƠN HÀNG
   const filteredOrders = orders.filter(o => {
-    const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) || 
-                          (o.customer_phone || '').includes(searchQuery) ||
-                          (o.orderid?.toString() || '').includes(searchQuery);
-    
+    const matchesSearch = (o.customer_name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (o.customer_phone || '').includes(searchQuery) ||
+      (o.orderid?.toString() || '').includes(searchQuery);
+
     const matchesStatus = selectedFilterStatus === 'Tất cả' || o.orderstatus === selectedFilterStatus;
-    
+
     // Logic lọc theo Ngày giao hàng
     let matchesDeliveryDate = true;
     if (deliveryDateFilter) {
@@ -130,7 +183,7 @@ export default function OrderManagementPage() {
         matchesDeliveryDate = orderDelDate.startsWith(deliveryDateFilter);
       }
     }
-    
+
     return matchesSearch && matchesStatus && matchesDeliveryDate;
   });
 
@@ -160,12 +213,12 @@ export default function OrderManagementPage() {
       <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-blue-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
 
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
-        
+
         {/* HEADER SECTION */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-end mb-12 gap-6">
           <div>
-            <Link 
-              href="/dashboard/operations" 
+            <Link
+              href="/dashboard/operations"
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-blue-600 hover:bg-white hover:text-blue-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(37,99,235,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
@@ -174,15 +227,15 @@ export default function OrderManagementPage() {
               Đơn hàng & vận chuyển
             </h1>
           </div>
-          
+
           <div className="flex flex-col sm:flex-row gap-4 w-full lg:w-auto">
             {/* Thanh tìm kiếm Text */}
             <div className="relative flex-1 lg:w-72 group">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
               </span>
-              <input 
-                type="text" 
+              <input
+                type="text"
                 placeholder="Tìm mã đơn, tên, SĐT..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
@@ -192,18 +245,18 @@ export default function OrderManagementPage() {
 
             {/* 🎯 BỘ LỌC TÌM NGÀY GIAO HÀNG */}
             <div className="relative lg:w-48 group">
-               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
-                  🗓️
-               </span>
-               <input 
-                  type="date" 
-                  value={deliveryDateFilter}
-                  onChange={(e) => setDeliveryDateFilter(e.target.value)}
-                  className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
-               />
-               {deliveryDateFilter && (
-                  <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>
-               )}
+              <span className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400 group-focus-within:text-blue-500 transition-colors">
+                🗓️
+              </span>
+              <input
+                type="date"
+                value={deliveryDateFilter}
+                onChange={(e) => setDeliveryDateFilter(e.target.value)}
+                className="w-full pl-11 pr-4 py-3.5 bg-white border border-stone-200/80 rounded-2xl focus:ring-4 focus:ring-blue-500/10 focus:border-blue-500 outline-none font-bold text-stone-700 shadow-sm transition-all cursor-pointer"
+              />
+              {deliveryDateFilter && (
+                <button onClick={() => setDeliveryDateFilter('')} className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-300 hover:text-rose-500 font-bold text-xs cursor-pointer">Xóa</button>
+              )}
             </div>
 
             <Link href="/dashboard/operations/orders/add" className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(37,99,235,0.25)] hover:shadow-[0_8px_25px_rgba(37,99,235,0.4)] hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2 whitespace-nowrap cursor-pointer">
@@ -218,11 +271,10 @@ export default function OrderManagementPage() {
             <button
               key={status}
               onClick={() => setSelectedFilterStatus(status)}
-              className={`cursor-pointer px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${
-                selectedFilterStatus === status 
-                  ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20' 
-                  : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
-              }`}
+              className={`cursor-pointer px-6 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all duration-200 ${selectedFilterStatus === status
+                ? 'bg-blue-50 text-blue-700 shadow-sm ring-1 ring-blue-500/20'
+                : 'text-stone-500 hover:bg-stone-50 hover:text-stone-700'
+                }`}
             >
               {status}
             </button>
@@ -231,31 +283,31 @@ export default function OrderManagementPage() {
 
         {/* 🎯 BẢNG TỔNG HỢP PATE TƯƠI */}
         {(totalPateBoxes > 0 || deliveryDateFilter) && (
-           <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 to-rose-50 rounded-[2rem] border border-orange-100 shadow-[0_8px_30px_rgb(249,115,22,0.06)] flex flex-col md:flex-row items-start md:items-center gap-6 animate-fade-in">
-              <div className="w-16 h-16 bg-white border-2 border-orange-100 text-orange-500 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">🥫</div>
-              <div className="flex-1">
-                 <h3 className="text-xl font-black text-stone-800 mb-3 flex items-center gap-2">
-                    Tổng hợp Pate cần làm 
-                    {deliveryDateFilter && <span className="text-sm font-bold bg-orange-100 text-orange-700 px-3 py-1 rounded-lg">Ngày giao: {new Date(deliveryDateFilter).toLocaleDateString('vi-VN')}</span>}
-                 </h3>
-                 
-                 {totalPateBoxes === 0 ? (
-                    <p className="text-stone-500 font-bold text-sm">Không có đơn Pate nào trong khoảng thời gian này.</p>
-                 ) : (
-                    <div className="flex flex-wrap items-center gap-3">
-                       <span className="px-4 py-2 bg-orange-500 text-white font-black text-sm rounded-xl shadow-md">
-                         Tổng cộng: {totalPateBoxes} hộp
-                       </span>
-                       <span className="text-stone-300">|</span>
-                       {Object.entries(pateSummary).map(([name, qty]) => (
-                          <span key={name} className="px-4 py-2 bg-white border border-orange-200 text-orange-700 font-bold text-sm rounded-xl shadow-sm">
-                            {name}: <span className="font-black text-lg">{qty}</span>
-                          </span>
-                       ))}
-                    </div>
-                 )}
-              </div>
-           </div>
+          <div className="mb-8 p-6 bg-gradient-to-br from-orange-50 to-rose-50 rounded-[2rem] border border-orange-100 shadow-[0_8px_30px_rgb(249,115,22,0.06)] flex flex-col md:flex-row items-start md:items-center gap-6 animate-fade-in">
+            <div className="w-16 h-16 bg-white border-2 border-orange-100 text-orange-500 rounded-full flex items-center justify-center text-3xl shadow-sm shrink-0">🥫</div>
+            <div className="flex-1">
+              <h3 className="text-xl font-black text-stone-800 mb-3 flex items-center gap-2">
+                Tổng hợp Pate cần làm
+                {deliveryDateFilter && <span className="text-sm font-bold bg-orange-100 text-orange-700 px-3 py-1 rounded-lg">Ngày giao: {new Date(deliveryDateFilter).toLocaleDateString('vi-VN')}</span>}
+              </h3>
+
+              {totalPateBoxes === 0 ? (
+                <p className="text-stone-500 font-bold text-sm">Không có đơn Pate nào trong khoảng thời gian này.</p>
+              ) : (
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="px-4 py-2 bg-orange-500 text-white font-black text-sm rounded-xl shadow-md">
+                    Tổng cộng: {totalPateBoxes} hộp
+                  </span>
+                  <span className="text-stone-300">|</span>
+                  {Object.entries(pateSummary).map(([name, qty]) => (
+                    <span key={name} className="px-4 py-2 bg-white border border-orange-200 text-orange-700 font-bold text-sm rounded-xl shadow-sm">
+                      {name}: <span className="font-black text-lg">{qty}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
         )}
 
         {/* DANH SÁCH ĐƠN HÀNG */}
@@ -266,16 +318,16 @@ export default function OrderManagementPage() {
           </div>
         ) : filteredOrders.length === 0 ? (
           <div className="text-center py-32 bg-white/50 backdrop-blur-sm rounded-[2.5rem] border border-stone-200/50 shadow-sm">
-             <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📭</div>
-             <h3 className="text-xl font-black text-stone-700 mb-2">Chưa có đơn hàng nào</h3>
-             <p className="text-stone-500">Hãy thử thay đổi bộ lọc hoặc tạo đơn hàng mới.</p>
+            <div className="w-24 h-24 bg-stone-100 rounded-full flex items-center justify-center text-4xl mx-auto mb-6">📭</div>
+            <h3 className="text-xl font-black text-stone-700 mb-2">Chưa có đơn hàng nào</h3>
+            <p className="text-stone-500">Hãy thử thay đổi bộ lọc hoặc tạo đơn hàng mới.</p>
           </div>
         ) : (
           <div className="flex flex-col gap-5">
             {filteredOrders.map((order) => {
               const rawDate = order.orderdate || order.created_at;
-              const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute:'2-digit', day:'2-digit', month:'2-digit', year:'numeric' }) : '---';
-              
+              const displayDate = rawDate ? new Date(rawDate).toLocaleString('vi-VN', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit', year: 'numeric' }) : '---';
+
               // Lấy ngày giao hàng để hiển thị
               const rawDeliveryDate = order.delivery_date || order.deliverydate;
               const displayDeliveryDate = rawDeliveryDate ? new Date(rawDeliveryDate).toLocaleDateString('vi-VN') : null;
@@ -292,13 +344,12 @@ export default function OrderManagementPage() {
               const billUrl = billMatch ? billMatch[1] : null;
 
               return (
-                <div 
-                  key={order.orderid} 
-                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${
-                    isExpanded ? 'border-blue-300 shadow-[0_20px_40px_rgba(59,130,246,0.08)]' : 'border-stone-200/60 shadow-sm hover:border-blue-200 hover:shadow-md'
-                  }`}
+                <div
+                  key={order.orderid}
+                  className={`bg-white rounded-[2rem] border transition-all duration-300 ${isExpanded ? 'border-blue-300 shadow-[0_20px_40px_rgba(59,130,246,0.08)]' : 'border-stone-200/60 shadow-sm hover:border-blue-200 hover:shadow-md'
+                    }`}
                 >
-                  <div 
+                  <div
                     onClick={() => setExpandedOrderId(isExpanded ? null : order.orderid)}
                     className="flex flex-col md:flex-row items-start md:items-center justify-between p-6 cursor-pointer gap-4"
                   >
@@ -310,7 +361,7 @@ export default function OrderManagementPage() {
                       <div>
                         <div className="flex items-center gap-3 mb-1">
                           <h3 className="font-bold text-stone-800 text-lg">{order.customer_name}</h3>
-                          <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">ID: #{String(order.orderid).substring(0,6).toUpperCase()}</span>
+                          <span className="text-[10px] font-bold text-stone-400 bg-stone-100 px-2 py-0.5 rounded-md">ID: #{String(order.orderid).substring(0, 6).toUpperCase()}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-stone-500">
                           <span className="font-medium">{order.customer_phone}</span>
@@ -321,13 +372,13 @@ export default function OrderManagementPage() {
                     </div>
 
                     <div className="flex flex-col md:flex-row items-start md:items-center justify-between w-full md:w-auto gap-4 md:gap-8 pl-17 md:pl-0">
-                      
+
                       {/* Hiển thị ngày hẹn giao nếu có */}
                       {displayDeliveryDate && (
-                         <div className="bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-xl">
-                            <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Ngày hẹn giao</p>
-                            <p className="font-bold text-orange-700 text-sm">{displayDeliveryDate}</p>
-                         </div>
+                        <div className="bg-orange-50 border border-orange-100 px-3 py-1.5 rounded-xl">
+                          <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-0.5">Ngày hẹn giao</p>
+                          <p className="font-bold text-orange-700 text-sm">{displayDeliveryDate}</p>
+                        </div>
                       )}
 
                       <div className="text-left md:text-right">
@@ -360,8 +411,8 @@ export default function OrderManagementPage() {
                                   </div>
                                   <div>
                                     <p className="font-bold text-stone-700">
-                                       {item.name}
-                                       {item.name?.toLowerCase().includes('pate') && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md font-black">PATE</span>}
+                                      {item.name}
+                                      {item.name?.toLowerCase().includes('pate') && <span className="ml-2 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-md font-black">PATE</span>}
                                     </p>
                                     <p className="text-xs text-stone-500 font-medium">SL: {item.quantity} x {item.price.toLocaleString()}đ</p>
                                   </div>
@@ -390,9 +441,9 @@ export default function OrderManagementPage() {
                                 📸 Ảnh biên lai khách gửi
                               </h4>
                               <a href={billUrl} target="_blank" rel="noopener noreferrer" className="block">
-                                <img 
-                                  src={billUrl} 
-                                  alt="Biên lai chuyển khoản" 
+                                <img
+                                  src={billUrl}
+                                  alt="Biên lai chuyển khoản"
                                   className="w-full max-h-64 object-contain rounded-2xl border border-stone-200 hover:opacity-80 transition-opacity cursor-pointer bg-stone-50"
                                 />
                               </a>
@@ -409,19 +460,19 @@ export default function OrderManagementPage() {
                                 ✅ Duyệt đơn & Chuyển vận chuyển
                               </button>
                             )}
-                            <button 
+                            <button
                               onClick={() => {
                                 setActiveOrder(order);
                                 setNewStatus(order.orderstatus || 'Đã đặt hàng');
                                 setIsStatusModalOpen(true);
-                              }} 
+                              }}
                               className="cursor-pointer col-span-2 py-3.5 bg-blue-50 hover:bg-blue-100 text-blue-700 rounded-2xl font-bold transition-all flex items-center justify-center gap-2 border border-blue-200/50"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
                               Cập nhật trạng thái
                             </button>
-                            
-                            <Link 
+
+                            <Link
                               href={`/dashboard/operations/orders/${order.orderid}/edit`}
                               className="cursor-pointer py-3.5 bg-white border border-stone-200 text-stone-700 rounded-2xl font-bold hover:border-stone-300 hover:bg-stone-50 transition-all flex items-center justify-center gap-2"
                             >
@@ -446,7 +497,7 @@ export default function OrderManagementPage() {
         {isStatusModalOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center px-4 animate-fade-in">
             <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-md cursor-pointer" onClick={() => setIsStatusModalOpen(false)}></div>
-            
+
             <div className="bg-white rounded-[2.5rem] p-8 max-w-md w-full shadow-2xl relative z-10 border border-white/50">
               <div className="mb-8">
                 <h3 className="text-2xl font-black text-stone-800 tracking-tight">Cập nhật đơn hàng</h3>
@@ -457,14 +508,13 @@ export default function OrderManagementPage() {
 
               <div className="space-y-3 mb-8">
                 {ORDER_STATUSES.filter(s => s !== 'Tất cả').map(status => (
-                  <label 
-                    key={status} 
+                  <label
+                    key={status}
                     onClick={() => setNewStatus(status)}
-                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${
-                      newStatus === status 
-                        ? 'border-blue-500 bg-blue-50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] transform scale-[1.02]' 
-                        : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50'
-                    }`}
+                    className={`flex items-center gap-4 p-4 rounded-2xl border-2 cursor-pointer transition-all duration-200 ${newStatus === status
+                      ? 'border-blue-500 bg-blue-50 shadow-[0_4px_20px_rgba(59,130,246,0.15)] transform scale-[1.02]'
+                      : 'border-stone-100 hover:border-stone-300 hover:bg-stone-50'
+                      }`}
                   >
                     <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-colors ${newStatus === status ? 'border-blue-500' : 'border-stone-300'}`}>
                       {newStatus === status && <div className="w-2.5 h-2.5 bg-blue-500 rounded-full"></div>}
@@ -475,13 +525,13 @@ export default function OrderManagementPage() {
               </div>
 
               <div className="flex gap-4">
-                <button 
+                <button
                   onClick={() => setIsStatusModalOpen(false)}
                   className="cursor-pointer flex-1 py-4 bg-stone-100 text-stone-600 rounded-2xl font-bold hover:bg-stone-200 transition-all"
                 >
                   Đóng
                 </button>
-                <button 
+                <button
                   onClick={handleUpdateStatus}
                   className="cursor-pointer flex-1 py-4 bg-blue-600 text-white rounded-2xl font-bold hover:bg-blue-700 hover:shadow-lg hover:shadow-blue-500/30 transition-all active:scale-95"
                 >
@@ -494,7 +544,8 @@ export default function OrderManagementPage() {
 
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .custom-scrollbar::-webkit-scrollbar { height: 4px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }

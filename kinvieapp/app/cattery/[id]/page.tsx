@@ -13,16 +13,110 @@ export default function PublicCatProfilePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [catData, setCatData] = useState<any>(null);
   const [mainImage, setMainImage] = useState<string>('');
-  
+
   // Dữ liệu dùng cho phả hệ
   const [allCatsList, setAllCatsList] = useState<any[]>([]);
   const [breedersList, setBreedersList] = useState<any[]>([]);
+
+  const [isInquiryModalOpen, setIsInquiryModalOpen] = useState(false);
+  const [inquiryName, setInquiryName] = useState('');
+  const [inquiryPhone, setInquiryPhone] = useState('');
+  const [inquiryZalo, setInquiryZalo] = useState('');
+  const [inquiryMessage, setInquiryMessage] = useState('');
+  const [isSubmittingInquiry, setIsSubmittingInquiry] = useState(false);
+  const [currentDbUser, setCurrentDbUser] = useState<any>(null);
+
+  // 🎯 Prefill tên/SĐT nếu khách đã đăng nhập
+  useEffect(() => {
+    const fetchCurrentUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: dbUser } = await supabase.from('users').select('userid, fullname, phone').eq('email', user.email).maybeSingle();
+      if (dbUser) {
+        setCurrentDbUser(dbUser);
+        setInquiryName(dbUser.fullname || '');
+        setInquiryPhone(dbUser.phone || '');
+      }
+    };
+    fetchCurrentUser();
+  }, []);
+
+  const handleSubmitInquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    // 🎯 CHẶN TỰ GỬI YÊU CẦU CHO MÈO CỦA CHÍNH TRẠI MÌNH
+    if (currentDbUser && catData.breeder_id === currentDbUser.userid) {
+      alert('Đây là bé mèo của trại bạn, không thể tự gửi yêu cầu cho chính mình nhé!');
+      return;
+    }
+
+    if (!inquiryName.trim() || !inquiryPhone.trim()) {
+      alert('Sen điền đủ Họ tên và Số điện thoại giúp mình nhé!');
+      return;
+    }
+    setIsSubmittingInquiry(true);
+
+    // 🎯 INSERT + LẤY LẠI ID VỪA TẠO (dùng .select().single() thay vì chỉ insert suông)
+    const { data: insertedInquiry, error: insertError } = await supabase
+      .from('cat_inquiries')
+      .insert({
+        cat_id: catData.id,
+        customer_id: currentDbUser?.userid || null,
+        customer_name: inquiryName.trim(),
+        customer_phone: inquiryPhone.trim(),
+        customer_zalo: inquiryZalo.trim() || null,
+        message: inquiryMessage.trim() || null
+      })
+      .select()
+      .single();
+
+    if (insertError) {
+      setIsSubmittingInquiry(false);
+      alert('Lỗi khi gửi yêu cầu: ' + insertError.message);
+      return;
+    }
+
+    // 🎯 2 LOẠI LINK THÔNG BÁO: BOSS VÀO TRANG DASHBOARD, STAFF/BREEDER VÀO TRANG NGOÀI DASHBOARD
+    const bossLink = `/dashboard/cats/inquiries/${insertedInquiry.id}`;
+    const staffOrBreederLink = `/quan-ly/inquiries/${insertedInquiry.id}`;
+
+    const notifTitle = `💌 Có khách yêu cầu đón bé ${catData.name}`;
+    const notifContent = `Khách "${inquiryName.trim()}" - SĐT: ${inquiryPhone.trim()}${inquiryZalo.trim() ? `, Zalo: ${inquiryZalo.trim()}` : ''}.${inquiryMessage.trim() ? ` Lời nhắn: "${inquiryMessage.trim()}"` : ''}`;
+
+    // 🎯 GỬI THÔNG BÁO CHO BOSS + STAFF (type_id 1, 2), CỘNG THÊM BREEDER CHỦ MÈO (type_id 3) NẾU CÓ
+    const { data: bossStaffUsers } = await supabase.from('users').select('userid, type_id').in('type_id', [1, 2]);
+    const recipients = new Map<number, number>(); // userid -> type_id
+    (bossStaffUsers || []).forEach((u: any) => recipients.set(u.userid, u.type_id));
+
+    if (catData.breeder_id) {
+      const { data: breederUser } = await supabase.from('users').select('userid, type_id').eq('userid', catData.breeder_id).maybeSingle();
+      if (breederUser && breederUser.type_id === 3) recipients.set(breederUser.userid, breederUser.type_id);
+    }
+
+    const notifRows = Array.from(recipients.entries()).map(([uid, typeId]) => ({
+      user_id: uid,
+      title: notifTitle,
+      content: notifContent,
+      type: 'cat_inquiry',
+      link: typeId === 1 ? bossLink : staffOrBreederLink,
+      related_id: String(insertedInquiry.id)
+    }));
+
+    if (notifRows.length > 0) {
+      await supabase.from('notifications').insert(notifRows);
+    }
+
+    setIsSubmittingInquiry(false);
+    setIsInquiryModalOpen(false);
+    setInquiryMessage('');
+    alert('✅ Đã gửi yêu cầu! Trại sẽ liên hệ lại với Sen sớm nhất nhé.');
+  };
 
   // 🎯 LẤY DỮ LIỆU TỪ SUPABASE
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
-      
+
       // Lấy danh sách trại & tất cả mèo để vẽ phả hệ
       const { data: breeders } = await supabase.from('users').select('userid, fullname, cattery_name, phone').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -47,8 +141,8 @@ export default function PublicCatProfilePage() {
 
   // Format Helper
   const formatDateDisplay = (dateString: string) => {
-    if (!dateString) return 'Chưa cập nhật'; 
-    const [year, month, day] = dateString.split('-'); 
+    if (!dateString) return 'Chưa cập nhật';
+    const [year, month, day] = dateString.split('-');
     return `${day}/${month}/${year}`;
   };
 
@@ -62,7 +156,7 @@ export default function PublicCatProfilePage() {
   // 🎯 COMPONENT ĐỆ QUY VẼ CÂY PHẢ HỆ (READ-ONLY)
   const PedigreeNode = ({ catIdNode, level, label, visitedIds = [] }: { catIdNode: number | null, level: number, label: string, visitedIds?: number[] }) => {
     if (!catIdNode || level > 5) return null;
-    
+
     const currentId = parseInt(catIdNode.toString());
     // BỌC THÉP: Chống lặp vòng phả hệ
     if (visitedIds.includes(currentId)) {
@@ -76,7 +170,7 @@ export default function PublicCatProfilePage() {
         </div>
       );
     }
-    
+
     const newVisited = [...visitedIds, currentId];
     const cat = allCatsList.find(c => c.id === currentId);
     if (!cat) return null;
@@ -93,15 +187,15 @@ export default function PublicCatProfilePage() {
     return (
       <div className="flex items-center group/node transition-all">
         {level > 1 && <div className="w-10 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>}
-        
+
         <Link href={`/cattery/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-50 shrink-0 border border-stone-100">
-             <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
+            <img src={cat.images?.[0] || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=100&auto=format&fit=crop'} className="w-full h-full object-cover" alt={cat.name} />
           </div>
           <div className="overflow-hidden flex-1">
-             <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
-             <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
+            <p className={`text-[9px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
+            <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-pink-600 transition-colors">{cat.name}</p>
+            <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -109,8 +203,8 @@ export default function PublicCatProfilePage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-pink-100 rounded-full transition-colors group-hover/node:bg-pink-300"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-pink-100 py-4 my-2 transition-colors group-hover/node:border-pink-300 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} visitedIds={newVisited} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} visitedIds={newVisited} /></div>}
+              {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level + 1} label={`Đời ${level + 1} (Bố)`} visitedIds={newVisited} /></div>}
+              {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level + 1} label={`Đời ${level + 1} (Mẹ)`} visitedIds={newVisited} /></div>}
             </div>
           </div>
         )}
@@ -135,12 +229,14 @@ export default function PublicCatProfilePage() {
   );
 
   const isReady = catData.status === 'Sẵn sàng';
+  // 🎯 KIỂM TRA XEM NGƯỜI ĐANG XEM CÓ PHẢI LÀ CHỦ TRẠI CỦA CHÍNH BÉ MÈO NÀY KHÔNG
+  const isOwnCat = !!(currentDbUser && catData.breeder_id === currentDbUser.userid);
 
   return (
     <div className="min-h-screen bg-[#FFF8FA] text-stone-700 font-sans selection:bg-pink-200 pb-24 pt-20">
-      
+
       <div className="container mx-auto px-4 max-w-6xl">
-        
+
         {/* Nút Quay Lại */}
         <div className="mb-8">
           <Link href="/cattery" className="inline-flex items-center gap-2 text-sm font-bold text-stone-400 hover:text-pink-500 transition-colors">
@@ -149,7 +245,7 @@ export default function PublicCatProfilePage() {
         </div>
 
         <div className="flex flex-col lg:flex-row gap-10">
-          
+
           {/* ========================================
               CỘT TRÁI: THƯ VIỆN ẢNH (READ-ONLY)
               ======================================== */}
@@ -157,13 +253,13 @@ export default function PublicCatProfilePage() {
             {/* Ảnh chính lớn */}
             <div className="relative aspect-[4/5] bg-white rounded-[3rem] p-3 border border-pink-50 shadow-[0_10px_40px_-10px_rgba(236,72,153,0.1)] overflow-hidden">
               <div className="w-full h-full rounded-[2.5rem] overflow-hidden bg-pink-50/50">
-                 <img 
-                   src={mainImage || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=1000&auto=format&fit=crop'} 
-                   alt={catData.name} 
-                   className="w-full h-full object-cover" 
-                 />
+                <img
+                  src={mainImage || 'https://images.unsplash.com/photo-1589883661923-6476cb0ae9f2?q=80&w=1000&auto=format&fit=crop'}
+                  alt={catData.name}
+                  className="w-full h-full object-cover"
+                />
               </div>
-              
+
               {/* Badge Trạng Thái Nổi */}
               <div className="absolute top-8 left-8 bg-white/90 backdrop-blur-md px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest shadow-lg border border-white flex items-center gap-2">
                 <span className="relative flex h-2 w-2">
@@ -173,15 +269,15 @@ export default function PublicCatProfilePage() {
                 <span className={isReady ? 'text-emerald-600' : 'text-amber-600'}>{catData.status || 'Đang cập nhật'}</span>
               </div>
             </div>
-            
+
             {/* Ảnh thu nhỏ (Thumbnails) */}
             {catData.images && catData.images.length > 1 && (
               <div className="grid grid-cols-4 gap-3">
                 {catData.images.map((imgUrl: string, idx: number) => {
                   if (!imgUrl) return null;
                   return (
-                    <div 
-                      key={idx} 
+                    <div
+                      key={idx}
                       onClick={() => setMainImage(imgUrl)}
                       className={`cursor-pointer relative aspect-square rounded-2xl overflow-hidden border-4 transition-all duration-300 ${mainImage === imgUrl ? 'border-pink-400 shadow-md scale-105' : 'border-white shadow-sm hover:border-pink-200 opacity-70 hover:opacity-100'}`}
                     >
@@ -197,95 +293,103 @@ export default function PublicCatProfilePage() {
               CỘT PHẢI: THÔNG TIN CHI TIẾT & LIÊN HỆ
               ======================================== */}
           <div className="w-full lg:w-7/12 flex flex-col">
-            
+
             <div className="bg-white/80 backdrop-blur-xl rounded-[3rem] p-8 md:p-12 border border-pink-50 shadow-[0_20px_50px_-10px_rgba(236,72,153,0.05)] flex-grow">
-               
-               {/* Tên & Trại */}
-               <div className="mb-6">
-                 <p className="text-[11px] font-black text-pink-400 uppercase tracking-widest mb-2 flex items-center gap-2">
-                   <span>👑</span> {getBreederName(catData.breeder_id)}
-                 </p>
-                 <h1 className="text-4xl md:text-5xl font-black text-stone-800 tracking-tight leading-none mb-4">
-                   {catData.name}
-                 </h1>
-               </div>
 
-               {/* Bảng Thông Tin Nhanh (Grid) */}
-               <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giống mèo</p>
-                    <p className="text-sm font-bold text-stone-800">{catData.breed}</p>
+              {/* Tên & Trại */}
+              <div className="mb-6">
+                <p className="text-[11px] font-black text-pink-400 uppercase tracking-widest mb-2 flex items-center gap-2">
+                  <span>👑</span> {getBreederName(catData.breeder_id)}
+                </p>
+                <h1 className="text-4xl md:text-5xl font-black text-stone-800 tracking-tight leading-none mb-4">
+                  {catData.name}
+                </h1>
+              </div>
+
+              {/* Bảng Thông Tin Nhanh (Grid) */}
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giống mèo</p>
+                  <p className="text-sm font-bold text-stone-800">{catData.breed}</p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giới tính</p>
+                  <p className={`text-sm font-bold ${catData.gender ? 'text-blue-600' : 'text-rose-500'}`}>
+                    {catData.gender ? '♂ Đực (Male)' : '♀ Cái (Female)'}
+                  </p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
+                  <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
+                </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
+                  <p className="text-sm font-bold text-stone-800">{formatDateDisplay(catData.dob)}</p>
+                </div>
+              </div>
+
+              {/* Giá & Nút Liên Hệ */}
+              <div className="bg-gradient-to-br from-pink-50 to-white p-6 md:p-8 rounded-[2rem] border border-pink-100 relative overflow-hidden mb-8">
+                <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/40 blur-3xl rounded-full pointer-events-none"></div>
+
+                <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Giá chuyển nhượng</p>
+                <div className="flex items-end gap-2 mb-6">
+                  <h2 className="text-4xl md:text-5xl font-black text-rose-500">
+                    {catData.price ? catData.price.toLocaleString('vi-VN') : 'Liên hệ'}
+                  </h2>
+                  {catData.price > 0 && <span className="text-xl font-bold text-rose-300 mb-1">VNĐ</span>}
+                </div>
+
+                {/* 🎯 NÚT LIÊN HỆ ĐÓN BÉ (CALL TO ACTION) - ẨN NẾU ĐANG XEM MÈO CỦA CHÍNH TRẠI MÌNH */}
+                {isOwnCat ? (
+                  <div className="w-full px-8 py-5 bg-stone-100 text-stone-400 rounded-2xl font-bold text-sm text-center flex items-center justify-center gap-2">
+                    <span>🏠</span> Đây là bé mèo của trại bạn, không cần gửi yêu cầu đón bé nhé!
                   </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giới tính</p>
-                    <p className={`text-sm font-bold ${catData.gender ? 'text-blue-600' : 'text-rose-500'}`}>
-                      {catData.gender ? '♂ Đực (Male)' : '♀ Cái (Female)'}
+                ) : (
+                  <>
+                    <button
+                      onClick={() => setIsInquiryModalOpen(true)}
+                      className="w-full group px-8 py-5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-lg hover:from-pink-600 hover:to-rose-600 shadow-[0_10px_30px_rgba(236,72,153,0.3)] transition-all duration-300 flex items-center justify-center gap-3 transform hover:-translate-y-1"
+                    >
+                      <span>💌</span> Gửi Yêu Cầu Đón Bé
+                      <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
+                    </button>
+                    <p className="text-center text-xs font-medium text-stone-400 mt-4">
+                      *Breeder sẽ liên hệ lại với bạn qua Zalo/SĐT trong vòng 2h.
                     </p>
+                  </>
+                )}
+              </div>
+
+              {/* Lịch Sử Tiêm Phòng & Ghi chú */}
+              <div className="space-y-6">
+                <div>
+                  <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>🏥</span> Sức khỏe & Tiêm phòng</h3>
+                  {catData.medical_history && catData.medical_history.length > 0 ? (
+                    <div className="space-y-3">
+                      {catData.medical_history.map((record: any, index: number) => (
+                        <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
+                          <p className="font-bold text-stone-700 text-sm">{record.vaccineName}</p>
+                          <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg mt-2 sm:mt-0 w-fit">
+                            Đã tiêm: {formatDateDisplay(record.dateGiven)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-stone-400 italic">Bé chưa đến tuổi tiêm phòng hoặc chưa cập nhật lịch.</p>
+                  )}
+                </div>
+
+                {catData.notes && (
+                  <div>
+                    <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3 mt-8"><span>📝</span> Đặc điểm tính cách</h3>
+                    <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
+                      <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">{catData.notes}</p>
+                    </div>
                   </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Màu lông</p>
-                    <p className="text-sm font-bold text-pink-600">{formatEmsCode(catData.color)}</p>
-                  </div>
-                  <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
-                    <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
-                    <p className="text-sm font-bold text-stone-800">{formatDateDisplay(catData.dob)}</p>
-                  </div>
-               </div>
-
-               {/* Giá & Nút Liên Hệ */}
-               <div className="bg-gradient-to-br from-pink-50 to-white p-6 md:p-8 rounded-[2rem] border border-pink-100 relative overflow-hidden mb-8">
-                 <div className="absolute top-0 right-0 w-32 h-32 bg-pink-200/40 blur-3xl rounded-full pointer-events-none"></div>
-                 
-                 <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Giá chuyển nhượng</p>
-                 <div className="flex items-end gap-2 mb-6">
-                   <h2 className="text-4xl md:text-5xl font-black text-rose-500">
-                     {catData.price ? catData.price.toLocaleString('vi-VN') : 'Liên hệ'}
-                   </h2>
-                   {catData.price > 0 && <span className="text-xl font-bold text-rose-300 mb-1">VNĐ</span>}
-                 </div>
-
-                 {/* 🎯 NÚT LIÊN HỆ ĐÓN BÉ (CALL TO ACTION) */}
-                 <button 
-                   onClick={() => alert('Sẽ mở Modal Form điền thông tin Zalo/SĐT để gửi cho Trại nhé sếp!')}
-                   className="w-full group px-8 py-5 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-lg hover:from-pink-600 hover:to-rose-600 shadow-[0_10px_30px_rgba(236,72,153,0.3)] transition-all duration-300 flex items-center justify-center gap-3 transform hover:-translate-y-1"
-                 >
-                   <span>💌</span> Gửi Yêu Cầu Đón Bé
-                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
-                 </button>
-                 <p className="text-center text-xs font-medium text-stone-400 mt-4">
-                   *Breeder sẽ liên hệ lại với bạn qua Zalo/SĐT trong vòng 2h.
-                 </p>
-               </div>
-
-               {/* Lịch Sử Tiêm Phòng & Ghi chú */}
-               <div className="space-y-6">
-                 <div>
-                   <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-4"><span>🏥</span> Sức khỏe & Tiêm phòng</h3>
-                   {catData.medical_history && catData.medical_history.length > 0 ? (
-                     <div className="space-y-3">
-                       {catData.medical_history.map((record: any, index: number) => (
-                         <div key={index} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
-                           <p className="font-bold text-stone-700 text-sm">{record.vaccineName}</p>
-                           <p className="text-xs font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-lg mt-2 sm:mt-0 w-fit">
-                             Đã tiêm: {formatDateDisplay(record.dateGiven)}
-                           </p>
-                         </div>
-                       ))}
-                     </div>
-                   ) : (
-                     <p className="text-sm text-stone-400 italic">Bé chưa đến tuổi tiêm phòng hoặc chưa cập nhật lịch.</p>
-                   )}
-                 </div>
-
-                 {catData.notes && (
-                   <div>
-                     <h3 className="text-sm font-black text-stone-800 uppercase flex items-center gap-2 mb-3 mt-8"><span>📝</span> Đặc điểm tính cách</h3>
-                     <div className="bg-pink-50/30 p-5 rounded-2xl border border-pink-100/50">
-                       <p className="text-sm text-stone-600 leading-relaxed whitespace-pre-line">{catData.notes}</p>
-                     </div>
-                   </div>
-                 )}
-               </div>
+                )}
+              </div>
 
             </div>
           </div>
@@ -300,17 +404,49 @@ export default function PublicCatProfilePage() {
               Gia Phả Thuần Chủng <span className="text-3xl">📜</span>
             </h2>
             <p className="text-sm text-stone-500 mb-8">Nguồn gen quý tộc qua 5 thế hệ từ các nhà vô địch.</p>
-            
+
             <div className="overflow-x-auto custom-scrollbar pb-8 pt-4">
-               <div className="min-w-max pr-16">
-                  {/* Bắt đầu vẽ từ con mèo hiện tại (Level 1) */}
-                  <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Bé Mèo Hiện Tại" />
-               </div>
+              <div className="min-w-max pr-16">
+                {/* Bắt đầu vẽ từ con mèo hiện tại (Level 1) */}
+                <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Bé Mèo Hiện Tại" />
+              </div>
             </div>
           </div>
         )}
-
       </div>
+      {isInquiryModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsInquiryModalOpen(false)}></div>
+          <div className="relative bg-white w-full max-w-md rounded-[2rem] shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between p-5 border-b border-pink-50">
+              <h3 className="text-lg font-black text-stone-800">Gửi yêu cầu đón bé {catData.name}</h3>
+              <button onClick={() => setIsInquiryModalOpen(false)} className="w-8 h-8 flex items-center justify-center bg-stone-100 rounded-full hover:bg-stone-200">✕</button>
+            </div>
+            <form onSubmit={handleSubmitInquiry} className="p-6 space-y-4">
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Họ tên *</label>
+                <input value={inquiryName} onChange={(e) => setInquiryName(e.target.value)} required className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Tên của Sen" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Số điện thoại *</label>
+                <input value={inquiryPhone} onChange={(e) => setInquiryPhone(e.target.value)} required type="tel" className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="09xxxxxxxx" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Số Zalo (nếu khác SĐT)</label>
+                <input value={inquiryZalo} onChange={(e) => setInquiryZalo(e.target.value)} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Để trống nếu trùng SĐT" />
+              </div>
+              <div>
+                <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest block mb-1.5">Lời nhắn</label>
+                <textarea value={inquiryMessage} onChange={(e) => setInquiryMessage(e.target.value)} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm resize-none focus:ring-2 focus:ring-pink-300 outline-none" placeholder="Sen muốn hỏi thêm điều gì không?" />
+              </div>
+              <button type="submit" disabled={isSubmittingInquiry} className="w-full py-4 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black shadow-md hover:from-pink-600 hover:to-rose-600 transition-all disabled:opacity-50">
+                {isSubmittingInquiry ? 'Đang gửi...' : 'Gửi yêu cầu ngay'}
+              </button>
+              <p className="text-center text-[11px] text-stone-400 font-medium">*Trại sẽ liên hệ lại qua SĐT/Zalo trong vòng 2h.</p>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

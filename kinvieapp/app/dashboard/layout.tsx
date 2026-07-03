@@ -39,6 +39,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           return;
         }
 
+        // 🎯 CHỈ BOSS (type_id === 1) MỚI ĐƯỢC VÀO DASHBOARD, CÁC LOẠI TÀI KHOẢN KHÁC ĐÁ VỀ TRANG CHỦ
+        if (dbUser.type_id !== 1) {
+          router.push('/');
+          return;
+        }
+
         setAdminName(dbUser.fullname);
         setIsAuthorized(true);
       } catch (err) {
@@ -102,8 +108,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 href={item.path}
                 title={item.name} // Tooltip hiện chữ khi sidebar đang thu nhỏ
                 className={`flex items-center gap-4 px-3 py-3.5 rounded-2xl font-bold transition-all duration-300 relative overflow-hidden whitespace-nowrap ${isActive
-                    ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]'
-                    : 'text-stone-400 hover:bg-stone-900 hover:text-pink-100 border-l-4 border-transparent'
+                  ? 'bg-gradient-to-r from-pink-500/20 to-transparent text-white border-l-4 border-pink-500 shadow-[inset_2px_0_10px_rgba(236,72,153,0.1)]'
+                  : 'text-stone-400 hover:bg-stone-900 hover:text-pink-100 border-l-4 border-transparent'
                   }`}
               >
                 {/* Lớp ánh sáng chạy xẹt qua khi hover (Chỉ hiện khi sidebar bung ra) */}

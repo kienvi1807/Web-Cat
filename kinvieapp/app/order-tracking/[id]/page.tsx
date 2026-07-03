@@ -14,15 +14,61 @@ export default function OrderTrackingPage() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [orderData, setOrderData] = useState<any>(null);
+  const [dbUserId, setDbUserId] = useState<number | null>(null);
+  const [myReviews, setMyReviews] = useState<Record<number, boolean>>({});
+  const [ratingDrafts, setRatingDrafts] = useState<Record<number, number>>({});
+  const [commentDrafts, setCommentDrafts] = useState<Record<number, string>>({});
+  const [submittingId, setSubmittingId] = useState<number | null>(null);
 
   useEffect(() => {
     const fetchOrder = async () => {
-      const { data } = await supabase.from('orders').select('*, orderdetails(products(name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
+      const { data } = await supabase.from('orders').select('*, orderdetails(products(id, name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
       if (data) setOrderData(data);
       setIsLoading(false);
     };
     if (orderId) fetchOrder();
   }, [orderId]);
+
+  useEffect(() => {
+    const fetchDbUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const { data: dbUser } = await supabase.from('users').select('userid').eq('email', user.email).maybeSingle();
+      if (dbUser) setDbUserId(dbUser.userid);
+    };
+    fetchDbUser();
+  }, []);
+
+  useEffect(() => {
+    if (!dbUserId || !orderData || orderData.orderstatus !== 'Đã giao hàng') return;
+    const checkReviewed = async () => {
+      const { data } = await supabase.from('product_reviews').select('product_id').eq('order_id', orderId).eq('user_id', dbUserId);
+      const map: Record<number, boolean> = {};
+      (data || []).forEach((r: any) => { map[r.product_id] = true; });
+      setMyReviews(map);
+    };
+    checkReviewed();
+  }, [dbUserId, orderData, orderId]);
+
+  // tự cuộn xuống phần đánh giá khi bấm từ thông báo (?#review)
+  useEffect(() => {
+    if (!isLoading && orderData && window.location.hash === '#review') {
+      setTimeout(() => document.getElementById('review')?.scrollIntoView({ behavior: 'smooth' }), 300);
+    }
+  }, [isLoading, orderData]);
+
+  const handleSubmitReview = async (productId: number) => {
+    if (!dbUserId) return;
+    setSubmittingId(productId);
+    const { error } = await supabase.from('product_reviews').insert({
+      product_id: productId, order_id: Number(orderId), user_id: dbUserId,
+      rating: ratingDrafts[productId] || 5, comment: (commentDrafts[productId] || '').trim()
+    });
+    setSubmittingId(null);
+    if (error) return alert('Lỗi khi gửi đánh giá: ' + error.message);
+    alert('✅ Cảm ơn Sen đã đánh giá!');
+    setMyReviews(prev => ({ ...prev, [productId]: true }));
+  };
 
   if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
   if (!orderData) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><h1 className="text-2xl font-black">Không tìm thấy đơn hàng</h1></div>;
@@ -35,7 +81,7 @@ export default function OrderTrackingPage() {
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
       <Header />
       <main className="pt-32 pb-20 container mx-auto px-4 max-w-4xl relative z-10">
-        
+
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-3xl font-black text-stone-800 tracking-tight">Theo dõi đơn hàng</h1>
@@ -48,9 +94,9 @@ export default function OrderTrackingPage() {
         <div className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8 md:p-12 mb-8">
           <div className="relative flex justify-between items-center max-w-2xl mx-auto">
             <div className="absolute top-1/2 left-0 w-full h-1.5 bg-stone-100 -translate-y-1/2 z-0 rounded-full"></div>
-            
+
             {/* Thanh màu chạy (Progress Bar) */}
-            <div 
+            <div
               className="absolute top-1/2 left-0 h-1.5 bg-pink-500 -translate-y-1/2 z-0 rounded-full transition-all duration-1000"
               style={{ width: `${(Math.max(0, currentStep) / (statusFlow.length - 1)) * 100}%` }}
             ></div>
@@ -101,11 +147,11 @@ export default function OrderTrackingPage() {
               <p><span className="text-stone-400 font-bold w-20 inline-block">Điện thoại:</span> <span className="font-black">{orderData.customer_phone}</span></p>
               <p><span className="text-stone-400 font-bold w-20 inline-block">Địa chỉ:</span> <span className="font-bold">{orderData.address}</span></p>
               <p className="pt-3 mt-3 border-t border-stone-200">
-                <span className="text-stone-400 font-bold w-20 inline-block">Thanh toán:</span> 
+                <span className="text-stone-400 font-bold w-20 inline-block">Thanh toán:</span>
                 <span className="font-bold text-blue-600 bg-blue-50 px-2 py-1 rounded-md">{orderData.paymentmethod.split('|')[0]}</span>
               </p>
             </div>
-            
+
             {orderData.orderstatus === 'Chờ thanh toán' && orderData.paymentmethod !== 'COD' && (
               <div className="mt-6">
                 <Link href={`/checkout/success?orderid=${orderId}`} className="w-full block text-center bg-pink-500 text-white font-black py-4 rounded-xl shadow-md hover:bg-pink-600 transition-colors">
@@ -116,6 +162,52 @@ export default function OrderTrackingPage() {
           </div>
         </div>
 
+        {orderData.orderstatus === 'Đã giao hàng' && (
+          <div id="review" className="bg-white rounded-[2.5rem] border border-stone-100 shadow-sm p-8 mt-8">
+            <h3 className="text-sm font-black text-stone-400 uppercase tracking-widest mb-6">⭐ Đánh giá sản phẩm đã nhận</h3>
+            <div className="space-y-6">
+              {orderData.orderdetails?.map((item: any, idx: number) => {
+                const pid = item.products?.id;
+                if (!pid) return null;
+                return (
+                  <div key={idx} className="flex flex-col md:flex-row gap-4 bg-stone-50 p-4 rounded-2xl border border-stone-100">
+                    <img src={item.products?.imageurl || item.products?.images?.[0] || 'https://via.placeholder.com/100'} className="w-16 h-16 rounded-xl object-cover shrink-0" />
+                    <div className="flex-1">
+                      <p className="text-sm font-bold text-stone-700 mb-2">{item.products?.name}</p>
+                      {myReviews[pid] ? (
+                        <p className="text-xs font-bold text-emerald-500">✅ Sen đã đánh giá sản phẩm này rồi. Cảm ơn Sen!</p>
+                      ) : (
+                        <>
+                          <div className="flex gap-1 mb-2">
+                            {[1, 2, 3, 4, 5].map(star => (
+                              <button key={star} onClick={() => setRatingDrafts(prev => ({ ...prev, [pid]: star }))} className="text-xl">
+                                {star <= (ratingDrafts[pid] || 5) ? '⭐' : '☆'}
+                              </button>
+                            ))}
+                          </div>
+                          <textarea
+                            value={commentDrafts[pid] || ''}
+                            onChange={(e) => setCommentDrafts(prev => ({ ...prev, [pid]: e.target.value }))}
+                            placeholder="Sen thấy sản phẩm thế nào?"
+                            className="w-full text-xs p-3 rounded-xl border border-stone-200 mb-2 resize-none"
+                            rows={2}
+                          />
+                          <button
+                            onClick={() => handleSubmitReview(pid)}
+                            disabled={submittingId === pid}
+                            className="px-4 py-2 bg-pink-500 text-white rounded-xl text-xs font-black disabled:opacity-50"
+                          >
+                            {submittingId === pid ? 'Đang gửi...' : 'Gửi đánh giá'}
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
       </main>
       <Footer />
     </div>
