@@ -18,6 +18,16 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
 
   // ==========================================
+  // 🎯 HÀM GHI LOG LƯỢT ĐĂNG NHẬP
+  // ==========================================
+  const logLogin = async (userid: number, provider: string) => {
+    const { error } = await supabase
+      .from('login_logs')
+      .insert([{ userid, source: provider }]);
+    if (error) console.error('Lỗi ghi log đăng nhập:', error);
+  };
+
+  // ==========================================
   // 📸 BƯỚC 1: CAMERA THEO DÕI TRẠNG THÁI 
   // ==========================================
   useEffect(() => {
@@ -32,6 +42,10 @@ export default function LoginPage() {
         if (!dbUser) {
           router.push('/register/complete-profile');
         } else {
+          // 🎯 Khách cũ đăng nhập thành công -> ghi 1 dòng log
+          const provider = session.user.app_metadata?.provider || 'password';
+          logLogin(dbUser.userid, provider);
+
           router.push('/');
         }
         router.refresh();

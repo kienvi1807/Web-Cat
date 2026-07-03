@@ -44,3 +44,20 @@ export const getAvatarColor = (name: string) => {
   const charCode = (name || 'A').charCodeAt(0);
   return colors[charCode % colors.length];
 };
+
+// 🎯 NHẬN DIỆN NỀN TẢNG ĐỐI TÁC (SHOPEE / TIKTOK) TỪ AFFILIATE_URL
+export type AffiliatePlatform = 'shopee' | 'tiktok' | 'other';
+
+export const getAffiliatePlatform = (url?: string | null): AffiliatePlatform => {
+  if (!url) return 'other';
+  const lower = url.toLowerCase();
+  if (lower.includes('shopee')) return 'shopee';
+  if (lower.includes('tiktok')) return 'tiktok';
+  return 'other';
+};
+
+export const AFFILIATE_PLATFORM_META: Record<AffiliatePlatform, { label: string; badgeClass: string; icon: string }> = {
+  shopee: { label: 'Shopee', badgeClass: 'bg-[#EE4D2D]', icon: '🛍️' },
+  tiktok: { label: 'TikTok', badgeClass: 'bg-black', icon: '🎵' },
+  other: { label: 'Đối Tác', badgeClass: 'bg-gradient-to-r from-orange-500 to-rose-500', icon: '🔗' },
+};

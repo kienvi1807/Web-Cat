@@ -1,10 +1,24 @@
 "use client";
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { supabase } from '@/lib/supabase';
 
 export default function SystemHubPage() {
-  
+
+  const [pendingMemorialCount, setPendingMemorialCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    const fetchPendingCount = async () => {
+      const { count } = await supabase
+        .from('memorial_photos')
+        .select('*', { count: 'exact', head: true })
+        .eq('status', 'pending');
+      setPendingMemorialCount(count || 0);
+    };
+    fetchPendingCount();
+  }, []);
+
   // 🎯 DANH SÁCH CHỨC NĂNG HỆ THỐNG & NỘI DUNG (Đã dọn dẹp biến thừa)
   const systemModules = [
     {
@@ -17,6 +31,17 @@ export default function SystemHubPage() {
       colorHoverFrom: 'group-hover:from-indigo-500',
       labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200',
       labelText: '25 Bài viết'
+    },
+    {
+      name: 'Duyệt Ảnh Kỷ Niệm',
+      icon: '🌿',
+      description: 'Kiểm duyệt ảnh kỷ niệm khách gửi lên trước khi hiển thị công khai trên Cây Ký Ức.',
+      path: '/dashboard/system/memorial',
+      color: 'pink',
+      colorFrom: 'from-pink-400',
+      colorHoverFrom: 'group-hover:from-pink-500',
+      labelColor: 'text-pink-600 bg-pink-50 border-pink-200',
+      labelText: pendingMemorialCount === null ? 'Đang tải...' : `${pendingMemorialCount} chờ duyệt`
     },
     {
       name: 'Cài đặt Giao diện',
@@ -33,7 +58,7 @@ export default function SystemHubPage() {
 
   return (
     <div className="space-y-10 animate-fade-in max-w-4xl mx-auto pb-16">
-      
+
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
@@ -44,7 +69,7 @@ export default function SystemHubPage() {
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
       <div className="relative group/section">
-        
+
         {/* Lớp Hào Quang Tỏa Ra Phía Sau (Màu Tím/Xám) */}
         <div className="absolute -inset-4 bg-gradient-to-r from-purple-500/0 via-purple-400/10 to-slate-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -56,37 +81,37 @@ export default function SystemHubPage() {
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-purple-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+            <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-purple-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 2 THẺ (CARDS) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
-            
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative z-10">
+
             {systemModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
-                
+
                 {/* Lớp sáng neon tỏa ra từ thẻ con */}
                 <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                
+
                 {/* Nội dung thẻ con (Tăng padding p-8 cho layout 2 cột) */}
                 <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-8 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                  
+
                   {/* Icon */}
                   <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
-                  
+
                   {/* Tiêu đề */}
                   <h3 className={`text-xl font-black text-${item.color}-600 mb-3 tracking-wide`}>
                     {item.name}
                   </h3>
-                  
+
                   {/* Mô tả */}
                   <p className="text-sm text-stone-500 mb-8 flex-1 leading-relaxed px-2">
                     {item.description}
                   </p>
-                  
+
                   {/* Khu vực Nhãn (Badge) Căn Giữa - ĐÃ XÓA NÚT */}
                   <div className="w-full flex justify-center items-center mt-auto pt-6 border-t border-stone-100/80">
                     <span className={`${item.labelColor} border font-black px-6 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>

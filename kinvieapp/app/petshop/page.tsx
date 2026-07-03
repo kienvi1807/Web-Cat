@@ -5,6 +5,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import ProductCard from '@/components/common/ProductCard';
+import { getAffiliatePlatform } from '@/lib/utils';
 
 export default function PetshopPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -12,6 +13,7 @@ export default function PetshopPage() {
   const [filterCategory, setFilterCategory] = useState<string>('Tất cả');
   const [sortOption, setSortOption] = useState<string>('popular');
   const [filterMinRating, setFilterMinRating] = useState<number>(0);
+  const [filterSupplier, setFilterSupplier] = useState<string>('Tất cả');
 
   useEffect(() => {
     const fetchProducts = async () => {
@@ -46,12 +48,28 @@ export default function PetshopPage() {
     safeProducts.map(p => p?.category ? String(p.category).trim() : 'Khác').filter(Boolean)
   ))];
 
+  const matchesSupplierFilterOnly = (product: any, key: string) => {
+    if (key === 'Tất cả') return true;
+    if (key === 'Shop hiện tại') return !product.is_affiliate;
+    if (key === 'Shopee') return !!product.is_affiliate && getAffiliatePlatform(product.affiliate_url) === 'shopee';
+    if (key === 'TikTok') return !!product.is_affiliate && getAffiliatePlatform(product.affiliate_url) === 'tiktok';
+    return true;
+  };
+
+  const matchesSupplierFilter = (product: any) => {
+    if (filterSupplier === 'Tất cả') return true;
+    if (filterSupplier === 'Shop hiện tại') return !product.is_affiliate;
+    if (filterSupplier === 'Shopee') return !!product.is_affiliate && getAffiliatePlatform(product.affiliate_url) === 'shopee';
+    if (filterSupplier === 'TikTok') return !!product.is_affiliate && getAffiliatePlatform(product.affiliate_url) === 'tiktok';
+    return true;
+  };
+
   let filteredProducts = safeProducts.filter(product => {
     if (!product) return false;
     const catStr = product.category ? String(product.category).trim() : 'Khác';
     const matchesCategory = filterCategory === 'Tất cả' || catStr === filterCategory;
     const matchesRating = filterMinRating === 0 || Number(product.rating || 0) >= filterMinRating;
-    return matchesCategory && matchesRating;
+    return matchesCategory && matchesRating && matchesSupplierFilter(product);
   });
 
   // 🌟 FIX LỖI SẬP WEB 3: Hàm tính giá an toàn, không bao giờ bị lỗi tính toán (NaN)
@@ -112,8 +130,8 @@ export default function PetshopPage() {
                       key={catStr}
                       onClick={() => setFilterCategory(catStr)}
                       className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterCategory === catStr
-                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200'
-                          : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
+                        ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200'
+                        : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
                         }`}
                     >
                       <span className="flex items-center gap-2">
@@ -130,6 +148,33 @@ export default function PetshopPage() {
                 })}
                 <div className="mt-8">
                   <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-stone-800">
+                    <span>🏷️</span> Nhà Cung Cấp
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { key: 'Tất cả', icon: '📦' },
+                      { key: 'Shop hiện tại', icon: '🏠' },
+                      { key: 'Shopee', icon: '🛍️' },
+                      { key: 'TikTok', icon: '🎵' },
+                    ].map(({ key, icon }) => (
+                      <button
+                        key={key}
+                        onClick={() => setFilterSupplier(key)}
+                        className={`flex items-center justify-between px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterSupplier === key
+                          ? 'bg-pink-50 text-pink-600 font-bold border border-pink-200'
+                          : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
+                          }`}
+                      >
+                        <span className="flex items-center gap-2">{icon} {key}</span>
+                        <span className="bg-white px-2 py-0.5 rounded-md text-xs text-stone-400 shadow-sm border border-stone-100">
+                          {safeProducts.filter(p => matchesSupplierFilterOnly(p, key)).length}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div className="mt-8">
+                  <h3 className="font-bold text-lg mb-4 flex items-center gap-2 text-stone-800">
                     <span>⭐</span> Đánh Giá
                   </h3>
                   <div className="flex flex-col gap-2">
@@ -138,8 +183,8 @@ export default function PetshopPage() {
                         key={star}
                         onClick={() => setFilterMinRating(star)}
                         className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-medium transition-all ${filterMinRating === star
-                            ? 'bg-amber-50 text-amber-600 font-bold border border-amber-200'
-                            : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
+                          ? 'bg-amber-50 text-amber-600 font-bold border border-amber-200'
+                          : 'bg-transparent text-stone-600 hover:bg-stone-50 border border-transparent hover:border-stone-200'
                           }`}
                       >
                         {star === 0 ? <span>Tất cả</span> : (
@@ -203,6 +248,7 @@ export default function PetshopPage() {
                     setFilterCategory('Tất cả');
                     setSortOption('popular');
                     setFilterMinRating(0);
+                    setFilterSupplier('Tất cả');
                   }}
                   className="mt-6 bg-orange-50 text-orange-500 px-6 py-3 rounded-full font-bold hover:bg-orange-100 transition-colors"
                 >

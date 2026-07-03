@@ -3,14 +3,59 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
 
+// Danh sách thành phố cho phép khách chọn để xem đúng thời tiết của họ.
+// Mặc định luôn là Hải Phòng (theo yêu cầu).
+const WEATHER_CITIES = [
+  { name: 'Hải Phòng', lat: 20.8449, lon: 106.6881 },
+  { name: 'Hà Nội', lat: 21.0285, lon: 105.8542 },
+  { name: 'TP. Hồ Chí Minh', lat: 10.7769, lon: 106.7009 },
+  { name: 'Đà Nẵng', lat: 16.0544, lon: 108.2022 },
+  { name: 'Hải Dương', lat: 20.9373, lon: 106.3145 },
+  { name: 'Quảng Ninh', lat: 20.9722, lon: 107.0069 },
+  { name: 'Cần Thơ', lat: 10.0452, lon: 105.7469 },
+  { name: 'Huế', lat: 16.4637, lon: 107.5909 },
+  { name: 'Nha Trang', lat: 12.2388, lon: 109.1967 },
+  { name: 'Đà Lạt', lat: 11.9404, lon: 108.4583 },
+] as const;
+
+const DEFAULT_CITY = WEATHER_CITIES[0]; // Hải Phòng
+const WEATHER_CITY_STORAGE_KEY = 'kinvie_weather_city';
+
 export default function HeroBanner() {
   const [isDay, setIsDay] = useState(true);
   const [weatherCondition, setWeatherCondition] = useState<'clear' | 'cloudy' | 'rain' | 'thunder'>('clear');
   const [temperature, setTemperature] = useState<number | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  
+
+  // 📍 Thành phố xem thời tiết: mặc định Hải Phòng, khách có thể đổi.
+  const [selectedCity, setSelectedCity] = useState<typeof WEATHER_CITIES[number]>(DEFAULT_CITY);
+  const [isCityPickerOpen, setIsCityPickerOpen] = useState(false);
+
   // Ref để điều khiển cuộn ngang bằng nút bấm trên PC
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Đọc lựa chọn thành phố đã lưu của khách (nếu có) khi component mount ở client
+  useEffect(() => {
+    try {
+      const savedCityName = localStorage.getItem(WEATHER_CITY_STORAGE_KEY);
+      if (savedCityName) {
+        const found = WEATHER_CITIES.find((c) => c.name === savedCityName);
+        if (found) setSelectedCity(found);
+      }
+    } catch {
+      // localStorage có thể không truy cập được (ví dụ chế độ ẩn danh) -> bỏ qua, dùng mặc định
+    }
+  }, []);
+
+  const handleSelectCity = (city: typeof WEATHER_CITIES[number]) => {
+    setSelectedCity(city);
+    setIsCityPickerOpen(false);
+    try {
+      localStorage.setItem(WEATHER_CITY_STORAGE_KEY, city.name);
+    } catch {
+      // ignore
+    }
+  };
 
   // 🕒 TÍNH TOÁN QUỸ ĐẠO BÁN NGUYỆT THEO THỜI GIAN THỰC TẾ
   const [celestialProgress, setCelestialProgress] = useState(0.5);
@@ -40,13 +85,19 @@ export default function HeroBanner() {
     return () => clearInterval(interval);
   }, []);
 
-  // 🌍 ĐỒNG BỘ THỜI TIẾT
+  // 🌍 ĐỒNG BỘ THỜI TIẾT theo thành phố khách đang chọn (mặc định Hải Phòng)
   useEffect(() => {
+    let isCancelled = false;
+
     async function fetchWeather() {
+      setIsLoading(true);
       try {
-        const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=20.8648&longitude=106.6835&current_weather=true&timezone=Asia%2FHo_Chi_Minh');
+        const { lat, lon } = selectedCity;
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=Asia%2FHo_Chi_Minh`);
         const data = await res.json();
         const current = data.current_weather;
+
+        if (isCancelled) return;
 
         const code = current.weathercode;
         if (code === 0) setWeatherCondition('clear');
@@ -60,13 +111,16 @@ export default function HeroBanner() {
       } catch (error) {
         console.error("Lỗi đồng bộ thời tiết:", error);
       } finally {
-        setIsLoading(false);
+        if (!isCancelled) setIsLoading(false);
       }
     }
     fetchWeather();
     const interval = setInterval(fetchWeather, 5 * 60 * 1000); 
-    return () => clearInterval(interval);
-  }, []);
+    return () => {
+      isCancelled = true;
+      clearInterval(interval);
+    };
+  }, [selectedCity]);
 
   const getDynamicSlogan = () => {
     if (weatherCondition === 'clear') {
@@ -76,6 +130,48 @@ export default function HeroBanner() {
     if (weatherCondition === 'rain') return '☔ Đang mưa rí rắc, ở nhà đặt ship pate là chuẩn bài!';
     if (weatherCondition === 'thunder') return '⚡ Sấm đùng đùng kìa, sen ôm Boss chặt vào kẻo em nó sợ.';
     return '✨ Mọi thứ Boss cần, KinVie đều có đủ!'; 
+  };
+
+  // 🎨 ICON THỜI TIẾT nhỏ gọn dùng cho thẻ hiển thị (không phụ thuộc font ngoài)
+  const getWeatherIcon = () => {
+    if (weatherCondition === 'thunder') {
+      return (
+        <svg className="w-6 h-6 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.6)]" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M13 2 3 14h6l-2 8 10-12h-6l2-8z" />
+        </svg>
+      );
+    }
+    if (weatherCondition === 'rain') {
+      return (
+        <svg className="w-6 h-6 text-sky-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8">
+          <path d="M17 15a4.5 4.5 0 0 0-1.2-8.85A6 6 0 0 0 4.2 8.3 4 4 0 0 0 5 16h11.5" strokeLinecap="round" strokeLinejoin="round" />
+          <path d="M8 18l-1 2M12 18l-1 2M16 18l-1 2" strokeLinecap="round" />
+        </svg>
+      );
+    }
+    if (weatherCondition === 'cloudy') {
+      return (
+        <svg className="w-6 h-6 text-slate-200" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M17 15a4.5 4.5 0 0 0-1.2-8.85A6 6 0 0 0 4.2 8.3 4 4 0 0 0 5 16h11.5A3.5 3.5 0 0 0 17 15z" />
+        </svg>
+      );
+    }
+    // clear
+    if (isDay) {
+      return (
+        <svg className="w-6 h-6 text-amber-300 drop-shadow-[0_0_6px_rgba(252,211,77,0.7)]" viewBox="0 0 24 24" fill="currentColor">
+          <circle cx="12" cy="12" r="4.5" />
+          <g stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <path d="M12 2v2.2M12 19.8V22M4.2 4.2l1.6 1.6M18.2 18.2l1.6 1.6M2 12h2.2M19.8 12H22M4.2 19.8l1.6-1.6M18.2 5.8l1.6-1.6" />
+          </g>
+        </svg>
+      );
+    }
+    return (
+      <svg className="w-6 h-6 text-indigo-200 drop-shadow-[0_0_6px_rgba(199,210,254,0.6)]" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.5 14.5A8.5 8.5 0 0 1 9.5 3.5a8.5 8.5 0 1 0 11 11z" />
+      </svg>
+    );
   };
 
   const getSkyGradient = () => {
@@ -127,11 +223,15 @@ export default function HeroBanner() {
         .animate-subtle-float { animation: subtle-float 15s ease-in-out infinite; }
 
         /* HIỆU ỨNG NGÔI SAO PHI TIÊU BAY (SHURIKEN STAR) */
+        /* Lưu ý: PHẢI dùng CHUNG 1 đơn vị (vw) cho cả trục X và Y.
+           Nếu trộn vw (theo chiều rộng) với vh (theo chiều cao viewport),
+           tỉ lệ di chuyển ngang/dọc sẽ đổi theo từng màn hình, khiến
+           đường bay lệch khỏi góc rotate(135deg) cố định của đầu mũi tên. */
         @keyframes fly-shoot {
-          0% { transform: translate(30vw, -30vh) rotate(135deg); opacity: 0; }
+          0% { transform: translate(36vw, -36vw) rotate(135deg); opacity: 0; }
           10% { opacity: 1; }
           80% { opacity: 1; }
-          100% { transform: translate(-100vw, 100vh) rotate(135deg); opacity: 0; }
+          100% { transform: translate(-100vw, 100vw) rotate(135deg); opacity: 0; }
         }
         @keyframes spin-shuriken {
           0% { transform: rotate(0deg); }
@@ -177,6 +277,12 @@ export default function HeroBanner() {
         .cloud-slow { position: absolute; animation: float-cloud-2 50s linear infinite; opacity: 0.5; }
         .falling-leaf { position: absolute; font-size: 24px; animation: wind-leaf 6s linear infinite; }
         .animate-bounce-horizontal { animation: bounce-horizontal 1.5s infinite; }
+
+        /* Hiệu ứng mở dropdown chọn thành phố */
+        @keyframes fadeIn {
+          0% { opacity: 0; transform: translateY(-6px); }
+          100% { opacity: 1; transform: translateY(0); }
+        }
       `}} />
 
       {/* =======================================
@@ -234,7 +340,7 @@ export default function HeroBanner() {
         <div className="relative z-20 text-center px-6 max-w-4xl flex flex-col items-center">
           
           {/* Logo KinVie */}
-          <h1 className="font-cursive text-[100px] md:text-[160px] text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 animate-smooth-breathe leading-tight mb-2 pb-4">
+          <h1 className="font-cursive text-[length:clamp(56px,18vw,160px)] text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 animate-smooth-breathe leading-tight mb-2 pb-4">
             KinVie
           </h1>
           
@@ -374,25 +480,70 @@ export default function HeroBanner() {
             <div className="relative z-20 container mx-auto px-6 max-w-7xl h-full flex flex-col pt-16 pb-0 md:justify-center md:pt-0">
               
               <div className="absolute top-6 right-6 md:top-12 md:right-12 z-50">
-                <div className="flex items-center gap-4 bg-black/40 backdrop-blur-xl border border-white/10 text-white px-5 py-2.5 rounded-2xl shadow-xl transition-transform hover:scale-105">
-                  <svg className="w-5 h-5 text-pink-400 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                  <div className="flex flex-col border-l border-white/20 pl-4">
-                    <div className="flex items-baseline gap-2">
-                      <span className="font-black text-[16px] md:text-[18px] tracking-tight text-white">Hải Phòng</span>
-                      <span className="font-bold text-pink-400 text-[14px] md:text-[16px]">
-                        {temperature !== null ? `${temperature}°C` : '--°C'}
+                <div className="relative">
+                  <button
+                    type="button"
+                    onClick={() => setIsCityPickerOpen((prev) => !prev)}
+                    className="flex items-center gap-3.5 bg-black/40 hover:bg-black/50 backdrop-blur-xl border border-white/10 text-white pl-4 pr-3.5 py-2.5 rounded-2xl shadow-xl transition-all hover:scale-105"
+                  >
+                    <div className="flex items-center justify-center w-9 h-9 rounded-xl bg-white/10">
+                      {getWeatherIcon()}
+                    </div>
+
+                    <div className="flex flex-col items-start border-l border-white/15 pl-3.5">
+                      <div className="flex items-baseline gap-2">
+                        <span className="font-black text-[15px] md:text-[17px] tracking-tight text-white">{selectedCity.name}</span>
+                        <span className="font-bold text-pink-400 text-[14px] md:text-[16px]">
+                          {temperature !== null ? `${temperature}°C` : '--°C'}
+                        </span>
+                      </div>
+                      <span className="text-[10px] md:text-[11px] font-bold text-stone-300 uppercase tracking-[0.1em] mt-0.5">
+                        {weatherCondition === 'clear' && (isDay ? 'Trời Nắng' : 'Trời Quang')}
+                        {weatherCondition === 'cloudy' && 'Nhiều Gió'}
+                        {weatherCondition === 'rain' && 'Có Mưa'}
+                        {weatherCondition === 'thunder' && 'Sấm Chớp'}
                       </span>
                     </div>
-                    <span className="text-[10px] md:text-[11px] font-bold text-stone-300 uppercase tracking-[0.1em] mt-0.5">
-                      {weatherCondition === 'clear' && (isDay ? 'Trời Nắng' : 'Trời Quang')}
-                      {weatherCondition === 'cloudy' && 'Nhiều Gió'}
-                      {weatherCondition === 'rain' && 'Có Mưa'}
-                      {weatherCondition === 'thunder' && 'Sấm Chớp'}
-                    </span>
-                  </div>
+
+                    <svg
+                      className={`w-4 h-4 text-stone-300 ml-1 transition-transform duration-300 ${isCityPickerOpen ? 'rotate-180' : ''}`}
+                      fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                    >
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M19 9l-7 7-7-7" />
+                    </svg>
+                  </button>
+
+                  {/* DROPDOWN CHỌN THÀNH PHỐ */}
+                  {isCityPickerOpen && (
+                    <>
+                      {/* Lớp phủ để bấm ra ngoài là đóng dropdown */}
+                      <div className="fixed inset-0 z-40" onClick={() => setIsCityPickerOpen(false)} />
+                      <div className="absolute right-0 mt-2.5 w-60 max-h-80 overflow-y-auto bg-stone-900/80 backdrop-blur-2xl border border-white/10 rounded-2xl shadow-2xl z-50 p-2 animate-[fadeIn_0.2s_ease-out]">
+                        <p className="px-3 pt-2 pb-1.5 text-[10px] font-bold text-stone-400 uppercase tracking-[0.15em]">
+                          Xem thời tiết tại
+                        </p>
+                        {WEATHER_CITIES.map((city) => (
+                          <button
+                            key={city.name}
+                            type="button"
+                            onClick={() => handleSelectCity(city)}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                              city.name === selectedCity.name
+                                ? 'bg-pink-500/20 text-pink-300'
+                                : 'text-stone-200 hover:bg-white/10'
+                            }`}
+                          >
+                            {city.name}
+                            {city.name === selectedCity.name && (
+                              <svg className="w-4 h-4 text-pink-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M5 13l4 4L19 7" />
+                              </svg>
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 

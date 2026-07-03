@@ -4,7 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
 
 export default function ProfilePage() {
@@ -27,17 +27,17 @@ export default function ProfilePage() {
 
   // State chứa dữ liệu thật từ Database
   const [userData, setUserData] = useState({
-    userid: null, 
+    userid: null,
     name: '',
     rank: 'Đồng',
     phone: 'Chưa cập nhật',
-    age: 'Chưa cập nhật', 
-    birthdate: '', 
-    address: 'Chưa cập nhật', 
+    age: 'Chưa cập nhật',
+    birthdate: '',
+    address: 'Chưa cập nhật',
     avatarUrl: '',
-    pets: [] as any[], 
+    pets: [] as any[],
     orders: [] as any[],
-    myPosts: [] as any[] 
+    myPosts: [] as any[]
   });
 
   const calculateAge = (dobString: string) => {
@@ -63,13 +63,13 @@ export default function ProfilePage() {
 
       if (dbUser) {
         const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
-        const cleanName = rawName.normalize('NFC'); 
+        const cleanName = rawName.normalize('NFC');
 
         let hdAvatarUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
         if (hdAvatarUrl) {
           if (hdAvatarUrl.includes('fbcdn.net')) hdAvatarUrl = hdAvatarUrl.replace(/\/[sp]\d+x\d+\//, '/');
           else if (hdAvatarUrl.includes('graph.facebook.com')) hdAvatarUrl = `${hdAvatarUrl}${hdAvatarUrl.includes('?') ? '&' : '?'}width=400&height=400`;
-          else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c'); 
+          else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c');
         }
 
         const { data: userPets } = await supabase.from('pets').select('*').eq('ownerid', dbUser.userid);
@@ -85,15 +85,15 @@ export default function ProfilePage() {
         setUserData({
           userid: dbUser.userid,
           name: cleanName,
-          rank: dbUser.type_users?.rank_name || 'Đồng', 
+          rank: dbUser.type_users?.rank_name || 'Đồng',
           phone: dbUser.phone || 'Chưa cập nhật',
-          age: dbUser.age || 'Chưa cập nhật', 
-          birthdate: dbUser.birthdate || '', 
+          age: dbUser.age || 'Chưa cập nhật',
+          birthdate: dbUser.birthdate || '',
           address: dbUser.address || 'Chưa cập nhật',
-          avatarUrl: hdAvatarUrl, 
+          avatarUrl: hdAvatarUrl,
           pets: userPets || [],
           orders: userOrders || [],
-          myPosts: userPosts || [] 
+          myPosts: userPosts || []
         });
       }
       setIsLoading(false);
@@ -103,9 +103,9 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     if (window.confirm("Boss muốn đăng xuất tài khoản à?")) {
-      await supabase.auth.signOut(); 
-      localStorage.removeItem('kinvie_user'); 
-      router.push('/login'); 
+      await supabase.auth.signOut();
+      localStorage.removeItem('kinvie_user');
+      router.push('/login');
     }
   };
 
@@ -138,7 +138,7 @@ export default function ProfilePage() {
     try {
       const { error } = await supabase.from('pets').delete().eq('petid', petId);
       if (error) throw error;
-      
+
       // Xóa thành công thì đá bé mèo đó khỏi giao diện hiện tại
       setUserData(prev => ({
         ...prev,
@@ -190,8 +190,8 @@ export default function ProfilePage() {
         await supabase.from('post_pets').insert(editSelectedPets.map(pid => ({ post_id: postId, pet_id: pid })));
       }
       const updatedTaggedPets = editSelectedPets.map(id => {
-         const p = userData.pets.find(p => p.petid === id);
-         return { pets: { petid: p.petid, petname: p.petname, imageurl: p.imageurl } };
+        const p = userData.pets.find(p => p.petid === id);
+        return { pets: { petid: p.petid, petname: p.petname, imageurl: p.imageurl } };
       });
       setUserData(prev => ({ ...prev, myPosts: prev.myPosts.map(p => p.id === postId ? { ...p, content: editCaption, image_url: finalImageUrl, post_pets: updatedTaggedPets } : p) }));
       cancelEditing();
@@ -211,7 +211,7 @@ export default function ProfilePage() {
 
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10">
         <div className="flex flex-col lg:flex-row gap-8">
-          
+
           {/* SIDEBAR TÓM TẮT */}
           <div className="lg:w-1/3">
             <div className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100 text-center sticky top-28">
@@ -224,13 +224,14 @@ export default function ProfilePage() {
                 <div><p className="text-[10px] text-stone-400 uppercase font-black">Số Boss</p><p className="text-2xl font-black text-pink-500">{userData.pets.length}</p></div>
                 <div><p className="text-[10px] text-stone-400 uppercase font-black">Đơn hàng</p><p className="text-2xl font-black text-stone-800">{userData.orders.length}</p></div>
               </div>
-              <button onClick={handleLogout} className="mt-8 w-full py-4 bg-stone-50 text-rose-500 font-bold rounded-2xl border-2 border-rose-50 hover:bg-rose-50 transition-all flex items-center justify-center gap-2">🚪 Đăng xuất</button>
+              <Link href="/profile/memorial" className="mt-6 w-full py-4 bg-pink-50 text-pink-500 font-bold rounded-2xl border-2 border-pink-100 hover:bg-pink-100 transition-all flex items-center justify-center gap-2">🌿 Ảnh kỷ niệm của tôi</Link>
+              <button onClick={handleLogout} className="mt-3 w-full py-4 bg-stone-50 text-rose-500 font-bold rounded-2xl border-2 border-rose-50 hover:bg-rose-50 transition-all flex items-center justify-center gap-2">🚪 Đăng xuất</button>
             </div>
           </div>
 
           {/* NỘI DUNG CHI TIẾT */}
           <div className="lg:w-2/3 space-y-8">
-            
+
             {/* Khối 1: Thông tin cá nhân */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
               <div className="flex items-center justify-between mb-8">
@@ -238,7 +239,7 @@ export default function ProfilePage() {
                 <button onClick={() => router.push('/profile/edit')} className="text-xs font-bold text-pink-500 bg-pink-50 px-4 py-2 rounded-xl hover:bg-pink-100 transition-all">✏️ Sửa hồ sơ</button>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-y-6 gap-x-12">
-                {[ {l: 'Họ và tên', v: userData.name}, {l: 'Tuổi', v: userData.birthdate ? calculateAge(userData.birthdate) : userData.age}, {l: 'Số điện thoại', v: userData.phone}, {l: 'Địa chỉ', v: userData.address} ].map((item, i) => (
+                {[{ l: 'Họ và tên', v: userData.name }, { l: 'Tuổi', v: userData.birthdate ? calculateAge(userData.birthdate) : userData.age }, { l: 'Số điện thoại', v: userData.phone }, { l: 'Địa chỉ', v: userData.address }].map((item, i) => (
                   <div key={i} className="border-b border-stone-50 pb-2">
                     <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">{item.l}</label>
                     <p className="text-sm font-bold text-stone-700 mt-1">{item.v}</p>
@@ -267,7 +268,7 @@ export default function ProfilePage() {
                     </Link>
 
                     {/* 🎯 NÚT XÓA MÈO NẰM NỔI LÊN TRÊN */}
-                    <button 
+                    <button
                       onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
                       className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
                       title="Xóa hồ sơ bé này"
@@ -276,7 +277,7 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ))}
-                
+
                 <Link href="/profile/add-pet" className="border-2 border-dashed border-stone-200 rounded-2xl p-4 text-stone-400 font-bold hover:bg-pink-50 hover:border-pink-200 hover:text-pink-400 transition-all flex items-center justify-center min-h-[88px]">
                   + Thêm Boss
                 </Link>
@@ -300,22 +301,22 @@ export default function ProfilePage() {
                 ============================================== */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
               <h3 className="text-xl font-black mb-8 flex items-center gap-3">📦 Lịch sử mua hàng</h3>
-              
+
               <div className="space-y-4">
                 {userData.orders.length === 0 ? (
                   <p className="text-center py-10 text-stone-400 font-medium italic">Sen chưa mua đơn hàng nào. Hãy ghé Petshop nhé! 🛒</p>
                 ) : (
                   currentOrders.map((order, idx) => {
-                    const currentStatus = statusConfig[order.orderstatus] || { 
-                      label: order.orderstatus, 
-                      class: 'bg-stone-100 text-stone-600' 
+                    const currentStatus = statusConfig[order.orderstatus] || {
+                      label: order.orderstatus,
+                      class: 'bg-stone-100 text-stone-600'
                     };
                     const isOpen = expandedOrderId === order.orderid;
                     const displayNo = userData.orders.length - (indexOfFirstOrder + idx);
                     return (
                       <div key={order.orderid} className={`border rounded-3xl overflow-hidden transition-all duration-300 ${isOpen ? 'border-pink-200 ring-4 ring-pink-50/50 shadow-md' : 'border-stone-100 bg-stone-50/30'}`}>
                         {/* Header của Đơn hàng (Cái bấm vào để sổ) */}
-                        <div 
+                        <div
                           onClick={() => setExpandedOrderId(isOpen ? null : order.orderid)}
                           className="p-5 flex items-center justify-between cursor-pointer hover:bg-white transition-colors"
                         >
@@ -358,16 +359,16 @@ export default function ProfilePage() {
                             ) : (
                               <p className="text-xs text-stone-400 italic">Không có thông tin chi tiết món hàng.</p>
                             )}
-                            
+
                             <div className="pt-4 mt-2 border-t border-dashed border-stone-100 grid grid-cols-2 gap-4">
-                               <div>
-                                  <p className="text-[10px] text-stone-400 uppercase font-black mb-1">Phương thức thanh toán</p>
-                                  <p className="text-xs font-bold text-stone-600">{order.paymentmethod || 'COD'}</p>
-                               </div>
-                               <div className="text-right">
-                                  <p className="text-[10px] text-stone-400 uppercase font-black mb-1">Địa chỉ nhận</p>
-                                  <p className="text-[11px] font-bold text-stone-600 line-clamp-1">{order.address || userData.address}</p>
-                               </div>
+                              <div>
+                                <p className="text-[10px] text-stone-400 uppercase font-black mb-1">Phương thức thanh toán</p>
+                                <p className="text-xs font-bold text-stone-600">{order.paymentmethod || 'COD'}</p>
+                              </div>
+                              <div className="text-right">
+                                <p className="text-[10px] text-stone-400 uppercase font-black mb-1">Địa chỉ nhận</p>
+                                <p className="text-[11px] font-bold text-stone-600 line-clamp-1">{order.address || userData.address}</p>
+                              </div>
                             </div>
                           </div>
                         </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { 
@@ -10,10 +10,16 @@ import {
 
 const PIE_COLORS = ['#f59e0b', '#f97316', '#ef4444', '#8b5cf6', '#10b981', '#3b82f6'];
 
+type SortField = 'fullname' | 'phone' | 'loginCount' | 'orderCount' | 'totalSpent';
+type SortDir = 'asc' | 'desc';
+
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
+
+  // 🎯 TAB ĐANG CHỌN
+  const [activeTab, setActiveTab] = useState<'overview' | 'customers'>('overview');
   
-  const [rawData, setRawData] = useState({ orders: [] as any[], expenses: [] as any[], users: [] as any[], products: [] as any[] });
+  const [rawData, setRawData] = useState({ orders: [] as any[], expenses: [] as any[], users: [] as any[], products: [] as any[], logins: [] as any[] });
 
   // 🎯 LỌC TỔNG QUAN
   const [pieType, setPieType] = useState<'expense' | 'revenue'>('expense');
@@ -30,6 +36,16 @@ export default function ReportsPage() {
   const [barChartData, setBarChartData] = useState<any[]>([]);
   const [summary, setSummary] = useState({ totalThu: 0, totalChi: 0, newUsers: 0 });
   const [topProducts, setTopProducts] = useState({ merch: [] as any[], pate: [] as any[] });
+
+  // 🎯 LỌC HOẠT ĐỘNG KHÁCH HÀNG
+  const [custPeriodMode, setCustPeriodMode] = useState<'month' | 'all'>('month');
+  const [custMonthValue, setCustMonthValue] = useState(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+  });
+  const [custSearch, setCustSearch] = useState('');
+  const [sortField, setSortField] = useState<SortField>('totalSpent');
+  const [sortDir, setSortDir] = useState<SortDir>('desc');
 
   useEffect(() => {
     fetchData();
@@ -49,12 +65,14 @@ export default function ReportsPage() {
     const { data: expenses } = await supabase.from('expenses').select('*');
     const { data: users } = await supabase.from('users').select('*');
     const { data: products } = await supabase.from('products').select('*');
+    const { data: logins } = await supabase.from('login_logs').select('*');
 
     setRawData({ 
       orders: orders || [], 
       expenses: expenses || [],
       users: users || [],
-      products: products || []
+      products: products || [],
+      logins: logins || []
     });
     
     setIsLoading(false);
@@ -194,6 +212,71 @@ export default function ReportsPage() {
     setBarChartData(Object.values(barDataMap).sort((a, b) => a.timestamp - b.timestamp));
   };
 
+  // ============================================================
+  // 🎯 XỬ LÝ DỮ LIỆU CHO TAB "HOẠT ĐỘNG KHÁCH HÀNG"
+  // ============================================================
+  const isInCustPeriod = (dateStr: string | null | undefined) => {
+    if (!dateStr) return false;
+    if (custPeriodMode === 'all') return true;
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return false;
+    const [y, m] = custMonthValue.split('-').map(Number);
+    return d.getFullYear() === y && (d.getMonth() + 1) === m;
+  };
+
+  const customerRows = useMemo(() => {
+    const rows = rawData.users.map(u => {
+      const uLogins = rawData.logins.filter(l => l.userid === u.userid && isInCustPeriod(l.loginat));
+      const uOrders = rawData.orders.filter(o => {
+        const oDate = o.orderdate || o.orderDate || o.created_at || o.createdat || o.createdAt;
+        return o.userid === u.userid && isInCustPeriod(oDate);
+      });
+      const totalSpent = uOrders.reduce((sum, o) => sum + Number(o.totalamount || 0), 0);
+
+      return {
+        userid: u.userid,
+        fullname: u.fullname || 'Chưa cập nhật tên',
+        phone: u.phone || '—',
+        loginCount: uLogins.length,
+        orderCount: uOrders.length,
+        totalSpent,
+      };
+    });
+
+    // 🔍 Tìm kiếm
+    const keyword = custSearch.trim().toLowerCase();
+    const filtered = keyword
+      ? rows.filter(r => r.fullname.toLowerCase().includes(keyword) || r.phone.includes(keyword))
+      : rows;
+
+    // ↕️ Sắp xếp
+    const sorted = [...filtered].sort((a, b) => {
+      let valA: any = a[sortField];
+      let valB: any = b[sortField];
+      if (typeof valA === 'string') {
+        valA = valA.toLowerCase(); valB = valB.toLowerCase();
+        return sortDir === 'asc' ? valA.localeCompare(valB) : valB.localeCompare(valA);
+      }
+      return sortDir === 'asc' ? valA - valB : valB - valA;
+    });
+
+    return sorted;
+  }, [rawData.users, rawData.logins, rawData.orders, custPeriodMode, custMonthValue, custSearch, sortField, sortDir]);
+
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortDir(prev => prev === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortDir('desc');
+    }
+  };
+
+  const SortIcon = ({ field }: { field: SortField }) => {
+    if (sortField !== field) return <span className="text-stone-300">↕</span>;
+    return <span className="text-orange-600">{sortDir === 'asc' ? '↑' : '↓'}</span>;
+  };
+
   const CustomTooltip = ({ active, payload, label }: any) => {
     if (active && payload && payload.length) {
       return (
@@ -234,6 +317,22 @@ export default function ReportsPage() {
             </h1>
             <p className="font-bold text-stone-500 mt-2">Phân tích cơ cấu chi tiêu, sản phẩm bán chạy và xu hướng</p>
           </div>
+
+          {/* 🎯 TAB SWITCHER */}
+          <div className="bg-white/70 backdrop-blur-md p-1.5 rounded-2xl flex border border-white shadow-sm w-fit">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`cursor-pointer px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'overview' ? 'bg-orange-500 text-white shadow-md' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+              📊 Tổng quan
+            </button>
+            <button
+              onClick={() => setActiveTab('customers')}
+              className={`cursor-pointer px-5 py-2.5 rounded-xl text-sm font-black transition-all ${activeTab === 'customers' ? 'bg-orange-500 text-white shadow-md' : 'text-stone-500 hover:text-stone-700'}`}
+            >
+              👥 Hoạt động khách hàng
+            </button>
+          </div>
         </div>
 
         {isLoading ? (
@@ -241,7 +340,7 @@ export default function ReportsPage() {
             <div className="w-12 h-12 border-4 border-orange-200 border-t-orange-600 rounded-full animate-spin mb-4"></div>
             <p className="font-black text-stone-400 tracking-widest text-sm uppercase animate-pulse">Đang nạp dữ liệu thống kê...</p>
           </div>
-        ) : (
+        ) : activeTab === 'overview' ? (
           <div className="space-y-8">
             
             {/* 🎯 PHẦN 1: PIE CHART & METRICS TỔNG QUAN */}
@@ -426,6 +525,90 @@ export default function ReportsPage() {
               </div>
             </div>
 
+          </div>
+        ) : (
+          // ============================================================
+          // 🎯 TAB "HOẠT ĐỘNG KHÁCH HÀNG"
+          // ============================================================
+          <div className="bg-white/60 backdrop-blur-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] p-8">
+            
+            <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6 border-b border-stone-200/50 pb-6">
+              <div>
+                <h2 className="text-2xl font-black text-stone-800">Hoạt động Khách hàng</h2>
+                <p className="text-stone-500 font-medium text-sm mt-1">Số lần đăng nhập, số đơn hàng và tổng chi tiêu của từng khách.</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                {/* Tìm kiếm */}
+                <input
+                  type="text"
+                  value={custSearch}
+                  onChange={e => setCustSearch(e.target.value)}
+                  placeholder="🔍 Tìm theo tên hoặc SĐT..."
+                  className="bg-white border border-stone-200 rounded-2xl px-5 py-2.5 font-bold text-sm text-stone-700 outline-none hover:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all w-full sm:w-64"
+                />
+
+                {/* Chế độ lọc thời gian */}
+                <div className="bg-stone-100/80 p-1 rounded-2xl flex border border-stone-200">
+                  <button onClick={() => setCustPeriodMode('month')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-black transition-all ${custPeriodMode === 'month' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Theo tháng</button>
+                  <button onClick={() => setCustPeriodMode('all')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-black transition-all ${custPeriodMode === 'all' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>Tất cả thời gian</button>
+                </div>
+
+                {custPeriodMode === 'month' && (
+                  <input
+                    type="month"
+                    value={custMonthValue}
+                    onChange={e => setCustMonthValue(e.target.value)}
+                    className="cursor-pointer bg-white border border-stone-200 rounded-2xl px-5 py-2.5 font-bold text-sm text-stone-700 outline-none hover:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all"
+                  />
+                )}
+              </div>
+            </div>
+
+            {customerRows.length === 0 ? (
+              <div className="py-20 text-center text-stone-400 font-bold">Không tìm thấy khách hàng phù hợp</div>
+            ) : (
+              <div className="overflow-x-auto rounded-3xl border border-stone-100">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="bg-stone-50 border-b border-stone-100">
+                      <th className="px-6 py-4 text-left font-black text-stone-500 uppercase text-xs tracking-widest cursor-pointer select-none" onClick={() => handleSort('fullname')}>
+                        <span className="inline-flex items-center gap-1.5">Khách hàng <SortIcon field="fullname" /></span>
+                      </th>
+                      <th className="px-6 py-4 text-left font-black text-stone-500 uppercase text-xs tracking-widest cursor-pointer select-none" onClick={() => handleSort('phone')}>
+                        <span className="inline-flex items-center gap-1.5">SĐT <SortIcon field="phone" /></span>
+                      </th>
+                      <th className="px-6 py-4 text-center font-black text-stone-500 uppercase text-xs tracking-widest cursor-pointer select-none" onClick={() => handleSort('loginCount')}>
+                        <span className="inline-flex items-center gap-1.5">Số lần đăng nhập <SortIcon field="loginCount" /></span>
+                      </th>
+                      <th className="px-6 py-4 text-center font-black text-stone-500 uppercase text-xs tracking-widest cursor-pointer select-none" onClick={() => handleSort('orderCount')}>
+                        <span className="inline-flex items-center gap-1.5">Số đơn hàng <SortIcon field="orderCount" /></span>
+                      </th>
+                      <th className="px-6 py-4 text-right font-black text-stone-500 uppercase text-xs tracking-widest cursor-pointer select-none" onClick={() => handleSort('totalSpent')}>
+                        <span className="inline-flex items-center gap-1.5 justify-end">Tổng chi tiêu <SortIcon field="totalSpent" /></span>
+                      </th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {customerRows.map((r, idx) => (
+                      <tr key={r.userid} className={`border-b border-stone-50 hover:bg-orange-50/40 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-stone-50/30'}`}>
+                        <td className="px-6 py-4 font-bold text-stone-800">{r.fullname}</td>
+                        <td className="px-6 py-4 text-stone-500 font-medium">{r.phone}</td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-full bg-purple-50 text-purple-600 font-black">{r.loginCount}</span>
+                        </td>
+                        <td className="px-6 py-4 text-center">
+                          <span className="inline-flex items-center justify-center min-w-[2.5rem] px-2 py-1 rounded-full bg-blue-50 text-blue-600 font-black">{r.orderCount}</span>
+                        </td>
+                        <td className="px-6 py-4 text-right font-black text-emerald-600">{r.totalSpent.toLocaleString()} đ</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            <p className="text-xs text-stone-400 font-bold mt-4">Tổng cộng {customerRows.length} khách hàng</p>
           </div>
         )}
       </div>

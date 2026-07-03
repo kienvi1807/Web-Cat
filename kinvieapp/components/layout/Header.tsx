@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from 'react';
@@ -209,6 +210,7 @@ export default function Header() {
             <Link href="/" className={`pb-1 transition-colors ${pathname === '/' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Trang Chủ</Link>
             <Link href="/cattery" className={`pb-1 transition-colors ${pathname === '/cattery' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>KinVie Cattery</Link>
             <Link href="/petshop" className={`pb-1 transition-colors ${pathname === '/petshop' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Beam Petshop</Link>
+            <Link href="/memorial" className={`pb-1 transition-colors ${pathname === '/memorial' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cây Ký Ức</Link>
           </nav>
 
           <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2 z-10">
@@ -243,7 +245,7 @@ export default function Header() {
             )}
           </Link>
 
-          <nav className="flex gap-3 md:gap-6 font-medium text-stone-600 items-center justify-end w-1/3 z-20">
+          <nav className="flex gap-1.5 sm:gap-3 md:gap-6 font-medium text-stone-600 items-center justify-end w-auto md:w-1/3 z-20 shrink-0">
             <Link href="/blog" className={`hidden md:block pb-1 transition-colors ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
             <Link href="/feed" className={`hidden md:block pb-1 transition-colors ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng đồng</Link>
 
@@ -267,7 +269,7 @@ export default function Header() {
                 {isNotifOpen && (
                   <>
                     <div className="fixed inset-0 z-30" onClick={() => setIsNotifOpen(false)}></div>
-                    <div className="absolute right-0 mt-3 w-80 max-h-[28rem] overflow-y-auto bg-white rounded-[1.5rem] shadow-2xl border border-stone-100 z-40 custom-scrollbar">
+                    <div className="absolute right-0 mt-3 w-[85vw] max-w-80 max-h-[28rem] overflow-y-auto bg-white rounded-[1.5rem] shadow-2xl border border-stone-100 z-40 custom-scrollbar">
                       <div className="p-4 border-b border-stone-100 font-black text-stone-700 text-sm sticky top-0 bg-white rounded-t-[1.5rem]">Thông báo</div>
                       {notifications.length === 0 ? (
                         <p className="p-6 text-center text-xs text-stone-400 font-bold">Chưa có thông báo nào 🐾</p>
@@ -278,7 +280,7 @@ export default function Header() {
                           className={`w-full text-left px-4 py-3 border-b border-stone-50 hover:bg-pink-50/50 transition-colors flex gap-3 items-start ${!notif.is_read ? 'bg-pink-50/30' : ''}`}
                         >
                           <span className="text-lg shrink-0 mt-0.5">
-                            {notif.type === 'order_success' ? '📦' : notif.type === 'order_approved' ? '🚚' : notif.type === 'cat_inquiry' ? '💌' :  notif.type === 'post_like' ? '❤️' : (notif.type === 'post_comment' || notif.type === 'comment_reply') ? '💬' : '🔔'}
+                            {notif.type === 'order_success' ? '📦' : notif.type === 'order_approved' ? '🚚' : notif.type === 'cat_inquiry' ? '💌' : notif.type === 'memorial_approved' ? '🌿' : notif.type === 'memorial_rejected' ? '😿' : notif.type === 'post_like' ? '❤️' : (notif.type === 'post_comment' || notif.type === 'comment_reply') ? '💬' : '🔔'}
                           </span>
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-black text-stone-800 line-clamp-1">{notif.title}</p>
@@ -298,7 +300,7 @@ export default function Header() {
               <Link href="/cart" className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
                 <span className="text-xl md:text-2xl">🛒</span>
                 {cartItemCount > 0 && (
-                  <span className="absolute 0 md:-top-1 -right-1 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-1.5 min-w-[18px] md:min-w-[20px] h-4 md:h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
+                  <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-1.5 min-w-[18px] md:min-w-[20px] h-4 md:h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
                     {cartItemCount > 99 ? '99+' : cartItemCount}
                   </span>
                 )}
@@ -349,6 +351,7 @@ export default function Header() {
               { name: 'KinVie Cattery', href: '/cattery', icon: '🐱' },
               { name: 'Beam Petshop', href: '/petshop', icon: '🏪' },
               { name: 'Cộng Đồng Sen', href: '/feed', icon: '🌟' },
+              { name: 'Cây Ký Ức', href: '/memorial', icon: '🌿' },
               { name: 'Blog Kiến Thức', href: '/blog', icon: '📖' }
             ].map((item) => (
               <Link

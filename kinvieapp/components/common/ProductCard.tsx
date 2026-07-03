@@ -3,12 +3,13 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { getAffiliatePlatform, AFFILIATE_PLATFORM_META } from '@/lib/utils';
 
 export default function ProductCard({ product }: { product: any }) {
   const router = useRouter();
 
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  
+
   // 🌟 STATE CHO QUICK ADD MODAL
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quantity, setQuantity] = useState(1);
@@ -42,7 +43,7 @@ export default function ProductCard({ product }: { product: any }) {
 
     // Gọi hàm đếm click ngầm (không await để chuyển trang mượt mà)
     supabase.rpc('increment_affiliate_click', { product_id: product.id });
-    
+
     // Mở liên kết ở tab mới
     window.open(product.affiliate_url, '_blank');
   };
@@ -134,14 +135,14 @@ export default function ProductCard({ product }: { product: any }) {
 
   return (
     <>
-      <div 
-        onClick={handleCardClick} 
+      <div
+        onClick={handleCardClick}
         className="group bg-white rounded-[2rem] overflow-hidden cursor-pointer border border-orange-50 relative transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_50px_-12px_rgba(249,115,22,0.25)] hover:border-orange-200 flex flex-col h-full"
       >
         <div className="relative aspect-square overflow-hidden bg-stone-50 shrink-0 p-4 flex items-center justify-center">
-          <img 
-            src={imageUrl} 
-            alt={product.name} 
+          <img
+            src={imageUrl}
+            alt={product.name}
             className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
             onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/ffedd5/ea580c?text=Anh+Loi'; }}
           />
@@ -150,13 +151,16 @@ export default function ProductCard({ product }: { product: any }) {
               Giảm {discount}%
             </div>
           )}
-          
-          {/* 🌟 NHÃN AFFILIATE DÁN Ở GÓC PHẢI (MỚI) */}
-          {product.is_affiliate && (
-            <div className="absolute top-4 right-4 bg-gradient-to-r from-orange-500 to-rose-500 px-3 py-1.5 rounded-full text-[10px] font-black text-white shadow-md uppercase tracking-wider z-10 flex items-center gap-1 border border-white/20">
-              <span>🔗</span> Đối Tác
-            </div>
-          )}
+
+          {/* 🌟 NHÃN NỀN TẢNG (SHOPEE/TIKTOK) DÁN Ở GÓC PHẢI */}
+          {product.is_affiliate && (() => {
+            const meta = AFFILIATE_PLATFORM_META[getAffiliatePlatform(product.affiliate_url)];
+            return (
+              <div className={`absolute top-4 right-4 ${meta.badgeClass} px-3 py-1.5 rounded-full text-[10px] font-black text-white shadow-md uppercase tracking-wider z-10 flex items-center gap-1 border border-white/20`}>
+                <span>{meta.icon}</span> {meta.label}
+              </div>
+            );
+          })()}
         </div>
 
         <div className="p-5 bg-gradient-to-b from-white to-orange-50/20 flex flex-col flex-1">
@@ -164,7 +168,7 @@ export default function ProductCard({ product }: { product: any }) {
             <p className="text-[10px] font-black text-orange-400 uppercase tracking-widest mb-1">{product.brand || 'Khác'}</p>
             <h3 className="text-lg font-black text-stone-800 line-clamp-2 leading-snug group-hover:text-orange-500 transition-colors">{product.name}</h3>
           </div>
-          
+
           <div className="flex items-center justify-between text-xs mt-1 mb-4">
             <div className="flex items-center gap-1">
               {[1, 2, 3, 4, 5].map((star) => (
@@ -182,17 +186,17 @@ export default function ProductCard({ product }: { product: any }) {
               <p className="text-lg font-black text-orange-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}</p>
               {discount > 0 && <p className="text-xs text-stone-400 line-through font-bold">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(rawPrice)}</p>}
             </div>
-            
+
             {/* 🌟 ĐỔI NÚT DỰA VÀO LOẠI SẢN PHẨM (MỚI) */}
             {product.is_affiliate ? (
-              <button 
+              <button
                 onClick={handleAffiliateClick}
                 className="px-4 py-2 bg-gradient-to-r from-orange-500 to-rose-500 text-white font-black rounded-xl text-xs hover:shadow-lg hover:shadow-orange-200 transition-all active:scale-95 flex items-center gap-1"
               >
                 Nơi bán <span className="text-[10px]">➔</span>
               </button>
             ) : (
-              <button 
+              <button
                 onClick={handleOpenQuickAdd}
                 disabled={product.stock === 0}
                 className={`w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-sm active:scale-95
@@ -209,7 +213,7 @@ export default function ProductCard({ product }: { product: any }) {
       {/* 🌟 QUICK ADD MODAL (LAYER BẬT LÊN KHI BẤM GIỎ HÀNG)          */}
       {/* ============================================================ */}
       {showQuickAdd && !product.is_affiliate && (
-        <div 
+        <div
           className="fixed inset-0 z-[99999] flex items-center justify-center px-4 animate-in fade-in duration-200"
           onClick={handleCloseQuickAdd} // Click ra ngoài nền đen sẽ đóng Modal
         >
@@ -217,12 +221,12 @@ export default function ProductCard({ product }: { product: any }) {
           <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm"></div>
 
           {/* Bảng Layer Trắng */}
-          <div 
+          <div
             className="relative bg-white w-full max-w-md rounded-[2.5rem] shadow-2xl p-6 lg:p-8 flex flex-col transform transition-all animate-in zoom-in-95"
             onClick={(e) => e.stopPropagation()} // Chặn không cho lệnh click xuyên qua thẻ div này
           >
             {/* Nút X đóng bảng */}
-            <button 
+            <button
               onClick={handleCloseQuickAdd}
               className="absolute top-4 right-4 w-10 h-10 bg-stone-100 hover:bg-rose-100 hover:text-rose-500 text-stone-500 rounded-full flex items-center justify-center transition-colors z-10"
             >
@@ -246,7 +250,7 @@ export default function ProductCard({ product }: { product: any }) {
               <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">Chọn Phân Loại</p>
               <div className="flex flex-wrap gap-2">
                 {demoVariants.map((v) => (
-                  <button 
+                  <button
                     key={v}
                     onClick={() => setSelectedVariant(v)}
                     className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${selectedVariant === v ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-200' : 'bg-white text-stone-600 border-stone-200 hover:border-orange-300'}`}
@@ -259,16 +263,16 @@ export default function ProductCard({ product }: { product: any }) {
 
             {/* Phần Chọn Số Lượng */}
             <div className="mb-8">
-               <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">Số lượng</p>
-               <div className="flex items-center bg-stone-50 border border-stone-200 rounded-2xl p-1 shadow-sm w-max">
-                  <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 flex items-center justify-center text-xl font-bold hover:bg-white rounded-xl transition-all text-stone-500">−</button>
-                  <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-16 text-center font-black text-lg focus:outline-none bg-transparent text-stone-800" />
-                  <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 flex items-center justify-center text-xl font-bold hover:bg-white rounded-xl transition-all text-stone-500">+</button>
-               </div>
+              <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">Số lượng</p>
+              <div className="flex items-center bg-stone-50 border border-stone-200 rounded-2xl p-1 shadow-sm w-max">
+                <button onClick={() => setQuantity(Math.max(1, quantity - 1))} className="w-10 h-10 flex items-center justify-center text-xl font-bold hover:bg-white rounded-xl transition-all text-stone-500">−</button>
+                <input type="number" value={quantity} onChange={(e) => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="w-16 text-center font-black text-lg focus:outline-none bg-transparent text-stone-800" />
+                <button onClick={() => setQuantity(quantity + 1)} className="w-10 h-10 flex items-center justify-center text-xl font-bold hover:bg-white rounded-xl transition-all text-stone-500">+</button>
+              </div>
             </div>
 
             {/* Nút Xác Nhận Thêm */}
-            <button 
+            <button
               onClick={handleConfirmAdd}
               disabled={isAdding}
               className="w-full py-4 bg-stone-900 text-white font-black rounded-2xl hover:bg-orange-500 hover:shadow-lg hover:shadow-orange-200 transition-all flex items-center justify-center gap-3 active:scale-95"

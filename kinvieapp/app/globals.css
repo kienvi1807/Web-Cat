@@ -1,3 +1,4 @@
+
 @import "tailwindcss";
 
 :root {
@@ -47,10 +48,36 @@
   --radius-sm: calc(var(--radius) - 1rem);
 }
 
+html {
+  /* 🎯 Chặn tràn ngang toàn site: nếu bất kỳ phần tử nào (do lỡ đặt width cố
+     định bằng px, hoặc chữ dài không được phép xuống dòng) bị rộng hơn màn
+     hình, trình duyệt sẽ cắt bớt thay vì đẻ ra thanh cuộn ngang / đẩy layout
+     lệch sang phải trên điện thoại. */
+  overflow-x: hidden;
+  width: 100%;
+}
+
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
+  overflow-x: hidden;
+  width: 100%;
+}
+
+/* 🎯 Mặc định cho phép mọi chữ dài (tên khách, email, địa chỉ, số điện
+   thoại dài...) tự xuống dòng đúng chỗ thay vì bị tràn ra ngoài khung.
+   Những chỗ cố tình muốn giữ 1 dòng vẫn dùng class whitespace-nowrap
+   như bình thường, không bị ảnh hưởng. */
+* {
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+
+/* 🎯 Ảnh/video mặc định không bao giờ được vượt quá chiều rộng khung chứa */
+img, svg, video {
+  max-width: 100%;
+  height: auto;
 }
 
 /* Smooth transitions for all interactive elements */
