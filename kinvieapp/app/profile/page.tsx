@@ -257,12 +257,74 @@ export default function ProfilePage() {
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">
-                        <div className="w-14 h-14 bg-pink-100 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                          {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" alt="pet" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                        <div className="relative w-14 h-14 shrink-0">
+                          {pet.status === 'Đã lên thiên đường mèo' ? (
+                            <>
+                              {/* Vòng hoa tưởng nhớ quanh ảnh */}
+                              <div className="absolute -inset-3 z-10 pointer-events-none">
+                                <svg
+                                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%_+_1.5rem)] h-[calc(100%_+_1.5rem)] z-10 pointer-events-none"
+                                  viewBox="0 0 100 100"
+                                  fill="none"
+                                >
+                                  {Array.from({ length: 20 }).map((_, i) => {
+                                    const angle = (i / 20) * Math.PI * 2;
+                                    const cx = 50 + 42 * Math.cos(angle);
+                                    const cy = 50 + 42 * Math.sin(angle);
+                                    const rot = (angle * 180) / Math.PI + 90;
+                                    return (
+                                      <ellipse
+                                        key={`leaf-${i}`}
+                                        cx={cx}
+                                        cy={cy}
+                                        rx="5"
+                                        ry="2.5"
+                                        fill={i % 2 === 0 ? '#8bb56f' : '#a3c785'}
+                                        transform={`rotate(${rot} ${cx} ${cy})`}
+                                      />
+                                    );
+                                  })}
+                                  {[0, 1, 2, 3].map((k) => {
+                                    const angle = (k / 4) * Math.PI * 2 + Math.PI / 8;
+                                    const cx = 50 + 42 * Math.cos(angle);
+                                    const cy = 50 + 42 * Math.sin(angle);
+                                    return (
+                                      <g key={`flower-${k}`}>
+                                        {Array.from({ length: 5 }).map((_, p) => {
+                                          const pa = (p / 5) * Math.PI * 2;
+                                          const px = cx + 3 * Math.cos(pa);
+                                          const py = cy + 3 * Math.sin(pa);
+                                          return <circle key={p} cx={px} cy={py} r="2.4" fill="#f2a65a" />;
+                                        })}
+                                        <circle cx={cx} cy={cy} r="2.2" fill="#d9782f" />
+                                      </g>
+                                    );
+                                  })}
+                                </svg>
+                              </div>
+                              <div className="relative z-0 w-full h-full bg-stone-100 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                                {pet.imageurl ? (
+                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale" alt="pet" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale">😺</div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full bg-pink-100 rounded-xl overflow-hidden border-2 border-white shadow-sm">
+                              {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" alt="pet" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 pr-6"> {/* Thêm padding right để chữ không chui vào nút xóa */}
                           <h4 className="font-black text-stone-800 group-hover:text-pink-600 transition-colors truncate">{pet.petname}</h4>
                           <p className="text-[11px] text-stone-400 font-bold uppercase">{pet.breed}</p>
+                          {pet.status === 'Đã lên thiên đường mèo' && (
+                            <p className="text-[10px] text-stone-400 italic mt-0.5">🌈 Đã an nghỉ</p>
+                          )}
+                          {pet.status === 'Đang mất tích' && (
+                            <p className="text-[10px] text-amber-500 font-black mt-0.5">📢 Đang mất tích</p>
+                          )}
                         </div>
                       </div>
                     </Link>

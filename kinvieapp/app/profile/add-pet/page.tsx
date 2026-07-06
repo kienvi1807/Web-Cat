@@ -19,21 +19,21 @@ const SIMPLE_COLORS = [
 ];
 
 const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 
+  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
   'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
 ];
 
 export default function AddPetPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
-  
+
   // 🎯 KÉO DANH SÁCH BỐ MẸ (ĐÃ PHÂN QUYỀN & CÓ ẢNH)
   const [sireOptions, setSireOptions] = useState<any[]>([]);
   const [damOptions, setDamOptions] = useState<any[]>([]);
@@ -42,7 +42,7 @@ export default function AddPetPage() {
   const [breed, setBreed] = useState('Maine Coon');
   const [gender, setGender] = useState(true);
   const [description, setDescription] = useState('');
-  
+
   const [mix1, setMix1] = useState('Anh lông ngắn (ALN)');
   const [mix2, setMix2] = useState('Mèo Ta');
 
@@ -64,7 +64,7 @@ export default function AddPetPage() {
   const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
   const [isFatherDropdownOpen, setIsFatherDropdownOpen] = useState(false);
   const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
-  
+
   // 🎯 STATE MỚI CHO BẢNG MÀU (Đóng/Mở cả cụm)
   const [isEmsBoardOpen, setIsEmsBoardOpen] = useState(false);
   const [isSimpleColorBoardOpen, setIsSimpleColorBoardOpen] = useState(false);
@@ -73,12 +73,12 @@ export default function AddPetPage() {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
-      
+
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
-      
+
       if (dbUser) {
         setCurrentUser(dbUser);
-        
+
         // LOGIC LẤY MÈO BỐ MẸ (CÓ KÈM ẢNH)
         const isBoss = dbUser.type_id === 1;
         let availableSires: any[] = [];
@@ -102,7 +102,7 @@ export default function AddPetPage() {
         } else {
           const { data: myPets } = await supabase.from('pets').select('petid, petname, gender, imageurl').eq('ownerid', dbUser.userid);
           const formatMyPet = (p: any) => ({ id: `pet_${p.petid}`, name: p.petname, image: p.imageurl || null, type: 'Boss của bạn' });
-          
+
           availableSires = myPets?.filter(p => p.gender === true).map(formatMyPet) || [];
           availableDams = myPets?.filter(p => p.gender === false).map(formatMyPet) || [];
         }
@@ -125,13 +125,13 @@ export default function AddPetPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setImagePreviewUrl(URL.createObjectURL(file)); 
+      setImagePreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleDateInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 8) val = val.slice(0, 8); 
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
     if (val.length >= 5) {
       setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`);
     } else if (val.length >= 3) {
@@ -155,8 +155,8 @@ export default function AddPetPage() {
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(breed); 
-  const isMixed = breed === 'Giống lai khác'; 
+  const isPurebred = purebredList.includes(breed);
+  const isMixed = breed === 'Giống lai khác';
 
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
@@ -167,14 +167,14 @@ export default function AddPetPage() {
 
     setIsSaving(true);
 
-    let uploadedImageUrl = ''; 
+    let uploadedImageUrl = '';
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${currentUser.userid}-add-${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, imageFile);
       if (!uploadError) {
         const { data: publicUrlData } = supabase.storage.from('pet-images').getPublicUrl(fileName);
-        uploadedImageUrl = publicUrlData.publicUrl; 
+        uploadedImageUrl = publicUrlData.publicUrl;
       }
     }
 
@@ -184,23 +184,23 @@ export default function AddPetPage() {
       .from('pets')
       .insert([
         {
-          ownerid: currentUser.userid, 
+          ownerid: currentUser.userid,
           petname: petname.trim(),
           breed: finalBreed,
           gender: gender,
           birthdate: formatDBDate(birthdate),
           has_pedigree: isPurebred ? hasPedigree : false,
-          ems_base_code: isPurebred ? baseColor : null,      
-          ems_silver: isPurebred ? hasSilver : false,         
-          ems_pattern_code: isPurebred ? pattern : null,     
+          ems_base_code: isPurebred ? baseColor : null,
+          ems_silver: isPurebred ? hasSilver : false,
+          ems_pattern_code: isPurebred ? pattern : null,
           simple_color: !isPurebred ? simpleColor : null,
-          neutered: neutered, 
+          neutered: neutered,
           description: description,
-          status: 'Khỏe mạnh', 
+          status: 'Khỏe mạnh',
           imageurl: uploadedImageUrl,
           price: 0,
-          sire_id: fatherId || null, 
-          dam_id: motherId || null
+          father_id: fatherId || null,
+          mother_id: motherId || null
         }
       ]);
 
@@ -256,7 +256,7 @@ export default function AddPetPage() {
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tên của Boss <span className="text-rose-500">*</span></label>
                 <input type="text" value={petname} onChange={(e) => setPetname(e.target.value)} placeholder="VD: Miu Miu..." className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày sinh</label>
                 <div className="relative">
@@ -265,7 +265,7 @@ export default function AddPetPage() {
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
                 </div>
               </div>
-              
+
               <div className="relative z-40">
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Giống mèo</label>
                 <div onClick={() => setIsBreedDropdownOpen(!isBreedDropdownOpen)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-xl text-sm transition-all font-bold text-stone-700 cursor-pointer hover:border-pink-300 shadow-sm flex items-center justify-between">
@@ -287,13 +287,13 @@ export default function AddPetPage() {
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                     <select value={mix1} onChange={(e)=>setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
-                     <span className="text-pink-400 font-black text-xs">X</span>
-                     <select value={mix2} onChange={(e)=>setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
+                    <select value={mix1} onChange={(e) => setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <span className="text-pink-400 font-black text-xs">X</span>
+                    <select value={mix2} onChange={(e) => setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
                 )}
               </div>
@@ -311,63 +311,63 @@ export default function AddPetPage() {
                 🎯 KHỐI CHỌN MÈO BỐ MẸ (CUSTOM DROPDOWN CÓ ẢNH)
                 ============================================== */}
             <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100 mt-6 relative z-30">
-               <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 
-                 {/* BỐ (SIRE) */}
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
-                   <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedSire ? (
-                         <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isFatherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {sireOptions.map(sire => (
-                         <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+              <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                 {/* MẸ (DAM) */}
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
-                   <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedDam ? (
-                         <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isMotherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {damOptions.map(dam => (
-                         <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+                {/* BỐ (SIRE) */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
+                  <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedSire ? (
+                        <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isFatherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {sireOptions.map(sire => (
+                        <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-               </div>
-               {currentUser?.type_id === 1 && (
-                 <p className="text-[10px] text-pink-500 mt-3 font-medium">* Quyền Boss: Đã tải danh sách mèo từ Cattery & Khách hàng.</p>
-               )}
+                {/* MẸ (DAM) */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
+                  <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedDam ? (
+                        <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isMotherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {damOptions.map(dam => (
+                        <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+              {currentUser?.type_id === 1 && (
+                <p className="text-[10px] text-pink-500 mt-3 font-medium">* Quyền Boss: Đã tải danh sách mèo từ Cattery & Khách hàng.</p>
+              )}
             </div>
 
             {isPurebred && (
@@ -385,81 +385,81 @@ export default function AddPetPage() {
                 ============================================== */}
             {isPurebred ? (
               <div className="bg-pink-50/50 rounded-3xl p-6 border border-pink-100 relative z-20 transition-all">
-                 <div 
-                   onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
-                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
-                     <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
-                 </div>
+                <div
+                  onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
+                >
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
+                    <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
+                </div>
 
-                 {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
-                 <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
-                   {dbBaseColors.length > 0 && (
-                     <>
-                       <div className="mb-6">
-                         <div className="flex items-center justify-between mb-2">
-                           <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
-                           <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                         </div>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
+                <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
+                  {dbBaseColors.length > 0 && (
+                    <>
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
+                          <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
+                            <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
-                              <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </>
-                   )}
-                 </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               /* ==============================================
                  🎯 BẢNG MÀU MÈO TA (SỔ XUỐNG GỌN GÀNG)
                  ============================================== */
               <div className="bg-orange-50/50 rounded-3xl p-6 border border-orange-100 relative z-20 transition-all">
-                <div 
-                   onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
+                <div
+                  onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
-                     <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
+                    <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
                 </div>
 
                 <div className={`transition-all duration-300 overflow-hidden ${isSimpleColorBoardOpen ? 'max-h-[500px] opacity-100 mt-6 border-t border-orange-100 pt-6' : 'max-h-0 opacity-0'}`}>
@@ -475,14 +475,14 @@ export default function AddPetPage() {
             )}
 
             <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100 space-y-4">
-               <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
-               <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
-                  <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
-                    <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
-                    <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
-                  </div>
+              <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
+                <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
+                  <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
+                  <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
                 </div>
+              </div>
             </div>
 
             <div>

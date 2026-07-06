@@ -1,44 +1,11 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-
-function MemorialCard({ photo, index }: { photo: any; index: number }) {
-    const ref = useRef<HTMLDivElement>(null);
-    const [isVisible, setIsVisible] = useState(false);
-    const isLeft = index % 2 === 0;
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
-            { threshold: 0.15 }
-        );
-        if (ref.current) observer.observe(ref.current);
-        return () => observer.disconnect();
-    }, []);
-
-    const catNames = (photo.memorial_photo_pets || []).map((mp: any) => mp.pets?.petname).filter(Boolean);
-
-    return (
-        <div
-            ref={ref}
-            className={`relative w-full md:w-1/2 ${isLeft ? 'md:pr-12 md:mr-auto' : 'md:pl-12 md:ml-auto'} mb-10 transition-all duration-700 motion-reduce:transition-none ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 motion-reduce:opacity-100 motion-reduce:translate-y-0'
-                }`}
-        >
-            <div className="bg-white rounded-[2rem] shadow-lg border border-pink-50 overflow-hidden">
-                <img src={photo.image_url} loading="lazy" className="w-full h-64 object-cover" alt={catNames.join(', ') || 'Kỷ niệm'} />
-                <div className="p-5">
-                    {catNames.length > 0 && <p className="text-xs font-black text-pink-500 mb-1.5">🐾 Boss {catNames.join(', ')}</p>}
-                    {photo.caption && <p className="text-sm text-stone-600 mb-2">{photo.caption}</p>}
-                    <p className="text-[11px] text-stone-400 font-bold">{new Date(photo.taken_date).toLocaleDateString('vi-VN')}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
+import VineTimeline from '@/components/memorial/VineTimeline';
 
 export default function MemorialVinePage() {
     const [photos, setPhotos] = useState<any[]>([]);
@@ -46,18 +13,58 @@ export default function MemorialVinePage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
 
+    const [dbUserId, setDbUserId] = useState<number | null>(null);
+    const [checkedAuth, setCheckedAuth] = useState(false);
+
+    // 🎯 Pet đang được chọn để lọc dây leo riêng ('all' = xem chung tất cả pet)
+    const [selectedPetId, setSelectedPetId] = useState<number | 'all'>('all');
+
     useEffect(() => {
         const fetchPhotos = async () => {
-            const { data } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) { setCheckedAuth(true); setIsLoading(false); return; }
+
+            const { data: dbUser } = await supabase
+                .from('users')
+                .select('userid')
+                .eq('email', user.email)
+                .maybeSingle();
+
+            setCheckedAuth(true);
+            if (!dbUser) { setIsLoading(false); return; }
+            setDbUserId(dbUser.userid);
+
+            const { data, error } = await supabase
                 .from('memorial_photos')
-                .select('*, memorial_photo_cats(cats(id, name))')
+                .select('*, memorial_photo_pets(pets(petid, petname, birthdate))')
                 .eq('status', 'approved')
+                .eq('user_id', dbUser.userid)
                 .order('taken_date', { ascending: true });
+            if (error) console.error('Lỗi tải ảnh kỷ niệm:', error.message);
             if (data) setPhotos(data);
             setIsLoading(false);
         };
         fetchPhotos();
     }, []);
+
+    // 🎯 Danh sách pet duy nhất, gom từ toàn bộ ảnh đã tải
+    const petOptions = useMemo(() => {
+        const map = new Map<number, string>();
+        photos.forEach(photo => {
+            (photo.memorial_photo_pets || []).forEach((mp: any) => {
+                if (mp.pets?.petid) map.set(mp.pets.petid, mp.pets.petname);
+            });
+        });
+        return Array.from(map.entries()).map(([petid, petname]) => ({ petid, petname }));
+    }, [photos]);
+
+    // 🎯 Ảnh đã lọc theo pet đang chọn
+    const filteredPhotos = useMemo(() => {
+        if (selectedPetId === 'all') return photos;
+        return photos.filter(photo =>
+            (photo.memorial_photo_pets || []).some((mp: any) => mp.pets?.petid === selectedPetId)
+        );
+    }, [photos, selectedPetId]);
 
     const toggleMusic = () => {
         if (!audioRef.current) return;
@@ -87,18 +94,49 @@ export default function MemorialVinePage() {
 
                 {isLoading ? (
                     <p className="text-center text-stone-400 font-bold py-20 animate-pulse">Đang tải ký ức...</p>
+                ) : checkedAuth && !dbUserId ? (
+                    <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                        <span className="text-5xl block mb-4">🔒</span>
+                        <p className="font-black text-stone-500 mb-4">Sen đăng nhập để xem dây leo ký ức của riêng mình nhé!</p>
+                        <Link href="/login" className="inline-block px-6 py-3 bg-pink-500 text-white rounded-full font-bold text-sm">Đăng nhập</Link>
+                    </div>
                 ) : photos.length === 0 ? (
                     <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
                         <span className="text-5xl block mb-4">🌱</span>
-                        <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào được duyệt cả.</p>
+                        <p className="font-black text-stone-500">Sen chưa có ảnh kỷ niệm nào được duyệt cả.</p>
                     </div>
                 ) : (
-                    <div className="relative flex flex-col md:block">
-                        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-pink-200 via-pink-300 to-pink-200 -translate-x-1/2 rounded-full"></div>
-                        {photos.map((photo, index) => (
-                            <MemorialCard key={photo.id} photo={photo} index={index} />
-                        ))}
-                    </div>
+                    <>
+                        {/* 🎯 Bộ lọc: xem chung tất cả pet, hoặc riêng từng pet */}
+                        {petOptions.length > 0 && (
+                            <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
+                                <button
+                                    onClick={() => setSelectedPetId('all')}
+                                    className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === 'all' ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                >
+                                    🌿 Tất cả Boss
+                                </button>
+                                {petOptions.map(pet => (
+                                    <button
+                                        key={pet.petid}
+                                        onClick={() => setSelectedPetId(pet.petid)}
+                                        className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === pet.petid ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                    >
+                                        🐾 {pet.petname}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {filteredPhotos.length === 0 ? (
+                            <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                                <span className="text-5xl block mb-4">🌱</span>
+                                <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào của Boss này cả.</p>
+                            </div>
+                        ) : (
+                            <VineTimeline photos={filteredPhotos} />
+                        )}
+                    </>
                 )}
             </main>
 

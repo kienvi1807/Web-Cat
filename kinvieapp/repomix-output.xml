@@ -121,6 +121,7 @@ components/layout/BackgroundGlow.tsx
 components/layout/Footer.tsx
 components/layout/GlobalLoading.tsx
 components/layout/Header.tsx
+components/memorial/VineTimeline.tsx
 components/ui/Button.tsx
 components/ui/GlassSelect.tsx
 components/ui/SectionTitle.tsx
@@ -14321,45 +14322,12 @@ export default function LoginPage() {
 <file path="app/memorial/page.tsx">
 "use client";
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
-
-function MemorialCard({ photo, index }: { photo: any; index: number }) {
-    const ref = useRef<HTMLDivElement>(null);
-    const [isVisible, setIsVisible] = useState(false);
-    const isLeft = index % 2 === 0;
-
-    useEffect(() => {
-        const observer = new IntersectionObserver(
-            ([entry]) => { if (entry.isIntersecting) { setIsVisible(true); observer.disconnect(); } },
-            { threshold: 0.15 }
-        );
-        if (ref.current) observer.observe(ref.current);
-        return () => observer.disconnect();
-    }, []);
-
-    const catNames = (photo.memorial_photo_pets || []).map((mp: any) => mp.pets?.petname).filter(Boolean);
-
-    return (
-        <div
-            ref={ref}
-            className={`relative w-full md:w-1/2 ${isLeft ? 'md:pr-12 md:mr-auto' : 'md:pl-12 md:ml-auto'} mb-10 transition-all duration-700 motion-reduce:transition-none ${isVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-10 motion-reduce:opacity-100 motion-reduce:translate-y-0'
-                }`}
-        >
-            <div className="bg-white rounded-[2rem] shadow-lg border border-pink-50 overflow-hidden">
-                <img src={photo.image_url} loading="lazy" className="w-full h-64 object-cover" alt={catNames.join(', ') || 'Kỷ niệm'} />
-                <div className="p-5">
-                    {catNames.length > 0 && <p className="text-xs font-black text-pink-500 mb-1.5">🐾 Boss {catNames.join(', ')}</p>}
-                    {photo.caption && <p className="text-sm text-stone-600 mb-2">{photo.caption}</p>}
-                    <p className="text-[11px] text-stone-400 font-bold">{new Date(photo.taken_date).toLocaleDateString('vi-VN')}</p>
-                </div>
-            </div>
-        </div>
-    );
-}
+import VineTimeline from '@/components/memorial/VineTimeline';
 
 export default function MemorialVinePage() {
     const [photos, setPhotos] = useState<any[]>([]);
@@ -14367,18 +14335,58 @@ export default function MemorialVinePage() {
     const [isPlaying, setIsPlaying] = useState(false);
     const audioRef = useRef<HTMLAudioElement>(null);
 
+    const [dbUserId, setDbUserId] = useState<number | null>(null);
+    const [checkedAuth, setCheckedAuth] = useState(false);
+
+    // 🎯 Pet đang được chọn để lọc dây leo riêng ('all' = xem chung tất cả pet)
+    const [selectedPetId, setSelectedPetId] = useState<number | 'all'>('all');
+
     useEffect(() => {
         const fetchPhotos = async () => {
-            const { data } = await supabase
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) { setCheckedAuth(true); setIsLoading(false); return; }
+
+            const { data: dbUser } = await supabase
+                .from('users')
+                .select('userid')
+                .eq('email', user.email)
+                .maybeSingle();
+
+            setCheckedAuth(true);
+            if (!dbUser) { setIsLoading(false); return; }
+            setDbUserId(dbUser.userid);
+
+            const { data, error } = await supabase
                 .from('memorial_photos')
-                .select('*, memorial_photo_cats(cats(id, name))')
+                .select('*, memorial_photo_pets(pets(petid, petname, birthdate))')
                 .eq('status', 'approved')
+                .eq('user_id', dbUser.userid)
                 .order('taken_date', { ascending: true });
+            if (error) console.error('Lỗi tải ảnh kỷ niệm:', error.message);
             if (data) setPhotos(data);
             setIsLoading(false);
         };
         fetchPhotos();
     }, []);
+
+    // 🎯 Danh sách pet duy nhất, gom từ toàn bộ ảnh đã tải
+    const petOptions = useMemo(() => {
+        const map = new Map<number, string>();
+        photos.forEach(photo => {
+            (photo.memorial_photo_pets || []).forEach((mp: any) => {
+                if (mp.pets?.petid) map.set(mp.pets.petid, mp.pets.petname);
+            });
+        });
+        return Array.from(map.entries()).map(([petid, petname]) => ({ petid, petname }));
+    }, [photos]);
+
+    // 🎯 Ảnh đã lọc theo pet đang chọn
+    const filteredPhotos = useMemo(() => {
+        if (selectedPetId === 'all') return photos;
+        return photos.filter(photo =>
+            (photo.memorial_photo_pets || []).some((mp: any) => mp.pets?.petid === selectedPetId)
+        );
+    }, [photos, selectedPetId]);
 
     const toggleMusic = () => {
         if (!audioRef.current) return;
@@ -14408,18 +14416,49 @@ export default function MemorialVinePage() {
 
                 {isLoading ? (
                     <p className="text-center text-stone-400 font-bold py-20 animate-pulse">Đang tải ký ức...</p>
+                ) : checkedAuth && !dbUserId ? (
+                    <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                        <span className="text-5xl block mb-4">🔒</span>
+                        <p className="font-black text-stone-500 mb-4">Sen đăng nhập để xem dây leo ký ức của riêng mình nhé!</p>
+                        <Link href="/login" className="inline-block px-6 py-3 bg-pink-500 text-white rounded-full font-bold text-sm">Đăng nhập</Link>
+                    </div>
                 ) : photos.length === 0 ? (
                     <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
                         <span className="text-5xl block mb-4">🌱</span>
-                        <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào được duyệt cả.</p>
+                        <p className="font-black text-stone-500">Sen chưa có ảnh kỷ niệm nào được duyệt cả.</p>
                     </div>
                 ) : (
-                    <div className="relative flex flex-col md:block">
-                        <div className="hidden md:block absolute left-1/2 top-0 bottom-0 w-1 bg-gradient-to-b from-pink-200 via-pink-300 to-pink-200 -translate-x-1/2 rounded-full"></div>
-                        {photos.map((photo, index) => (
-                            <MemorialCard key={photo.id} photo={photo} index={index} />
-                        ))}
-                    </div>
+                    <>
+                        {/* 🎯 Bộ lọc: xem chung tất cả pet, hoặc riêng từng pet */}
+                        {petOptions.length > 0 && (
+                            <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
+                                <button
+                                    onClick={() => setSelectedPetId('all')}
+                                    className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === 'all' ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                >
+                                    🌿 Tất cả Boss
+                                </button>
+                                {petOptions.map(pet => (
+                                    <button
+                                        key={pet.petid}
+                                        onClick={() => setSelectedPetId(pet.petid)}
+                                        className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === pet.petid ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                    >
+                                        🐾 {pet.petname}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+
+                        {filteredPhotos.length === 0 ? (
+                            <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                                <span className="text-5xl block mb-4">🌱</span>
+                                <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào của Boss này cả.</p>
+                            </div>
+                        ) : (
+                            <VineTimeline photos={filteredPhotos} />
+                        )}
+                    </>
                 )}
             </main>
 
@@ -16275,21 +16314,21 @@ const SIMPLE_COLORS = [
 ];
 
 const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 
+  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
   'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
 ];
 
 export default function AddPetPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isPageLoading, setIsPageLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
-  
+
   // 🎯 KÉO DANH SÁCH BỐ MẸ (ĐÃ PHÂN QUYỀN & CÓ ẢNH)
   const [sireOptions, setSireOptions] = useState<any[]>([]);
   const [damOptions, setDamOptions] = useState<any[]>([]);
@@ -16298,7 +16337,7 @@ export default function AddPetPage() {
   const [breed, setBreed] = useState('Maine Coon');
   const [gender, setGender] = useState(true);
   const [description, setDescription] = useState('');
-  
+
   const [mix1, setMix1] = useState('Anh lông ngắn (ALN)');
   const [mix2, setMix2] = useState('Mèo Ta');
 
@@ -16320,7 +16359,7 @@ export default function AddPetPage() {
   const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
   const [isFatherDropdownOpen, setIsFatherDropdownOpen] = useState(false);
   const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
-  
+
   // 🎯 STATE MỚI CHO BẢNG MÀU (Đóng/Mở cả cụm)
   const [isEmsBoardOpen, setIsEmsBoardOpen] = useState(false);
   const [isSimpleColorBoardOpen, setIsSimpleColorBoardOpen] = useState(false);
@@ -16329,12 +16368,12 @@ export default function AddPetPage() {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
-      
+
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
-      
+
       if (dbUser) {
         setCurrentUser(dbUser);
-        
+
         // LOGIC LẤY MÈO BỐ MẸ (CÓ KÈM ẢNH)
         const isBoss = dbUser.type_id === 1;
         let availableSires: any[] = [];
@@ -16358,7 +16397,7 @@ export default function AddPetPage() {
         } else {
           const { data: myPets } = await supabase.from('pets').select('petid, petname, gender, imageurl').eq('ownerid', dbUser.userid);
           const formatMyPet = (p: any) => ({ id: `pet_${p.petid}`, name: p.petname, image: p.imageurl || null, type: 'Boss của bạn' });
-          
+
           availableSires = myPets?.filter(p => p.gender === true).map(formatMyPet) || [];
           availableDams = myPets?.filter(p => p.gender === false).map(formatMyPet) || [];
         }
@@ -16381,13 +16420,13 @@ export default function AddPetPage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setImageFile(file);
-      setImagePreviewUrl(URL.createObjectURL(file)); 
+      setImagePreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleDateInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 8) val = val.slice(0, 8); 
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
     if (val.length >= 5) {
       setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`);
     } else if (val.length >= 3) {
@@ -16411,8 +16450,8 @@ export default function AddPetPage() {
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(breed); 
-  const isMixed = breed === 'Giống lai khác'; 
+  const isPurebred = purebredList.includes(breed);
+  const isMixed = breed === 'Giống lai khác';
 
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
@@ -16423,14 +16462,14 @@ export default function AddPetPage() {
 
     setIsSaving(true);
 
-    let uploadedImageUrl = ''; 
+    let uploadedImageUrl = '';
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
       const fileName = `${currentUser.userid}-add-${Date.now()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, imageFile);
       if (!uploadError) {
         const { data: publicUrlData } = supabase.storage.from('pet-images').getPublicUrl(fileName);
-        uploadedImageUrl = publicUrlData.publicUrl; 
+        uploadedImageUrl = publicUrlData.publicUrl;
       }
     }
 
@@ -16440,23 +16479,23 @@ export default function AddPetPage() {
       .from('pets')
       .insert([
         {
-          ownerid: currentUser.userid, 
+          ownerid: currentUser.userid,
           petname: petname.trim(),
           breed: finalBreed,
           gender: gender,
           birthdate: formatDBDate(birthdate),
           has_pedigree: isPurebred ? hasPedigree : false,
-          ems_base_code: isPurebred ? baseColor : null,      
-          ems_silver: isPurebred ? hasSilver : false,         
-          ems_pattern_code: isPurebred ? pattern : null,     
+          ems_base_code: isPurebred ? baseColor : null,
+          ems_silver: isPurebred ? hasSilver : false,
+          ems_pattern_code: isPurebred ? pattern : null,
           simple_color: !isPurebred ? simpleColor : null,
-          neutered: neutered, 
+          neutered: neutered,
           description: description,
-          status: 'Khỏe mạnh', 
+          status: 'Khỏe mạnh',
           imageurl: uploadedImageUrl,
           price: 0,
-          sire_id: fatherId || null, 
-          dam_id: motherId || null
+          father_id: fatherId || null,
+          mother_id: motherId || null
         }
       ]);
 
@@ -16512,7 +16551,7 @@ export default function AddPetPage() {
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tên của Boss <span className="text-rose-500">*</span></label>
                 <input type="text" value={petname} onChange={(e) => setPetname(e.target.value)} placeholder="VD: Miu Miu..." className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày sinh</label>
                 <div className="relative">
@@ -16521,7 +16560,7 @@ export default function AddPetPage() {
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
                 </div>
               </div>
-              
+
               <div className="relative z-40">
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Giống mèo</label>
                 <div onClick={() => setIsBreedDropdownOpen(!isBreedDropdownOpen)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-xl text-sm transition-all font-bold text-stone-700 cursor-pointer hover:border-pink-300 shadow-sm flex items-center justify-between">
@@ -16543,13 +16582,13 @@ export default function AddPetPage() {
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                     <select value={mix1} onChange={(e)=>setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
-                     <span className="text-pink-400 font-black text-xs">X</span>
-                     <select value={mix2} onChange={(e)=>setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
+                    <select value={mix1} onChange={(e) => setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <span className="text-pink-400 font-black text-xs">X</span>
+                    <select value={mix2} onChange={(e) => setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-2 py-2 rounded-lg text-xs font-medium">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
                 )}
               </div>
@@ -16567,63 +16606,63 @@ export default function AddPetPage() {
                 🎯 KHỐI CHỌN MÈO BỐ MẸ (CUSTOM DROPDOWN CÓ ẢNH)
                 ============================================== */}
             <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100 mt-6 relative z-30">
-               <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 
-                 {/* BỐ (SIRE) */}
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
-                   <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedSire ? (
-                         <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isFatherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {sireOptions.map(sire => (
-                         <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+              <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                 {/* MẸ (DAM) */}
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
-                   <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedDam ? (
-                         <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isMotherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {damOptions.map(dam => (
-                         <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+                {/* BỐ (SIRE) */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
+                  <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedSire ? (
+                        <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isFatherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {sireOptions.map(sire => (
+                        <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-               </div>
-               {currentUser?.type_id === 1 && (
-                 <p className="text-[10px] text-pink-500 mt-3 font-medium">* Quyền Boss: Đã tải danh sách mèo từ Cattery & Khách hàng.</p>
-               )}
+                {/* MẸ (DAM) */}
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
+                  <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedDam ? (
+                        <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Nhập từ ngoài</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isMotherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {damOptions.map(dam => (
+                        <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
+              {currentUser?.type_id === 1 && (
+                <p className="text-[10px] text-pink-500 mt-3 font-medium">* Quyền Boss: Đã tải danh sách mèo từ Cattery & Khách hàng.</p>
+              )}
             </div>
 
             {isPurebred && (
@@ -16641,81 +16680,81 @@ export default function AddPetPage() {
                 ============================================== */}
             {isPurebred ? (
               <div className="bg-pink-50/50 rounded-3xl p-6 border border-pink-100 relative z-20 transition-all">
-                 <div 
-                   onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
-                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
-                     <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
-                 </div>
+                <div
+                  onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
+                >
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
+                    <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
+                </div>
 
-                 {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
-                 <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
-                   {dbBaseColors.length > 0 && (
-                     <>
-                       <div className="mb-6">
-                         <div className="flex items-center justify-between mb-2">
-                           <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
-                           <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                         </div>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
+                <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
+                  {dbBaseColors.length > 0 && (
+                    <>
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
+                          <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
+                            <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
-                              <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </>
-                   )}
-                 </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               /* ==============================================
                  🎯 BẢNG MÀU MÈO TA (SỔ XUỐNG GỌN GÀNG)
                  ============================================== */
               <div className="bg-orange-50/50 rounded-3xl p-6 border border-orange-100 relative z-20 transition-all">
-                <div 
-                   onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
+                <div
+                  onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
-                     <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
+                    <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
                 </div>
 
                 <div className={`transition-all duration-300 overflow-hidden ${isSimpleColorBoardOpen ? 'max-h-[500px] opacity-100 mt-6 border-t border-orange-100 pt-6' : 'max-h-0 opacity-0'}`}>
@@ -16731,14 +16770,14 @@ export default function AddPetPage() {
             )}
 
             <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100 space-y-4">
-               <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
-               <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
-                  <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
-                    <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
-                    <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
-                  </div>
+              <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
+                <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
+                  <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
+                  <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
                 </div>
+              </div>
             </div>
 
             <div>
@@ -16780,21 +16819,27 @@ const SIMPLE_COLORS = [
 ];
 
 const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 
+  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
   'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
 ];
 
+const PET_STATUS_OPTIONS = [
+  { value: 'Khỏe mạnh', label: 'Đang ở nhà', emoji: '🏠', color: 'emerald' },
+  { value: 'Đang mất tích', label: 'Đang mất tích', emoji: '📢', color: 'amber' },
+  { value: 'Đã lên thiên đường mèo', label: 'Đã lên thiên đường mèo', emoji: '🌈', color: 'stone' },
+];
+
 export default function EditPetPage() {
-  const { id } = useParams(); 
+  const { id } = useParams();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [isLoading, setIsLoading] = useState(true); 
-  const [isSaving, setIsSaving] = useState(false); 
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
   const [ownerId, setOwnerId] = useState<number | null>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
-  
+
   const [sireOptions, setSireOptions] = useState<any[]>([]);
   const [damOptions, setDamOptions] = useState<any[]>([]);
 
@@ -16802,18 +16847,20 @@ export default function EditPetPage() {
   const [breed, setBreed] = useState('Maine Coon');
   const [gender, setGender] = useState(true);
   const [description, setDescription] = useState('');
-  
+
   const [mix1, setMix1] = useState('Anh lông ngắn (ALN)');
   const [mix2, setMix2] = useState('Mèo Ta');
 
   const [birthdate, setBirthdate] = useState('');
   const [hasPedigree, setHasPedigree] = useState(false);
-  
-  const [existingImageUrl, setExistingImageUrl] = useState(''); 
-  const [imagePreviewUrl, setImagePreviewUrl] = useState(''); 
-  const [imageFile, setImageFile] = useState<File | null>(null); 
-  
+
+  const [existingImageUrl, setExistingImageUrl] = useState('');
+  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+  const [imageFile, setImageFile] = useState<File | null>(null);
+
   const [neutered, setNeutered] = useState(false);
+
+  const [status, setStatus] = useState('Khỏe mạnh');
 
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -16827,7 +16874,7 @@ export default function EditPetPage() {
   const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
   const [isFatherDropdownOpen, setIsFatherDropdownOpen] = useState(false);
   const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
-  
+
   // 🎯 STATE MỚI CHO BẢNG MÀU (Đóng/Mở cả cụm)
   const [isEmsBoardOpen, setIsEmsBoardOpen] = useState(false);
   const [isSimpleColorBoardOpen, setIsSimpleColorBoardOpen] = useState(false);
@@ -16842,12 +16889,12 @@ export default function EditPetPage() {
     const initData = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
-      
+
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
-      
+
       if (dbUser) {
         setOwnerId(dbUser.userid);
-        
+
         const isBoss = dbUser.type_id === 1;
         let availableSires: any[] = [];
         let availableDams: any[] = [];
@@ -16870,7 +16917,7 @@ export default function EditPetPage() {
         } else {
           const { data: myPets } = await supabase.from('pets').select('petid, petname, gender, imageurl').eq('ownerid', dbUser.userid).neq('petid', id);
           const formatMyPet = (p: any) => ({ id: `pet_${p.petid}`, name: p.petname, image: p.imageurl || null, type: 'Boss của bạn' });
-          
+
           availableSires = myPets?.filter(p => p.gender === true).map(formatMyPet) || [];
           availableDams = myPets?.filter(p => p.gender === false).map(formatMyPet) || [];
         }
@@ -16892,6 +16939,7 @@ export default function EditPetPage() {
           setDescription(petData.description || '');
           setHasPedigree(petData.has_pedigree || false);
           setNeutered(petData.neutered || false);
+          setStatus(petData.status || 'Khỏe mạnh');
           setBirthdate(formatDateForInput(petData.birthdate));
 
           if (petData.breed && petData.breed.startsWith('Lai: ')) {
@@ -16911,7 +16959,7 @@ export default function EditPetPage() {
           setSimpleColor(petData.simple_color || '');
           setExistingImageUrl(petData.imageurl || '');
           setImagePreviewUrl(petData.imageurl || '');
-          
+
           if (petData.sire_id) setFatherId(petData.sire_id.toString());
           if (petData.dam_id) setMotherId(petData.dam_id.toString());
         } else {
@@ -16926,16 +16974,16 @@ export default function EditPetPage() {
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
-      setImageFile(file); 
-      setImagePreviewUrl(URL.createObjectURL(file)); 
+      setImageFile(file);
+      setImagePreviewUrl(URL.createObjectURL(file));
     }
   };
 
   const handleDateInput = (setter: React.Dispatch<React.SetStateAction<string>>) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 8) val = val.slice(0, 8); 
-    if (val.length >= 5) { setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`); } 
-    else if (val.length >= 3) { setter(`${val.slice(0, 2)}/${val.slice(2)}`); } 
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
+    if (val.length >= 5) { setter(`${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`); }
+    else if (val.length >= 3) { setter(`${val.slice(0, 2)}/${val.slice(2)}`); }
     else { setter(val); }
   };
 
@@ -16953,8 +17001,8 @@ export default function EditPetPage() {
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(breed); 
-  const isMixed = breed === 'Giống lai khác'; 
+  const isPurebred = purebredList.includes(breed);
+  const isMixed = breed === 'Giống lai khác';
 
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
@@ -16964,7 +17012,7 @@ export default function EditPetPage() {
     if (!ownerId) return;
 
     setIsSaving(true);
-    let finalImageUrl = existingImageUrl; 
+    let finalImageUrl = existingImageUrl;
 
     if (imageFile) {
       const fileExt = imageFile.name.split('.').pop();
@@ -16972,7 +17020,7 @@ export default function EditPetPage() {
       const { data: uploadData, error: uploadError } = await supabase.storage.from('pet-images').upload(fileName, imageFile);
       if (!uploadError) {
         const { data: publicUrlData } = supabase.storage.from('pet-images').getPublicUrl(fileName);
-        finalImageUrl = publicUrlData.publicUrl; 
+        finalImageUrl = publicUrlData.publicUrl;
       }
     }
 
@@ -16986,17 +17034,18 @@ export default function EditPetPage() {
         gender: gender,
         birthdate: formatDBDate(birthdate),
         has_pedigree: isPurebred ? hasPedigree : false,
-        ems_base_code: isPurebred ? baseColor : null,      
-        ems_silver: isPurebred ? hasSilver : false,         
-        ems_pattern_code: isPurebred ? pattern : null,     
+        ems_base_code: isPurebred ? baseColor : null,
+        ems_silver: isPurebred ? hasSilver : false,
+        ems_pattern_code: isPurebred ? pattern : null,
         simple_color: !isPurebred ? simpleColor : null,
-        neutered: neutered, 
+        neutered: neutered,
         description: description,
+        status: status,
         imageurl: finalImageUrl,
-        sire_id: fatherId || null, 
-        dam_id: motherId || null
+        father_id: fatherId || null,
+        mother_id: motherId || null
       })
-      .eq('petid', id); 
+      .eq('petid', id);
 
     setIsSaving(false);
 
@@ -17004,7 +17053,7 @@ export default function EditPetPage() {
       alert("Lỗi cập nhật: " + error.message);
     } else {
       alert("Cập nhật hồ sơ Boss thành công!");
-      router.push(`/pet/${id}`); 
+      router.push(`/pet/${id}`);
     }
   };
 
@@ -17028,7 +17077,7 @@ export default function EditPetPage() {
 
         <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 overflow-visible p-8 sm:p-12 relative">
           <form onSubmit={handleUpdate} className="space-y-8">
-            
+
             <div className="text-center mb-8 relative">
               <div onClick={() => fileInputRef.current?.click()} className="w-32 h-32 bg-pink-100 rounded-full flex flex-col items-center justify-center text-sm mx-auto mb-4 shadow-inner border-4 border-white cursor-pointer hover:bg-pink-200 transition-all overflow-hidden relative group">
                 {imagePreviewUrl ? (
@@ -17050,7 +17099,7 @@ export default function EditPetPage() {
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tên của Boss <span className="text-rose-500">*</span></label>
                 <input type="text" value={petname} onChange={(e) => setPetname(e.target.value)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
               </div>
-              
+
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày sinh</label>
                 <div className="relative">
@@ -17059,7 +17108,7 @@ export default function EditPetPage() {
                   <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
                 </div>
               </div>
-              
+
               <div className="relative z-40">
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Giống mèo</label>
                 <div onClick={() => setIsBreedDropdownOpen(!isBreedDropdownOpen)} className="w-full bg-stone-50 border border-stone-200 px-4 py-3.5 rounded-xl text-sm transition-all font-bold text-stone-700 cursor-pointer hover:border-pink-300 shadow-sm flex items-center justify-between">
@@ -17081,13 +17130,13 @@ export default function EditPetPage() {
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                     <select value={mix1} onChange={(e)=>setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
-                     <span className="text-pink-400 font-black text-xs">X</span>
-                     <select value={mix2} onChange={(e)=>setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
-                       {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                     </select>
+                    <select value={mix1} onChange={(e) => setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
+                    <span className="text-pink-400 font-black text-xs">X</span>
+                    <select value={mix2} onChange={(e) => setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
+                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    </select>
                   </div>
                 )}
               </div>
@@ -17099,61 +17148,91 @@ export default function EditPetPage() {
                   <button type="button" onClick={() => setGender(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg transition-colors ${!gender ? 'bg-white text-pink-500 shadow-sm' : 'text-stone-400'}`}>♀ Cái</button>
                 </div>
               </div>
+
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Tình trạng hiện tại</label>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  {PET_STATUS_OPTIONS.map((opt) => {
+                    const isSelected = status === opt.value;
+                    return (
+                      <button
+                        type="button"
+                        key={opt.value}
+                        onClick={() => setStatus(opt.value)}
+                        className={`flex flex-col items-center justify-center gap-1.5 px-2 py-4 rounded-xl border transition-all text-center min-h-[88px] ${isSelected
+                          ? opt.value === 'Đã lên thiên đường mèo'
+                            ? 'bg-stone-700 text-white border-stone-700'
+                            : opt.value === 'Đang mất tích'
+                              ? 'bg-amber-500 text-white border-amber-500'
+                              : 'bg-emerald-500 text-white border-emerald-500'
+                          : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300'
+                          }`}
+                      >
+                        <span className="text-xl leading-none">{opt.emoji}</span>
+                        <span className="text-[11px] font-bold leading-tight">{opt.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+                {status === 'Đã lên thiên đường mèo' && (
+                  <p className="mt-2 text-xs text-stone-400 italic">Ảnh của Boss sẽ được đặt trong vòng hoa tưởng nhớ ở trang quản lý.</p>
+                )}
+              </div>
             </div>
 
             <div className="bg-blue-50/50 rounded-3xl p-6 border border-blue-100 mt-6 relative z-30">
-               <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                 
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
-                   <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedSire ? (
-                         <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Ngoài hệ thống</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isFatherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {sireOptions.map(sire => (
-                         <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+              <h3 className="text-sm font-bold text-stone-800 uppercase mb-4 flex items-center gap-2"><span>🧬</span> Thông tin phả hệ</h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
 
-                 <div className="relative">
-                   <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
-                   <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
-                     <div className="flex items-center gap-3">
-                       {selectedDam ? (
-                         <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
-                           <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
-                         </>
-                       ) : (
-                         <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Ngoài hệ thống</span></>
-                       )}
-                     </div>
-                     <span className="text-[10px] text-stone-400 pr-2">▼</span>
-                   </div>
-                   {isMotherDropdownOpen && (
-                     <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
-                       <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
-                       {damOptions.map(dam => (
-                         <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
-                       ))}
-                     </div>
-                   )}
-                 </div>
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-blue-500 uppercase mb-1">Mèo Bố (Sire)</label>
+                  <div onClick={() => setIsFatherDropdownOpen(!isFatherDropdownOpen)} className="w-full bg-white border border-blue-200 p-2.5 rounded-2xl cursor-pointer hover:border-blue-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedSire ? (
+                        <><img src={selectedSire.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-blue-100" alt="sire" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedSire.name}</span><span className="text-[9px] text-blue-500 font-bold uppercase">{selectedSire.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Ngoài hệ thống</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isFatherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-blue-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setFatherId(''); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {sireOptions.map(sire => (
+                        <div key={sire.id} onClick={() => { setFatherId(sire.id); setIsFatherDropdownOpen(false); }} className="p-2 hover:bg-blue-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={sire.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-blue-100 shadow-sm" alt="sire" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♂ {sire.name}</span><span className="text-[10px] text-blue-500 font-bold uppercase tracking-wider">{sire.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-               </div>
+                <div className="relative">
+                  <label className="block text-[10px] font-bold text-pink-500 uppercase mb-1">Mèo Mẹ (Dam)</label>
+                  <div onClick={() => setIsMotherDropdownOpen(!isMotherDropdownOpen)} className="w-full bg-white border border-pink-200 p-2.5 rounded-2xl cursor-pointer hover:border-pink-400 transition-all shadow-sm flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      {selectedDam ? (
+                        <><img src={selectedDam.image || defaultCatAvatar} className="w-8 h-8 rounded-full object-cover border border-pink-100" alt="dam" />
+                          <div className="flex flex-col"><span className="text-sm font-bold text-stone-700">{selectedDam.name}</span><span className="text-[9px] text-pink-500 font-bold uppercase">{selectedDam.type}</span></div>
+                        </>
+                      ) : (
+                        <><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-medium text-stone-400">Không rõ / Ngoài hệ thống</span></>
+                      )}
+                    </div>
+                    <span className="text-[10px] text-stone-400 pr-2">▼</span>
+                  </div>
+                  {isMotherDropdownOpen && (
+                    <div className="absolute top-full left-0 mt-2 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-64 overflow-y-auto p-2 custom-scrollbar">
+                      <div onClick={() => { setMotherId(''); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-stone-50 rounded-xl cursor-pointer flex items-center gap-3 mb-1 border-b border-stone-50"><div className="w-8 h-8 rounded-full bg-stone-100 flex items-center justify-center text-stone-400 text-xs font-bold border border-dashed border-stone-300">?</div><span className="text-sm font-bold text-stone-500">Bỏ chọn (Không rõ)</span></div>
+                      {damOptions.map(dam => (
+                        <div key={dam.id} onClick={() => { setMotherId(dam.id); setIsMotherDropdownOpen(false); }} className="p-2 hover:bg-pink-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors"><img src={dam.image || defaultCatAvatar} className="w-10 h-10 rounded-full object-cover border border-pink-100 shadow-sm" alt="dam" /><div className="flex flex-col"><span className="text-sm font-bold text-stone-800">♀ {dam.name}</span><span className="text-[10px] text-pink-500 font-bold uppercase tracking-wider">{dam.type}</span></div></div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+              </div>
             </div>
 
             {isPurebred && (
@@ -17171,81 +17250,81 @@ export default function EditPetPage() {
                 ============================================== */}
             {isPurebred ? (
               <div className="bg-pink-50/50 rounded-3xl p-6 border border-pink-100 relative z-20 transition-all">
-                 <div 
-                   onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
-                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
-                     <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
-                 </div>
+                <div
+                  onClick={() => setIsEmsBoardOpen(!isEmsBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
+                >
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🎨</span> Bảng Màu (Hệ EMS)</h3>
+                    <p className="text-[10px] text-stone-500">Mã hiện tại: <span className="font-bold text-pink-600">{generatedEmsCode || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-pink-200 flex items-center justify-center text-pink-500 group-hover:bg-pink-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isEmsBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
+                </div>
 
-                 {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
-                 <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
-                   {dbBaseColors.length > 0 && (
-                     <>
-                       <div className="mb-6">
-                         <div className="flex items-center justify-between mb-2">
-                           <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
-                           <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                         </div>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                {/* NỘI DUNG BẢNG MÀU BÊN TRONG DROPDOWN */}
+                <div className={`transition-all duration-300 overflow-hidden ${isEmsBoardOpen ? 'max-h-[1000px] opacity-100 mt-6 border-t border-pink-100 pt-6' : 'max-h-0 opacity-0'}`}>
+                  {dbBaseColors.length > 0 && (
+                    <>
+                      <div className="mb-6">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="text-xs font-bold text-stone-500">1. Màu cơ bản (Base Color)</p>
+                          <button type="button" onClick={() => setBaseColor(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                        </div>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200 hover:border-pink-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer ${hasSilver ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-pink-500 border-pink-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <div className="flex items-center justify-between mb-2">
+                            <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
+                            <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
+                          </div>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <div className="flex items-center justify-between mb-2">
-                              <p className="text-xs font-bold text-stone-500">3. Hoa văn (Pattern)</p>
-                              <button type="button" onClick={() => setPattern(null)} className="text-[10px] text-pink-500 font-bold hover:underline">Bỏ chọn</button>
-                            </div>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center ${pattern === p.code ? 'bg-white border-pink-500 shadow-sm ring-1 ring-pink-500' : 'bg-white border-stone-200'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </>
-                   )}
-                 </div>
+                        </div>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
             ) : (
               /* ==============================================
                  🎯 BẢNG MÀU MÈO TA (SỔ XUỐNG GỌN GÀNG)
                  ============================================== */
               <div className="bg-orange-50/50 rounded-3xl p-6 border border-orange-100 relative z-20 transition-all">
-                <div 
-                   onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
-                   className="flex items-center justify-between cursor-pointer group"
+                <div
+                  onClick={() => setIsSimpleColorBoardOpen(!isSimpleColorBoardOpen)}
+                  className="flex items-center justify-between cursor-pointer group"
                 >
-                   <div className="flex flex-col">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
-                     <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
-                   </div>
-                   <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
-                     <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
-                   </div>
+                  <div className="flex flex-col">
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 mb-1"><span>🐈</span> Màu lông nhận dạng</h3>
+                    <p className="text-[10px] text-stone-500">Đã chọn: <span className="font-bold text-orange-600">{selectedSimpleColor?.name || 'Chưa chọn'}</span></p>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-white border border-orange-200 flex items-center justify-center text-orange-500 group-hover:bg-orange-100 transition-colors shadow-sm">
+                    <span className={`transform transition-transform ${isSimpleColorBoardOpen ? 'rotate-180' : ''}`}>▼</span>
+                  </div>
                 </div>
 
                 <div className={`transition-all duration-300 overflow-hidden ${isSimpleColorBoardOpen ? 'max-h-[500px] opacity-100 mt-6 border-t border-orange-100 pt-6' : 'max-h-0 opacity-0'}`}>
@@ -17261,14 +17340,14 @@ export default function EditPetPage() {
             )}
 
             <div className="bg-stone-50 rounded-3xl p-6 border border-stone-100 space-y-4">
-               <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
-               <div>
-                  <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
-                  <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
-                    <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
-                    <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
-                  </div>
+              <h3 className="text-sm font-bold text-stone-800 flex items-center gap-2"><span>🏥</span> Tình trạng y tế</h3>
+              <div>
+                <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Đã triệt sản chưa?</label>
+                <div className="flex bg-white border border-stone-200 rounded-xl overflow-hidden p-1 max-w-sm">
+                  <button type="button" onClick={() => setNeutered(true)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${neutered ? 'bg-pink-500 text-white shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✓ Đã triệt sản</button>
+                  <button type="button" onClick={() => setNeutered(false)} className={`flex-1 py-2 text-sm font-bold rounded-lg ${!neutered ? 'bg-stone-200 text-stone-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}>✗ Chưa</button>
                 </div>
+              </div>
             </div>
 
             <div>
@@ -17630,6 +17709,9 @@ export default function MyMemorialPhotosPage() {
   const [photos, setPhotos] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
+  const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
+  const [editCaption, setEditCaption] = useState('');
+  const [isSavingCaption, setIsSavingCaption] = useState(false);
 
   const fetchMyPhotos = async (userId: number) => {
     setIsLoading(true);
@@ -17665,6 +17747,20 @@ export default function MyMemorialPhotosPage() {
     setToast({ message: 'Đã xoá ảnh.', type: 'success' });
   };
 
+  const handleSaveCaption = async () => {
+    if (!selectedPhoto) return;
+    setIsSavingCaption(true);
+    const { error } = await supabase
+      .from('memorial_photos')
+      .update({ caption: editCaption.trim() || null })
+      .eq('id', selectedPhoto.id);
+    setIsSavingCaption(false);
+    if (error) { setToast({ message: 'Lỗi khi lưu: ' + error.message, type: 'error' }); return; }
+    setPhotos(prev => prev.map(p => p.id === selectedPhoto.id ? { ...p, caption: editCaption.trim() || null } : p));
+    setSelectedPhoto((prev: any) => prev ? { ...prev, caption: editCaption.trim() || null } : prev);
+    setToast({ message: 'Đã lưu chú thích.', type: 'success' });
+  };
+
   return (
     <div className="min-h-screen bg-[#FFF8FA] text-stone-700 font-sans">
       <Header />
@@ -17678,14 +17774,19 @@ export default function MyMemorialPhotosPage() {
           </div>
         ) : (
           <>
-            <div className="flex items-center justify-between mb-8 flex-wrap gap-4">
-              <div>
-                <h1 className="text-2xl md:text-3xl font-black text-stone-800">🌿 Ảnh kỷ niệm của tôi</h1>
-                <p className="text-sm text-stone-400 font-bold mt-1">{photos.length} ảnh đã gửi</p>
-              </div>
-              <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
-                + Gửi ảnh mới
+            <div className="mb-8">
+              <Link href="/memorial" className="inline-flex items-center gap-1.5 text-sm font-black text-pink-500 hover:text-pink-600 mb-4">
+                ← Quay lại Dây Leo Ký Ức
               </Link>
+              <div className="flex items-center justify-between flex-wrap gap-4">
+                <div>
+                  <h1 className="text-2xl md:text-3xl font-black text-stone-800">🌿 Ảnh kỷ niệm của tôi</h1>
+                  <p className="text-sm text-stone-400 font-bold mt-1">{photos.length} ảnh đã gửi</p>
+                </div>
+                <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
+                  + Gửi ảnh mới
+                </Link>
+              </div>
             </div>
 
             {photos.length === 0 ? (
@@ -17694,37 +17795,82 @@ export default function MyMemorialPhotosPage() {
                 <p className="font-black text-stone-500">Sen chưa gửi ảnh kỷ niệm nào cả.</p>
               </div>
             ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                 {photos.map((photo) => (
-                  <div key={photo.id} className="bg-white rounded-[1.75rem] border border-stone-100 shadow-sm overflow-hidden">
-                    <div className="relative">
-                      <img src={photo.image_url} className="w-full h-48 object-cover" alt="memorial" />
-                      <span className={`absolute top-3 right-3 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest border ${STATUS_STYLE[photo.status]}`}>
-                        {STATUS_LABEL[photo.status]}
-                      </span>
-                    </div>
-                    <div className="p-4">
-                      <p className="text-sm text-stone-700 mb-2 line-clamp-2">{photo.caption || <span className="italic text-stone-300">Không có chú thích</span>}</p>
-                      <div className="flex flex-wrap gap-1.5 mb-3">
-                        {(photo.memorial_photo_pets || []).map((mp: any) => (
-                          <span key={mp.pets?.petid} className="text-[9px] font-black bg-pink-50 text-pink-500 px-2 py-0.5 rounded-full">🐾 {mp.pets?.petname}</span>
-                        ))}
-                      </div>
-                      <p className="text-[10px] text-stone-400 font-bold mb-2">{new Date(photo.taken_date).toLocaleDateString('vi-VN')}</p>
-                      {photo.status === 'rejected' && photo.admin_note && (
-                        <p className="text-[11px] text-rose-500 bg-rose-50 p-2 rounded-lg mb-3">Lý do: {photo.admin_note}</p>
-                      )}
-                      {photo.status !== 'approved' && (
-                        <button onClick={() => handleDelete(photo)} className="text-[11px] font-black text-stone-400 hover:text-rose-500 transition-colors">🗑️ Xoá ảnh</button>
-                      )}
-                    </div>
-                  </div>
+                  <button
+                    key={photo.id}
+                    onClick={() => { setSelectedPhoto(photo); setEditCaption(photo.caption || ''); }}
+                    className="relative aspect-square rounded-xl overflow-hidden border border-stone-100"
+                  >
+                    <img src={photo.image_url} className="w-full h-full object-cover" alt="" />
+                    <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase border ${STATUS_STYLE[photo.status]}`}>
+                      {STATUS_LABEL[photo.status]}
+                    </span>
+                  </button>
                 ))}
               </div>
             )}
           </>
         )}
       </main>
+      {selectedPhoto && (
+        <div
+          className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setSelectedPhoto(null)}
+        >
+          <div
+            className="bg-white rounded-[2rem] overflow-hidden max-w-md w-full max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <img src={selectedPhoto.image_url} className="w-full max-h-[50vh] object-cover" alt="" />
+            <div className="p-6 space-y-4">
+              <div className="flex flex-wrap gap-1.5">
+                {(selectedPhoto.memorial_photo_pets || []).map((mp: any) => (
+                  <span key={mp.pets?.petid} className="text-[9px] font-black bg-pink-50 text-pink-500 px-2 py-0.5 rounded-full">
+                    🐾 {mp.pets?.petname}
+                  </span>
+                ))}
+              </div>
+              <p className="text-[11px] text-stone-400 font-bold">{new Date(selectedPhoto.taken_date).toLocaleDateString('vi-VN')}</p>
+
+              <div>
+                <label className="block text-[10px] font-black text-stone-400 uppercase tracking-widest mb-2">Chú thích</label>
+                <textarea
+                  value={editCaption}
+                  onChange={(e) => setEditCaption(e.target.value)}
+                  rows={3}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm resize-none"
+                />
+              </div>
+
+              {selectedPhoto.status === 'rejected' && selectedPhoto.admin_note && (
+                <p className="text-[11px] text-rose-500 bg-rose-50 p-2 rounded-lg">Lý do: {selectedPhoto.admin_note}</p>
+              )}
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleSaveCaption}
+                  disabled={isSavingCaption}
+                  className="flex-1 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-xl font-black text-sm disabled:opacity-50"
+                >
+                  {isSavingCaption ? 'Đang lưu...' : 'Lưu chú thích'}
+                </button>
+                {selectedPhoto.status !== 'approved' && (
+                  <button
+                    onClick={() => { handleDelete(selectedPhoto); setSelectedPhoto(null); }}
+                    className="px-5 py-3 border border-rose-200 text-rose-500 rounded-xl font-black text-sm"
+                  >
+                    🗑️ Xoá
+                  </button>
+                )}
+                <button onClick={() => setSelectedPhoto(null)} className="px-5 py-3 bg-stone-100 rounded-xl font-black text-sm text-stone-600">
+                  Đóng
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Footer />
     </div>
@@ -17992,12 +18138,74 @@ export default function ProfilePage() {
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">
-                        <div className="w-14 h-14 bg-pink-100 rounded-xl overflow-hidden shrink-0 border-2 border-white shadow-sm">
-                          {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" alt="pet" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                        <div className="relative w-14 h-14 shrink-0">
+                          {pet.status === 'Đã lên thiên đường mèo' ? (
+                            <>
+                              {/* Vòng hoa tưởng nhớ quanh ảnh */}
+                              <div className="absolute -inset-3 z-10 pointer-events-none">
+                                <svg
+                                  className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%_+_1.5rem)] h-[calc(100%_+_1.5rem)] z-10 pointer-events-none"
+                                  viewBox="0 0 100 100"
+                                  fill="none"
+                                >
+                                  {Array.from({ length: 20 }).map((_, i) => {
+                                    const angle = (i / 20) * Math.PI * 2;
+                                    const cx = 50 + 42 * Math.cos(angle);
+                                    const cy = 50 + 42 * Math.sin(angle);
+                                    const rot = (angle * 180) / Math.PI + 90;
+                                    return (
+                                      <ellipse
+                                        key={`leaf-${i}`}
+                                        cx={cx}
+                                        cy={cy}
+                                        rx="5"
+                                        ry="2.5"
+                                        fill={i % 2 === 0 ? '#8bb56f' : '#a3c785'}
+                                        transform={`rotate(${rot} ${cx} ${cy})`}
+                                      />
+                                    );
+                                  })}
+                                  {[0, 1, 2, 3].map((k) => {
+                                    const angle = (k / 4) * Math.PI * 2 + Math.PI / 8;
+                                    const cx = 50 + 42 * Math.cos(angle);
+                                    const cy = 50 + 42 * Math.sin(angle);
+                                    return (
+                                      <g key={`flower-${k}`}>
+                                        {Array.from({ length: 5 }).map((_, p) => {
+                                          const pa = (p / 5) * Math.PI * 2;
+                                          const px = cx + 3 * Math.cos(pa);
+                                          const py = cy + 3 * Math.sin(pa);
+                                          return <circle key={p} cx={px} cy={py} r="2.4" fill="#f2a65a" />;
+                                        })}
+                                        <circle cx={cx} cy={cy} r="2.2" fill="#d9782f" />
+                                      </g>
+                                    );
+                                  })}
+                                </svg>
+                              </div>
+                              <div className="relative z-0 w-full h-full bg-stone-100 rounded-full overflow-hidden border-2 border-white shadow-sm">
+                                {pet.imageurl ? (
+                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale" alt="pet" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale">😺</div>
+                                )}
+                              </div>
+                            </>
+                          ) : (
+                            <div className="w-full h-full bg-pink-100 rounded-xl overflow-hidden border-2 border-white shadow-sm">
+                              {pet.imageurl ? <img src={pet.imageurl} className="w-full h-full object-cover" alt="pet" /> : <div className="w-full h-full flex items-center justify-center text-2xl">😺</div>}
+                            </div>
+                          )}
                         </div>
                         <div className="min-w-0 pr-6"> {/* Thêm padding right để chữ không chui vào nút xóa */}
                           <h4 className="font-black text-stone-800 group-hover:text-pink-600 transition-colors truncate">{pet.petname}</h4>
                           <p className="text-[11px] text-stone-400 font-bold uppercase">{pet.breed}</p>
+                          {pet.status === 'Đã lên thiên đường mèo' && (
+                            <p className="text-[10px] text-stone-400 italic mt-0.5">🌈 Đã an nghỉ</p>
+                          )}
+                          {pet.status === 'Đang mất tích' && (
+                            <p className="text-[10px] text-amber-500 font-black mt-0.5">📢 Đang mất tích</p>
+                          )}
                         </div>
                       </div>
                     </Link>
@@ -20838,6 +21046,293 @@ export default function Header() {
       </div>
     </>
   );
+}
+</file>
+
+<file path="components/memorial/VineTimeline.tsx">
+"use client";
+import React from 'react';
+
+const SEGMENT_HEIGHT = 260;  // khoảng cách dọc giữa 2 ảnh liên tiếp
+const VB_WIDTH = 400;
+const TRUNK_CENTER = VB_WIDTH / 2;
+const TRUNK_AMPLITUDE = 22;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
+const TRUNK_PERIOD = 240;     // 1 chu kỳ lượn sóng dài bao nhiêu px theo chiều dọc
+const BRANCH_REACH = 95;      // nhánh rẽ ra xa thân bao nhiêu px để tới ảnh
+const SAMPLE_STEP = 20;       // độ mịn của đường cong thân cây
+
+function calculateAgeAtPhoto(birthdate?: string | null, takenDate?: string | null): string | null {
+    if (!birthdate || !takenDate) return null;
+    const birth = new Date(birthdate);
+    const taken = new Date(takenDate);
+    if (isNaN(birth.getTime()) || isNaN(taken.getTime())) return null;
+    let years = taken.getFullYear() - birth.getFullYear();
+    let months = taken.getMonth() - birth.getMonth();
+    if (taken.getDate() < birth.getDate()) months--;
+    if (months < 0) { years--; months += 12; }
+    if (years < 0) return null;
+    if (years === 0 && months === 0) return 'Mới sinh';
+    if (years === 0) return `${months} tháng tuổi`;
+    if (months === 0) return `${years} năm tuổi`;
+    return `${years} năm ${months} tháng tuổi`;
+}
+
+// Vị trí X của thân cây tại 1 độ cao y bất kỳ (lượn sóng nhẹ qua lại quanh trục giữa)
+function trunkXAt(y: number) {
+    return TRUNK_CENTER + TRUNK_AMPLITUDE * Math.sin((y / TRUNK_PERIOD) * Math.PI * 2);
+}
+
+export default function VineTimeline({ photos }: { photos: any[] }) {
+    const n = photos.length;
+    if (n === 0) return null;
+
+    const [selected, setSelected] = React.useState<any>(null);
+    const totalHeight = n * SEGMENT_HEIGHT;
+
+    // 🎯 Ảnh cuối cùng của mỗi bé (mảng photos đã sort tăng dần theo taken_date từ trang cha)
+    const lastPhotoIndexByPet = new Map<number, number>();
+    photos.forEach((photo, i) => {
+        const petId = photo.memorial_photo_pets?.[0]?.pets?.petid;
+        if (petId != null) lastPhotoIndexByPet.set(petId, i);
+    });
+
+    // Ảnh cũ nhất ở gốc (dưới cùng), mới nhất ở ngọn (trên cùng), so le trái phải
+    const points = photos.map((photo, i) => {
+        const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+        const isLeft = i % 2 === 0;
+        const trunkX = trunkXAt(y);
+        const pet = photo.memorial_photo_pets?.[0]?.pets;
+        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && lastPhotoIndexByPet.get(pet.petid) === i;
+        return {
+            photo,
+            y,
+            isLeft,
+            trunkX,
+            x: trunkX + (isLeft ? -BRANCH_REACH : BRANCH_REACH),
+            isMemorialCap,
+        };
+    });
+
+    // 🎯 Thân cây chính: 1 đường lượn sóng nhẹ, to, chạy xuyên suốt từ gốc lên ngọn
+    let trunkPath = '';
+    for (let y = totalHeight; y >= 0; y -= SAMPLE_STEP) {
+        const x = trunkXAt(y);
+        trunkPath += trunkPath === '' ? `M ${x},${y}` : ` L ${x},${y}`;
+    }
+    trunkPath += ` L ${trunkXAt(0)},0`;
+
+    return (
+        <div className="relative w-full" style={{ height: totalHeight }}>
+
+            {/* 🎯 Ảnh nền — full khung ảnh khách up kiểu polaroid, phủ lớp mờ nhẹ để tách với phần chính */}
+            <div className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full overflow-hidden pointer-events-none select-none z-0">
+                {photos.map((p, i) => {
+                    const isLeft = i % 2 === 0;
+                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+                    const topPercent = (y / totalHeight) * 100;
+                    const rotate = (isLeft ? -1 : 1) * (5 + (i % 3) * 3);
+
+                    return (
+                        <div
+                            key={`bg-${p.id}`}
+                            className="absolute w-28 md:w-40 bg-white p-2 pb-6 rounded-[2px] shadow-lg"
+                            style={{
+                                top: `${topPercent}%`,
+                                [isLeft ? 'left' : 'right']: '25%',
+                                transform: `translateY(-50%) rotate(${rotate}deg)`,
+                            }}
+                        >
+                            <img
+                                src={p.image_url}
+                                alt=""
+                                className="w-full aspect-[4/5] object-cover"
+                            />
+                        </div>
+                    );
+                })}
+
+                {/* Lớp phủ trắng bán trong suốt — làm nền lùi ra sau, KHÔNG blur từng ảnh */}
+                <div className="absolute inset-0 bg-[#FFF8FA]/60" />
+                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA] via-transparent to-[#FFF8FA]" />
+            </div>
+
+            {/* 🎯 Thân cây + nhánh + lá, đặt trong khung căn giữa như cột nội dung */}
+            <div className="relative w-full mx-auto h-full" style={{ maxWidth: VB_WIDTH }}>
+                <svg
+                    className="absolute inset-0 w-full h-full z-[1]"
+                    viewBox={`0 0 ${VB_WIDTH} ${totalHeight}`}
+                    preserveAspectRatio="none"
+                    fill="none"
+                >
+                    <defs>
+                        <linearGradient id="trunkGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="#8bb56f" />
+                            <stop offset="100%" stopColor="#4c7536" />
+                        </linearGradient>
+                    </defs>
+
+                    {/* Thân cây chính: to, có bóng đổ để trông có khối */}
+                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.25" />
+                    <path d={trunkPath} stroke="url(#trunkGradient)" strokeWidth="16" strokeLinecap="round" />
+                    <path d={trunkPath} stroke="#a8d18a" strokeWidth="3" strokeLinecap="round" opacity="0.5" />
+
+                    {/* Nhánh rẽ từ thân ra từng ảnh + lá + tua cuốn */}
+                    {points.map((pt, i) => {
+                        const side = pt.isLeft ? -1 : 1;
+                        const branchPath = `M ${pt.trunkX},${pt.y} C ${pt.trunkX + side * (BRANCH_REACH * 0.35)},${pt.y - 14} ${pt.x - side * (BRANCH_REACH * 0.35)},${pt.y + 14} ${pt.x},${pt.y}`;
+                        return (
+                            <g key={i}>
+                                <path d={branchPath} stroke="#5d8a4a" strokeWidth="5" strokeLinecap="round" fill="none" />
+                                <g transform={`translate(${(pt.trunkX + pt.x) / 2},${pt.y - 8}) scale(${side},1)`}>
+                                    <path d="M0,0 C 12,-6 22,-3 24,8 C 20,16 10,15 0,0 Z" fill="#6f9c50" />
+                                    <path d="M28,8 C 36,4 36,-6 29,-8 C 24,-9 22,-3 27,0" stroke="#6f9c50" strokeWidth="2" fill="none" strokeLinecap="round" />
+                                </g>
+                            </g>
+                        );
+                    })}
+                </svg>
+
+                {/* Ảnh tròn dọc theo 2 bên thân cây */}
+                {points.map((pt) => {
+                    const pet = pt.photo.memorial_photo_pets?.[0]?.pets;
+                    const age = calculateAgeAtPhoto(pet?.birthdate, pt.photo.taken_date);
+                    const isMemorialCap = pt.isMemorialCap;
+
+                    return (
+                        <div
+                            key={pt.photo.id}
+                            className="absolute flex flex-col items-center text-center z-10"
+                            style={{
+                                left: `${(pt.x / VB_WIDTH) * 100}%`,
+                                top: `${(pt.y / totalHeight) * 100}%`,
+                                transform: 'translate(-50%, -50%)',
+                                width: isMemorialCap ? '11rem' : '9rem',
+                            }}
+                        >
+                            <div className={`relative ${isMemorialCap ? 'w-36 h-36 md:w-44 md:h-44' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                                {isMemorialCap ? (
+                                    <>
+                                        {/* Hào quang phía sau */}
+                                        <div className="absolute -inset-3 rounded-full bg-amber-100/50 blur-lg vine-glow" />
+
+                                        {/* Vòng hoa tưởng niệm */}
+                                        <div className="absolute -inset-4 z-20 pointer-events-none">
+                                            <svg
+                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%_+_2rem)] h-[calc(100%_+_2rem)] z-20 pointer-events-none"
+                                                viewBox="0 0 100 100"
+                                                fill="none"
+                                            >
+                                                {Array.from({ length: 20 }).map((_, i) => {
+                                                    const angle = (i / 20) * Math.PI * 2;
+                                                    const cx = 50 + 42 * Math.cos(angle);
+                                                    const cy = 50 + 42 * Math.sin(angle);
+                                                    const rot = (angle * 180) / Math.PI + 90;
+                                                    return (
+                                                        <ellipse
+                                                            key={`leaf-${i}`}
+                                                            cx={cx}
+                                                            cy={cy}
+                                                            rx="5"
+                                                            ry="2.5"
+                                                            fill={i % 2 === 0 ? '#8bb56f' : '#a3c785'}
+                                                            transform={`rotate(${rot} ${cx} ${cy})`}
+                                                        />
+                                                    );
+                                                })}
+                                                {[0, 1, 2, 3].map((k) => {
+                                                    const angle = (k / 4) * Math.PI * 2 + Math.PI / 8;
+                                                    const cx = 50 + 42 * Math.cos(angle);
+                                                    const cy = 50 + 42 * Math.sin(angle);
+                                                    return (
+                                                        <g key={`flower-${k}`}>
+                                                            {Array.from({ length: 5 }).map((_, p) => {
+                                                                const pa = (p / 5) * Math.PI * 2;
+                                                                const px = cx + 3 * Math.cos(pa);
+                                                                const py = cy + 3 * Math.sin(pa);
+                                                                return <circle key={p} cx={px} cy={py} r="2.4" fill="#f2a65a" />;
+                                                            })}
+                                                            <circle cx={cx} cy={cy} r="2.2" fill="#d9782f" />
+                                                        </g>
+                                                    );
+                                                })}
+                                            </svg>
+                                        </div>
+
+                                        <button
+                                            onClick={() => setSelected(pt.photo)}
+                                            className="group relative z-10 w-full h-full rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
+                                        >
+                                            <img
+                                                src={pt.photo.image_url}
+                                                alt={pet?.petname || 'Kỷ niệm'}
+                                                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
+                                            />
+                                        </button>
+                                    </>
+                                ) : (
+                                    <>
+                                        <div className="absolute -inset-3 rounded-full bg-amber-200/40 blur-lg vine-glow" />
+                                        <button
+                                            onClick={() => setSelected(pt.photo)}
+                                            className="relative z-10 w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg ring-2 ring-emerald-200 cursor-pointer hover:scale-105 transition-transform"
+                                        >
+                                            <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} className="w-full h-full object-cover" />
+                                        </button>
+                                        <svg className="absolute -bottom-2 -left-2 w-7 h-7 z-20" viewBox="0 0 24 24" fill="none">
+                                            <circle cx="7" cy="9" r="2.8" fill="#f7b955" />
+                                            <circle cx="17" cy="9" r="2.8" fill="#f7b955" />
+                                            <circle cx="7" cy="16" r="2.8" fill="#f7b955" />
+                                            <circle cx="17" cy="16" r="2.8" fill="#f7b955" />
+                                            <circle cx="12" cy="12.5" r="3.2" fill="#f2994a" />
+                                        </svg>
+                                        <svg className="absolute -top-2 -right-2 w-8 h-8 z-20" viewBox="0 0 24 24" fill="none">
+                                            <path d="M12 2C12 2 20 6 20 13C20 18 16 21 12 21C8 21 4 18 4 13C4 6 12 2 12 2Z" fill="#8bb56f" />
+                                            <path d="M12 4V19" stroke="#4c7536" strokeWidth="1" strokeLinecap="round" />
+                                        </svg>
+                                    </>
+                                )}
+                            </div>
+
+                            {pet?.petname && <p className={`mt-2 font-black text-emerald-700 ${isMemorialCap ? 'text-sm' : 'text-xs'}`}>{pet.petname}</p>}
+                            {age && <p className="text-[11px] font-bold text-stone-500">{age}</p>}
+                            {isMemorialCap && <p className="text-[10px] text-stone-400 italic mt-0.5">🌈 Đã an nghỉ</p>}
+                            {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-400 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                        </div>
+                    );
+                })}
+            </div>
+            {selected && (
+                <div
+                    className="fixed inset-0 z-50 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+                    onClick={() => setSelected(null)}
+                >
+                    <div
+                        className="bg-white rounded-[2rem] overflow-hidden max-w-sm w-full max-h-[85vh] overflow-y-auto"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        <img src={selected.image_url} className="w-full max-h-[60vh] object-contain bg-stone-50" alt="" />
+                        <div className="p-5 text-center">
+                            {selected.memorial_photo_pets?.[0]?.pets?.petname && (
+                                <p className="font-black text-emerald-700">{selected.memorial_photo_pets[0].pets.petname}</p>
+                            )}
+                            {selected.taken_date && (
+                                <p className="text-xs text-stone-400 font-bold mt-1">{new Date(selected.taken_date).toLocaleDateString('vi-VN')}</p>
+                            )}
+                            {selected.caption && (
+                                <p className="text-sm text-stone-500 italic mt-3">"{selected.caption}"</p>
+                            )}
+                            <button
+                                onClick={() => setSelected(null)}
+                                className="mt-5 px-6 py-2.5 bg-stone-100 rounded-xl font-black text-sm text-stone-600"
+                            >
+                                Đóng
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </div>
+    );
 }
 </file>
 
