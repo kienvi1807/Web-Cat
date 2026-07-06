@@ -21,6 +21,7 @@ export default function UploadMemorialPhotoPage() {
 
   const [myCats, setMyCats] = useState<any[]>([]);
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
+  const deceasedSelectedCats = myCats.filter(c => selectedCatIds.includes(c.id) && c.status === 'Đã lên thiên đường mèo');
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -28,6 +29,7 @@ export default function UploadMemorialPhotoPage() {
   const [takenDate, setTakenDate] = useState(new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
+  const [isLastPhoto, setIsLastPhoto] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -54,8 +56,8 @@ export default function UploadMemorialPhotoPage() {
       setUsedCount(count || 0);
 
       // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách)
-      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl').eq('ownerid', dbUser.userid);
-      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl] })));
+      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status').eq('ownerid', dbUser.userid);
+      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status })));
 
       setIsLoading(false);
     };
@@ -63,7 +65,12 @@ export default function UploadMemorialPhotoPage() {
   }, [router]);
 
   const toggleCat = (catId: number) => {
-    setSelectedCatIds(prev => prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]);
+    setSelectedCatIds(prev => {
+      const next = prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId];
+      const stillValid = next.length === 1 && myCats.find(c => c.id === next[0])?.status === 'Đã lên thiên đường mèo';
+      if (!stillValid) setIsLastPhoto(false);
+      return next;
+    });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,6 +120,12 @@ export default function UploadMemorialPhotoPage() {
 
     setIsSubmitting(true);
     try {
+      if (isLastPhoto && selectedCatIds.length !== 1) {
+        setToast({ message: 'Ảnh cuối cùng chỉ được gắn cho đúng 1 bé thôi Sen ơi!', type: 'error' });
+        setIsSubmitting(false);
+        return;
+      }
+
       const compressedBlob = await compressImage(file);
       const fileName = `${dbUserId}/${crypto.randomUUID()}.webp`;
 
@@ -121,6 +134,18 @@ export default function UploadMemorialPhotoPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('memorial-images').getPublicUrl(fileName);
 
+      // 🎯 Nếu đánh dấu ảnh cuối cùng, gỡ cờ is_last_photo khỏi ảnh cũ của đúng bé này trước
+      if (isLastPhoto) {
+        const { data: oldLinks } = await supabase
+          .from('memorial_photo_pets')
+          .select('photo_id')
+          .eq('pet_id', selectedCatIds[0]);
+        const oldPhotoIds = (oldLinks || []).map(l => l.photo_id);
+        if (oldPhotoIds.length > 0) {
+          await supabase.from('memorial_photos').update({ is_last_photo: false }).in('id', oldPhotoIds).eq('is_last_photo', true);
+        }
+      }
+
       const { data: insertedPhoto, error: insertError } = await supabase
         .from('memorial_photos')
         .insert({
@@ -128,7 +153,8 @@ export default function UploadMemorialPhotoPage() {
           image_url: publicUrl,
           caption: caption.trim() || null,
           taken_date: takenDate,
-          file_size: compressedBlob.size
+          file_size: compressedBlob.size,
+          is_last_photo: isLastPhoto
         })
         .select()
         .single();
@@ -156,7 +182,7 @@ export default function UploadMemorialPhotoPage() {
         <span className="text-5xl block mb-4">🚫</span>
         <p className="font-black text-stone-600">Tính năng này dành cho khách hàng, không áp dụng cho tài khoản của bạn.</p>
       </div>
-    <Footer /></div>
+      <Footer /></div>
   );
 
   const isFull = usedCount >= maxPhotos;
@@ -219,6 +245,31 @@ export default function UploadMemorialPhotoPage() {
                 })}
               </div>
             </div>
+
+            {deceasedSelectedCats.length === 1 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isLastPhoto}
+                    onChange={(e) => setIsLastPhoto(e.target.checked)}
+                    className="mt-1 w-5 h-5 accent-amber-500 cursor-pointer"
+                  />
+                  <span>
+                    <span className="block font-black text-amber-700">🌈 Đây là ảnh cuối cùng của {deceasedSelectedCats[0].name}</span>
+                    <span className="block text-xs text-amber-600 mt-1">
+                      Ảnh này sẽ hiển thị to nhất, có vòng hoa tưởng niệm, ở trên cùng Cây Ký Ức — dạng ảnh trắng đen, di chuột vào sẽ hiện màu gốc.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {deceasedSelectedCats.length > 1 && (
+              <p className="text-xs text-amber-600 font-bold">
+                ⚠️ Muốn gắn ảnh cuối cùng thì Sen chỉ chọn đúng 1 bé thôi nhé (bé đã lên thiên đường mèo).
+              </p>
+            )}
 
             <div>
               <label className="block text-[11px] font-black text-stone-400 uppercase tracking-widest mb-2">Chú thích</label>

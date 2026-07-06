@@ -36,7 +36,7 @@ export default function MemorialVinePage() {
 
             const { data, error } = await supabase
                 .from('memorial_photos')
-                .select('*, memorial_photo_pets(pets(petid, petname, birthdate))')
+                .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status))')
                 .eq('status', 'approved')
                 .eq('user_id', dbUser.userid)
                 .order('taken_date', { ascending: true });

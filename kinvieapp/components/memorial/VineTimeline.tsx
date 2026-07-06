@@ -37,37 +37,35 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     const [selected, setSelected] = React.useState<any>(null);
     const totalHeight = n * SEGMENT_HEIGHT;
 
-    // 🎯 Ảnh cuối cùng của mỗi bé (mảng photos đã sort tăng dần theo taken_date từ trang cha)
-    const lastPhotoIndexByPet = new Map<number, number>();
-    photos.forEach((photo, i) => {
-        const petId = photo.memorial_photo_pets?.[0]?.pets?.petid;
-        if (petId != null) lastPhotoIndexByPet.set(petId, i);
-    });
-
     // Ảnh cũ nhất ở gốc (dưới cùng), mới nhất ở ngọn (trên cùng), so le trái phải
     const points = photos.map((photo, i) => {
         const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
         const isLeft = i % 2 === 0;
         const trunkX = trunkXAt(y);
         const pet = photo.memorial_photo_pets?.[0]?.pets;
-        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && lastPhotoIndexByPet.get(pet.petid) === i;
+        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && photo.is_last_photo === true;
         return {
             photo,
             y,
             isLeft,
             trunkX,
-            x: trunkX + (isLeft ? -BRANCH_REACH : BRANCH_REACH),
+            // 🎯 Ảnh tưởng niệm (điểm cuối) nằm ngay chính giữa thân cây, không lệch trái/phải như ảnh thường
+            x: isMemorialCap ? trunkX : trunkX + (isLeft ? -BRANCH_REACH : BRANCH_REACH),
             isMemorialCap,
         };
     });
 
     // 🎯 Thân cây chính: 1 đường lượn sóng nhẹ, to, chạy xuyên suốt từ gốc lên ngọn
+    // Nếu ảnh trên cùng (mới nhất) là ảnh tưởng niệm cuối cùng -> thân cây dừng ngay tại đó, đây là điểm kết thúc, KHÔNG mọc thêm phía trên
+    const topPoint = points[points.length - 1];
+    const trunkTopY = topPoint?.isMemorialCap ? topPoint.y : 0;
+
     let trunkPath = '';
-    for (let y = totalHeight; y >= 0; y -= SAMPLE_STEP) {
+    for (let y = totalHeight; y >= trunkTopY; y -= SAMPLE_STEP) {
         const x = trunkXAt(y);
         trunkPath += trunkPath === '' ? `M ${x},${y}` : ` L ${x},${y}`;
     }
-    trunkPath += ` L ${trunkXAt(0)},0`;
+    trunkPath += ` L ${trunkXAt(trunkTopY)},${trunkTopY}`;
 
     return (
         <div className="relative w-full" style={{ height: totalHeight }}>
@@ -83,10 +81,12 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                     return (
                         <div
                             key={`bg-${p.id}`}
-                            className="absolute w-28 md:w-40 bg-white p-2 pb-6 rounded-[2px] shadow-lg"
+                            className={`absolute w-28 md:w-40 bg-white p-2 pb-6 rounded-[2px] shadow-lg ${isLeft
+                                ? 'right-[8%] md:right-auto md:left-[25%]'
+                                : 'left-[8%] md:left-auto md:right-[25%]'
+                                }`}
                             style={{
                                 top: `${topPercent}%`,
-                                [isLeft ? 'left' : 'right']: '25%',
                                 transform: `translateY(-50%) rotate(${rotate}deg)`,
                             }}
                         >
@@ -126,6 +126,7 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
 
                     {/* Nhánh rẽ từ thân ra từng ảnh + lá + tua cuốn */}
                     {points.map((pt, i) => {
+                        if (pt.isMemorialCap) return null;
                         const side = pt.isLeft ? -1 : 1;
                         const branchPath = `M ${pt.trunkX},${pt.y} C ${pt.trunkX + side * (BRANCH_REACH * 0.35)},${pt.y - 14} ${pt.x - side * (BRANCH_REACH * 0.35)},${pt.y + 14} ${pt.x},${pt.y}`;
                         return (
@@ -154,10 +155,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 left: `${(pt.x / VB_WIDTH) * 100}%`,
                                 top: `${(pt.y / totalHeight) * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isMemorialCap ? '11rem' : '9rem',
+                                width: isMemorialCap ? '16rem' : '9rem',
                             }}
                         >
-                            <div className={`relative ${isMemorialCap ? 'w-36 h-36 md:w-44 md:h-44' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                            <div className={`relative ${isMemorialCap ? 'w-48 h-48 md:w-60 md:h-60' : 'w-24 h-24 md:w-28 md:h-28'}`}>
                                 {isMemorialCap ? (
                                     <>
                                         {/* Hào quang phía sau */}
@@ -226,17 +227,6 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                         >
                                             <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} className="w-full h-full object-cover" />
                                         </button>
-                                        <svg className="absolute -bottom-2 -left-2 w-7 h-7 z-20" viewBox="0 0 24 24" fill="none">
-                                            <circle cx="7" cy="9" r="2.8" fill="#f7b955" />
-                                            <circle cx="17" cy="9" r="2.8" fill="#f7b955" />
-                                            <circle cx="7" cy="16" r="2.8" fill="#f7b955" />
-                                            <circle cx="17" cy="16" r="2.8" fill="#f7b955" />
-                                            <circle cx="12" cy="12.5" r="3.2" fill="#f2994a" />
-                                        </svg>
-                                        <svg className="absolute -top-2 -right-2 w-8 h-8 z-20" viewBox="0 0 24 24" fill="none">
-                                            <path d="M12 2C12 2 20 6 20 13C20 18 16 21 12 21C8 21 4 18 4 13C4 6 12 2 12 2Z" fill="#8bb56f" />
-                                            <path d="M12 4V19" stroke="#4c7536" strokeWidth="1" strokeLinecap="round" />
-                                        </svg>
                                     </>
                                 )}
                             </div>
