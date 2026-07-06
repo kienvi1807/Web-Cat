@@ -68,8 +68,12 @@ export default function MemorialVinePage() {
 
     const toggleMusic = () => {
         if (!audioRef.current) return;
-        if (isPlaying) audioRef.current.pause();
-        else audioRef.current.play().catch(() => { });
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.volume = 0.6; // 🆕 giảm nhẹ volume mặc định, tránh giật mình
+            audioRef.current.play().catch(() => { });
+        }
         setIsPlaying(!isPlaying);
     };
 
@@ -81,7 +85,7 @@ export default function MemorialVinePage() {
             <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">
                 <div className="text-center mb-16">
                     <h1 className="text-3xl md:text-4xl font-serif italic font-black text-pink-500 mb-3">🌿 Dây Leo Ký Ức</h1>
-                    <p className="text-sm text-stone-400 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
+                    <p className="text-sm text-stone-500 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
                             💌 Gửi ảnh kỷ niệm của Sen
@@ -142,7 +146,7 @@ export default function MemorialVinePage() {
 
             <button
                 onClick={toggleMusic}
-                className="fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform"
+                className={`fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform ${isPlaying ? 'animate-pulse ring-2 ring-pink-300' : ''}`}
                 title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
             >
                 {isPlaying ? '🔊' : '🔈'}

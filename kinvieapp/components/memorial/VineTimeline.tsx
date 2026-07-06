@@ -1,13 +1,19 @@
 "use client";
 import React from 'react';
 
-const SEGMENT_HEIGHT = 260;  // khoảng cách dọc giữa 2 ảnh liên tiếp
+const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
+const TOP_PADDING = 150;
+const MEMORIAL_TOP_EXTRA_GAP = 150;
 const VB_WIDTH = 400;
 const TRUNK_CENTER = VB_WIDTH / 2;
 const TRUNK_AMPLITUDE = 22;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
 const TRUNK_PERIOD = 240;     // 1 chu kỳ lượn sóng dài bao nhiêu px theo chiều dọc
 const BRANCH_REACH = 95;      // nhánh rẽ ra xa thân bao nhiêu px để tới ảnh
 const SAMPLE_STEP = 20;       // độ mịn của đường cong thân cây
+// 🎯 Kích thước 1 tile ảnh leaf.svg khi lặp lại dọc thân cây
+// leaf.svg gốc có tỉ lệ 211.52 x 1131.2 (~1 : 5.35)
+const LEAF_TILE_WIDTH = 40;
+const LEAF_TILE_HEIGHT = LEAF_TILE_WIDTH * (1086 / 500);  // tỉ lệ ảnh vine-real.png mới (~2.17)
 
 function calculateAgeAtPhoto(birthdate?: string | null, takenDate?: string | null): string | null {
     if (!birthdate || !takenDate) return null;
@@ -35,11 +41,22 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     if (n === 0) return null;
 
     const [selected, setSelected] = React.useState<any>(null);
-    const totalHeight = n * SEGMENT_HEIGHT;
+
+    // Kiểm tra ảnh cuối cùng (top) có phải ảnh tưởng niệm không, để dành thêm khoảng cách
+    const lastPhoto = photos[n - 1];
+    const lastPet = lastPhoto?.memorial_photo_pets?.[0]?.pets;
+    const hasMemorialCap = lastPet?.status === 'Đã lên thiên đường mèo' && lastPhoto?.is_last_photo === true;
+    const extraGap = hasMemorialCap ? MEMORIAL_TOP_EXTRA_GAP : 0;
+
+    const totalHeight = n * SEGMENT_HEIGHT + TOP_PADDING + extraGap;
 
     // Ảnh cũ nhất ở gốc (dưới cùng), mới nhất ở ngọn (trên cùng), so le trái phải
     const points = photos.map((photo, i) => {
-        const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+        const isTopNode = i === n - 1;
+        // Toàn bộ các node PHÍA DƯỚI node tưởng niệm bị đẩy xuống thêm extraGap,
+        // giữ nguyên khoảng cách giữa chúng với nhau, chỉ nới rộng khoảng với node trên cùng
+        const gapOffset = (!isTopNode && hasMemorialCap) ? extraGap : 0;
+        const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + TOP_PADDING + gapOffset;
         const isLeft = i % 2 === 0;
         const trunkX = trunkXAt(y);
         const pet = photo.memorial_photo_pets?.[0]?.pets;
@@ -70,18 +87,35 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     return (
         <div className="relative w-full" style={{ height: totalHeight }}>
 
+            <div
+                className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full -z-10 pointer-events-none select-none"
+                style={{
+                    backgroundImage: "url('/images/memorial-bg-pattern.png')",
+                    backgroundRepeat: 'repeat-y',
+                    backgroundPosition: 'top center',
+                    backgroundSize: '100% 900px', // 👈 chỉnh 900px cho khớp tỉ lệ ảnh gốc
+                }}
+            />
+
             {/* 🎯 Ảnh nền — full khung ảnh khách up kiểu polaroid, phủ lớp mờ nhẹ để tách với phần chính */}
             <div className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full overflow-hidden pointer-events-none select-none z-0">
                 {photos.map((p, i) => {
+                    const pet = p.memorial_photo_pets?.[0]?.pets;
+                    const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && p.is_last_photo === true;
+                    if (isMemorialCap) return null; // 🎯 Ảnh tưởng niệm không cần ảnh nền polaroid phía sau, tránh đè lên ảnh tròn chính khi ở giữa màn hình mobile
+
                     const isLeft = i % 2 === 0;
-                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+                    // 🎯 Đồng bộ gapOffset với node ảnh tròn chính (vì node isMemorialCap đã bị return null ở trên,
+                    // nên mọi item còn lại ở đây đều là các item "phía dưới" node tưởng niệm nếu hasMemorialCap = true)
+                    const gapOffset = hasMemorialCap ? extraGap : 0;
+                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + gapOffset;
                     const topPercent = (y / totalHeight) * 100;
                     const rotate = (isLeft ? -1 : 1) * (5 + (i % 3) * 3);
 
                     return (
                         <div
                             key={`bg-${p.id}`}
-                            className={`absolute w-28 md:w-40 bg-white p-2 pb-6 rounded-[2px] shadow-lg ${isLeft
+                            className={`absolute w-28 md:w-40 bg-white p-2.5 pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5 ${isLeft
                                 ? 'right-[8%] md:right-auto md:left-[25%]'
                                 : 'left-[8%] md:left-auto md:right-[25%]'
                                 }`}
@@ -100,8 +134,8 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                 })}
 
                 {/* Lớp phủ trắng bán trong suốt — làm nền lùi ra sau, KHÔNG blur từng ảnh */}
-                <div className="absolute inset-0 bg-[#FFF8FA]/60" />
-                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA] via-transparent to-[#FFF8FA]" />
+                <div className="absolute inset-0 bg-[#FFF8FA]/25" />
+                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA]/70 via-transparent to-[#FFF8FA]/70" />
             </div>
 
             {/* 🎯 Thân cây + nhánh + lá, đặt trong khung căn giữa như cột nội dung */}
@@ -114,15 +148,43 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                 >
                     <defs>
                         <linearGradient id="trunkGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#8bb56f" />
-                            <stop offset="100%" stopColor="#4c7536" />
+                            <stop offset="0%" stopColor="#a3a06a" />
+                            <stop offset="100%" stopColor="#6b6b3f" />
                         </linearGradient>
+
+                        {/* 🎯 Khuôn hình lượn sóng của thân cây — lấy chính đường trunkPath làm mặt nạ */}
+                        <mask id="trunkMask" maskUnits="userSpaceOnUse">
+                            <path d={trunkPath} stroke="white" strokeWidth="18" strokeLinecap="round" fill="none" />
+                        </mask>
+
+                        {/* 🎯 Pattern lặp lại ảnh lá dọc theo trục Y để phủ hết chiều cao thân cây */}
+                        <pattern
+                            id="leafPattern"
+                            patternUnits="userSpaceOnUse"
+                            x="0"
+                            y="0"
+                            width={VB_WIDTH}
+                            height={LEAF_TILE_HEIGHT}
+                        >
+                            <image
+                                href="/images/vine-real.png"
+                                x={TRUNK_CENTER - LEAF_TILE_WIDTH / 2}
+                                y="0"
+                                width={LEAF_TILE_WIDTH}
+                                height={LEAF_TILE_HEIGHT}
+                                preserveAspectRatio="xMidYMid slice"
+                            />
+                        </pattern>
                     </defs>
 
-                    {/* Thân cây chính: to, có bóng đổ để trông có khối */}
-                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.25" />
-                    <path d={trunkPath} stroke="url(#trunkGradient)" strokeWidth="16" strokeLinecap="round" />
-                    <path d={trunkPath} stroke="#a8d18a" strokeWidth="3" strokeLinecap="round" opacity="0.5" />
+                    {/* Bóng đổ phía sau cho có khối (giữ nguyên) */}
+                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.2" />
+
+                    {/* 🎯 Thân cây = hình chữ nhật phủ ảnh leaf.svg, chỉ hiện phần nằm trong khuôn lượn sóng */}
+                    <rect x="0" y="0" width={VB_WIDTH} height={totalHeight} fill="url(#leafPattern)" mask="url(#trunkMask)" />
+
+                    {/* Viền sáng nhẹ phía trên cho có ánh sáng (giữ nguyên) */}
+                    <path d={trunkPath} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
 
                     {/* Nhánh rẽ từ thân ra từng ảnh + lá + tua cuốn */}
                     {points.map((pt, i) => {
@@ -231,10 +293,20 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 )}
                             </div>
 
-                            {pet?.petname && <p className={`mt-2 font-black text-emerald-700 ${isMemorialCap ? 'text-sm' : 'text-xs'}`}>{pet.petname}</p>}
-                            {age && <p className="text-[11px] font-bold text-stone-500">{age}</p>}
-                            {isMemorialCap && <p className="text-[10px] text-stone-400 italic mt-0.5">🌈 Đã an nghỉ</p>}
-                            {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-400 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                            {isMemorialCap ? (
+                                <div className="mt-4 px-4 py-2.5 rounded-2xl bg-white/85 backdrop-blur-sm shadow-lg ring-1 ring-black/5">
+                                    {pet?.petname && <p className="text-sm font-black text-emerald-700">{pet.petname}</p>}
+                                    {age && <p className="text-[11px] font-bold text-stone-600">{age}</p>}
+                                    <p className="text-[10px] text-stone-500 italic mt-0.5">🌈 Đã an nghỉ</p>
+                                    {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-500 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                                </div>
+                            ) : (
+                                <>
+                                    {pet?.petname && <p className="mt-2 font-black text-emerald-700 text-xs">{pet.petname}</p>}
+                                    {age && <p className="text-[11px] font-bold text-stone-500">{age}</p>}
+                                    {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-400 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                                </>
+                            )}
                         </div>
                     );
                 })}

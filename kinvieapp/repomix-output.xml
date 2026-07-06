@@ -133,9 +133,12 @@ lib/utils.ts
 next.config.ts
 package.json
 postcss.config.mjs
+public/audio/hoa-ra.mp3
 public/images/banner_2.png
 public/images/banner.png
 public/images/logo.jpg
+public/images/memorial-bg-pattern.png
+public/images/vine-real.png
 README.md
 store/useCartStore.ts
 store/useCatStore.ts
@@ -253,7 +256,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `health_records`: `note` (text), `record_date` (date), `petid` (integer), `created_at` (timestamp with time zone), `record_type` (character varying), `id` (integer)
 - `login_logs`: `loginid` (bigint, identity PK), `userid` (bigint, FK -> users.userid, on delete cascade), `loginat` (timestamptz, default now()), `source` (text: 'password'|'google'|'facebook'). Ghi log mỗi lượt đăng nhập thành công của khách. Có RLS bật, cho phép `insert`/`select` với cả `authenticated` và `anon` (dự án đang thao tác trực tiếp từ client giống cách làm với bảng `users`).
 - `medicalrecords`: `dosenumber` (integer), `recordid` (integer), `nextduedate` (date), `petid` (integer), `administereddate` (date), `createdat` (timestamp with time zone), `notes` (text), `medicinename` (character varying), `recordtype` (character varying)
-- `memorial_photos`: `id` (bigint), `user_id` (integer - trỏ về users.userid), `image_url` (text), `caption` (text), `taken_date` (date), `status` (text: 'pending'|'approved'|'rejected'), `admin_note` (text), `file_size` (integer), `created_at` (timestamptz)
+- `memorial_photos`: `id` (bigint), `user_id` (integer - trỏ về users.userid), `image_url` (text), `caption` (text), `taken_date` (date), `status` (text: 'pending'|'approved'|'rejected'), `admin_note` (text), `file_size` (integer), `created_at` (timestamptz), `is_last_photo` (boolean, default false - khách tự đánh dấu ở `/memorial/upload` khi chọn đúng 1 bé có `status = 'Đã lên thiên đường mèo'`; ảnh này sẽ là ảnh tưởng niệm to nhất có vòng hoa ở đầu Cây Ký Ức, KHÔNG còn tự suy theo `taken_date` muộn nhất nữa)
 - `memorial_photo_cats`: `photo_id` (bigint, FK memorial_photos.id), `cat_id` (integer, FK cats.id) — bảng nối N-N, 1 ảnh gắn được nhiều mèo
 - `notifications`: `content` (text), `created_at` (timestamp with time zone), `is_read` (boolean), `user_id` (integer), `id` (integer), `title` (character varying), `type` (text: 'order_success'|'order_approved'|'cat_inquiry'|'post_like'|'post_comment'|'comment_reply'|'cat_approved'|'cat_rejected'|'system'), `link` (text - đường dẫn điều hướng khi bấm), `related_id` (text - id liên quan, dùng để dedupe/xoá khi unlike), `actor_id` (integer - userid người gây ra thông báo)
 - `orderdetails`: `productid` (integer), `orderdetailid` (integer), `quantity` (integer), `orderid` (integer), `unitprice` (numeric), `petid` (integer), `variant` (text)
@@ -285,7 +288,7 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 7. **Đơn hàng & Doanh số:** `sales_count` của `products` CHỈ được cộng khi admin đổi `orders.orderstatus` sang "Đã giao hàng" (xem hàm `incrementSalesCount` ở `app/dashboard/operations/orders/page.tsx`), KHÔNG cộng lúc tạo đơn. Tương tự, khách chỉ được để lại `product_reviews` khi có đơn ở trạng thái "Đã giao hàng" chứa đúng sản phẩm đó và chưa đánh giá đơn đó lần nào.
 8. **Hệ thống thông báo (notifications):** Mọi thông báo insert vào bảng `notifications` PHẢI có `type` và `link` rõ ràng để chuông thông báo (Header.tsx) hiển thị đúng icon và điều hướng đúng chỗ. Khi thông báo gắn với hành động có thể "undo" (VD: thích bài viết), phải set `related_id` dạng `${post_id}_${actor_userid}` để khi undo (bỏ thích) thì xoá được đúng thông báo đã gửi, tránh rác. Chuông dùng Supabase Realtime (`postgres_changes`) lắng nghe theo `user_id`, không polling.
 9. **Yêu cầu đón bé (cat_inquiries):** Khi khách gửi form "Gửi Yêu Cầu Đón Bé" ở `/cattery/[id]`, BẮT BUỘC lưu vào bảng `cat_inquiries` (không chỉ gửi notification suông) để còn quản lý lead sau này. Thông báo phải gửi cho TOÀN BỘ user có `type_id` 1 hoặc 2 (staff/boss), CỘNG THÊM trại đối tác nếu `cats.breeder_id` thuộc `type_id` 3 — tránh gửi trùng nếu breeder cũng đang là staff (type_id 1/2).
-10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard).
+10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard). Bảng memorial_photos có thêm cột is_last_photo (boolean, default false) — khách tự đánh dấu ở trang /memorial/upload khi chọn đúng 1 bé có status === 'Đã lên thiên đường mèo'. Ảnh có cờ này TRUE sẽ là ảnh tưởng niệm to nhất, có vòng hoa, hiển thị trắng đen (hover ra màu) ở đầu Cây Ký Ức (VineTimeline.tsx, biến isMemorialCap) — KHÔNG còn tự suy đoán theo taken_date muộn nhất nữa. Khi insert ảnh mới với is_last_photo = true, phải gỡ cờ này khỏi ảnh cũ của đúng bé đó trước (qua bảng nối memorial_photo_pets) để đảm bảo mỗi bé chỉ có 1 ảnh cuối.
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.
@@ -14358,7 +14361,7 @@ export default function MemorialVinePage() {
 
             const { data, error } = await supabase
                 .from('memorial_photos')
-                .select('*, memorial_photo_pets(pets(petid, petname, birthdate))')
+                .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status))')
                 .eq('status', 'approved')
                 .eq('user_id', dbUser.userid)
                 .order('taken_date', { ascending: true });
@@ -14390,8 +14393,12 @@ export default function MemorialVinePage() {
 
     const toggleMusic = () => {
         if (!audioRef.current) return;
-        if (isPlaying) audioRef.current.pause();
-        else audioRef.current.play().catch(() => { });
+        if (isPlaying) {
+            audioRef.current.pause();
+        } else {
+            audioRef.current.volume = 0.6; // 🆕 giảm nhẹ volume mặc định, tránh giật mình
+            audioRef.current.play().catch(() => { });
+        }
         setIsPlaying(!isPlaying);
     };
 
@@ -14403,7 +14410,7 @@ export default function MemorialVinePage() {
             <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">
                 <div className="text-center mb-16">
                     <h1 className="text-3xl md:text-4xl font-serif italic font-black text-pink-500 mb-3">🌿 Dây Leo Ký Ức</h1>
-                    <p className="text-sm text-stone-400 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
+                    <p className="text-sm text-stone-500 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
                     <div className="flex items-center justify-center gap-3 flex-wrap">
                         <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
                             💌 Gửi ảnh kỷ niệm của Sen
@@ -14464,7 +14471,7 @@ export default function MemorialVinePage() {
 
             <button
                 onClick={toggleMusic}
-                className="fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform"
+                className={`fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform ${isPlaying ? 'animate-pulse ring-2 ring-pink-300' : ''}`}
                 title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
             >
                 {isPlaying ? '🔊' : '🔈'}
@@ -14500,6 +14507,7 @@ export default function UploadMemorialPhotoPage() {
 
   const [myCats, setMyCats] = useState<any[]>([]);
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
+  const deceasedSelectedCats = myCats.filter(c => selectedCatIds.includes(c.id) && c.status === 'Đã lên thiên đường mèo');
 
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -14507,6 +14515,7 @@ export default function UploadMemorialPhotoPage() {
   const [takenDate, setTakenDate] = useState(new Date().toISOString().slice(0, 10));
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [toast, setToast] = useState<{ message: string; type?: 'success' | 'error' } | null>(null);
+  const [isLastPhoto, setIsLastPhoto] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -14533,8 +14542,8 @@ export default function UploadMemorialPhotoPage() {
       setUsedCount(count || 0);
 
       // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách)
-      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl').eq('ownerid', dbUser.userid);
-      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl] })));
+      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status').eq('ownerid', dbUser.userid);
+      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status })));
 
       setIsLoading(false);
     };
@@ -14542,7 +14551,12 @@ export default function UploadMemorialPhotoPage() {
   }, [router]);
 
   const toggleCat = (catId: number) => {
-    setSelectedCatIds(prev => prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId]);
+    setSelectedCatIds(prev => {
+      const next = prev.includes(catId) ? prev.filter(id => id !== catId) : [...prev, catId];
+      const stillValid = next.length === 1 && myCats.find(c => c.id === next[0])?.status === 'Đã lên thiên đường mèo';
+      if (!stillValid) setIsLastPhoto(false);
+      return next;
+    });
   };
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -14592,6 +14606,12 @@ export default function UploadMemorialPhotoPage() {
 
     setIsSubmitting(true);
     try {
+      if (isLastPhoto && selectedCatIds.length !== 1) {
+        setToast({ message: 'Ảnh cuối cùng chỉ được gắn cho đúng 1 bé thôi Sen ơi!', type: 'error' });
+        setIsSubmitting(false);
+        return;
+      }
+
       const compressedBlob = await compressImage(file);
       const fileName = `${dbUserId}/${crypto.randomUUID()}.webp`;
 
@@ -14600,6 +14620,18 @@ export default function UploadMemorialPhotoPage() {
 
       const { data: { publicUrl } } = supabase.storage.from('memorial-images').getPublicUrl(fileName);
 
+      // 🎯 Nếu đánh dấu ảnh cuối cùng, gỡ cờ is_last_photo khỏi ảnh cũ của đúng bé này trước
+      if (isLastPhoto) {
+        const { data: oldLinks } = await supabase
+          .from('memorial_photo_pets')
+          .select('photo_id')
+          .eq('pet_id', selectedCatIds[0]);
+        const oldPhotoIds = (oldLinks || []).map(l => l.photo_id);
+        if (oldPhotoIds.length > 0) {
+          await supabase.from('memorial_photos').update({ is_last_photo: false }).in('id', oldPhotoIds).eq('is_last_photo', true);
+        }
+      }
+
       const { data: insertedPhoto, error: insertError } = await supabase
         .from('memorial_photos')
         .insert({
@@ -14607,7 +14639,8 @@ export default function UploadMemorialPhotoPage() {
           image_url: publicUrl,
           caption: caption.trim() || null,
           taken_date: takenDate,
-          file_size: compressedBlob.size
+          file_size: compressedBlob.size,
+          is_last_photo: isLastPhoto
         })
         .select()
         .single();
@@ -14635,7 +14668,7 @@ export default function UploadMemorialPhotoPage() {
         <span className="text-5xl block mb-4">🚫</span>
         <p className="font-black text-stone-600">Tính năng này dành cho khách hàng, không áp dụng cho tài khoản của bạn.</p>
       </div>
-    <Footer /></div>
+      <Footer /></div>
   );
 
   const isFull = usedCount >= maxPhotos;
@@ -14698,6 +14731,31 @@ export default function UploadMemorialPhotoPage() {
                 })}
               </div>
             </div>
+
+            {deceasedSelectedCats.length === 1 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={isLastPhoto}
+                    onChange={(e) => setIsLastPhoto(e.target.checked)}
+                    className="mt-1 w-5 h-5 accent-amber-500 cursor-pointer"
+                  />
+                  <span>
+                    <span className="block font-black text-amber-700">🌈 Đây là ảnh cuối cùng của {deceasedSelectedCats[0].name}</span>
+                    <span className="block text-xs text-amber-600 mt-1">
+                      Ảnh này sẽ hiển thị to nhất, có vòng hoa tưởng niệm, ở trên cùng Cây Ký Ức — dạng ảnh trắng đen, di chuột vào sẽ hiện màu gốc.
+                    </span>
+                  </span>
+                </label>
+              </div>
+            )}
+
+            {deceasedSelectedCats.length > 1 && (
+              <p className="text-xs text-amber-600 font-bold">
+                ⚠️ Muốn gắn ảnh cuối cùng thì Sen chỉ chọn đúng 1 bé thôi nhé (bé đã lên thiên đường mèo).
+              </p>
+            )}
 
             <div>
               <label className="block text-[11px] font-black text-stone-400 uppercase tracking-widest mb-2">Chú thích</label>
@@ -21053,13 +21111,19 @@ export default function Header() {
 "use client";
 import React from 'react';
 
-const SEGMENT_HEIGHT = 260;  // khoảng cách dọc giữa 2 ảnh liên tiếp
+const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
+const TOP_PADDING = 150;
+const MEMORIAL_TOP_EXTRA_GAP = 150;
 const VB_WIDTH = 400;
 const TRUNK_CENTER = VB_WIDTH / 2;
 const TRUNK_AMPLITUDE = 22;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
 const TRUNK_PERIOD = 240;     // 1 chu kỳ lượn sóng dài bao nhiêu px theo chiều dọc
 const BRANCH_REACH = 95;      // nhánh rẽ ra xa thân bao nhiêu px để tới ảnh
 const SAMPLE_STEP = 20;       // độ mịn của đường cong thân cây
+// 🎯 Kích thước 1 tile ảnh leaf.svg khi lặp lại dọc thân cây
+// leaf.svg gốc có tỉ lệ 211.52 x 1131.2 (~1 : 5.35)
+const LEAF_TILE_WIDTH = 40;
+const LEAF_TILE_HEIGHT = LEAF_TILE_WIDTH * (1086 / 500);  // tỉ lệ ảnh vine-real.png mới (~2.17)
 
 function calculateAgeAtPhoto(birthdate?: string | null, takenDate?: string | null): string | null {
     if (!birthdate || !takenDate) return null;
@@ -21087,58 +21151,86 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     if (n === 0) return null;
 
     const [selected, setSelected] = React.useState<any>(null);
-    const totalHeight = n * SEGMENT_HEIGHT;
 
-    // 🎯 Ảnh cuối cùng của mỗi bé (mảng photos đã sort tăng dần theo taken_date từ trang cha)
-    const lastPhotoIndexByPet = new Map<number, number>();
-    photos.forEach((photo, i) => {
-        const petId = photo.memorial_photo_pets?.[0]?.pets?.petid;
-        if (petId != null) lastPhotoIndexByPet.set(petId, i);
-    });
+    // Kiểm tra ảnh cuối cùng (top) có phải ảnh tưởng niệm không, để dành thêm khoảng cách
+    const lastPhoto = photos[n - 1];
+    const lastPet = lastPhoto?.memorial_photo_pets?.[0]?.pets;
+    const hasMemorialCap = lastPet?.status === 'Đã lên thiên đường mèo' && lastPhoto?.is_last_photo === true;
+    const extraGap = hasMemorialCap ? MEMORIAL_TOP_EXTRA_GAP : 0;
+
+    const totalHeight = n * SEGMENT_HEIGHT + TOP_PADDING + extraGap;
 
     // Ảnh cũ nhất ở gốc (dưới cùng), mới nhất ở ngọn (trên cùng), so le trái phải
     const points = photos.map((photo, i) => {
-        const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+        const isTopNode = i === n - 1;
+        // Toàn bộ các node PHÍA DƯỚI node tưởng niệm bị đẩy xuống thêm extraGap,
+        // giữ nguyên khoảng cách giữa chúng với nhau, chỉ nới rộng khoảng với node trên cùng
+        const gapOffset = (!isTopNode && hasMemorialCap) ? extraGap : 0;
+        const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + TOP_PADDING + gapOffset;
         const isLeft = i % 2 === 0;
         const trunkX = trunkXAt(y);
         const pet = photo.memorial_photo_pets?.[0]?.pets;
-        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && lastPhotoIndexByPet.get(pet.petid) === i;
+        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && photo.is_last_photo === true;
         return {
             photo,
             y,
             isLeft,
             trunkX,
-            x: trunkX + (isLeft ? -BRANCH_REACH : BRANCH_REACH),
+            // 🎯 Ảnh tưởng niệm (điểm cuối) nằm ngay chính giữa thân cây, không lệch trái/phải như ảnh thường
+            x: isMemorialCap ? trunkX : trunkX + (isLeft ? -BRANCH_REACH : BRANCH_REACH),
             isMemorialCap,
         };
     });
 
     // 🎯 Thân cây chính: 1 đường lượn sóng nhẹ, to, chạy xuyên suốt từ gốc lên ngọn
+    // Nếu ảnh trên cùng (mới nhất) là ảnh tưởng niệm cuối cùng -> thân cây dừng ngay tại đó, đây là điểm kết thúc, KHÔNG mọc thêm phía trên
+    const topPoint = points[points.length - 1];
+    const trunkTopY = topPoint?.isMemorialCap ? topPoint.y : 0;
+
     let trunkPath = '';
-    for (let y = totalHeight; y >= 0; y -= SAMPLE_STEP) {
+    for (let y = totalHeight; y >= trunkTopY; y -= SAMPLE_STEP) {
         const x = trunkXAt(y);
         trunkPath += trunkPath === '' ? `M ${x},${y}` : ` L ${x},${y}`;
     }
-    trunkPath += ` L ${trunkXAt(0)},0`;
+    trunkPath += ` L ${trunkXAt(trunkTopY)},${trunkTopY}`;
 
     return (
         <div className="relative w-full" style={{ height: totalHeight }}>
 
+            <div
+                className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full -z-10 pointer-events-none select-none"
+                style={{
+                    backgroundImage: "url('/images/memorial-bg-pattern.png')",
+                    backgroundRepeat: 'repeat-y',
+                    backgroundPosition: 'top center',
+                    backgroundSize: '100% 900px', // 👈 chỉnh 900px cho khớp tỉ lệ ảnh gốc
+                }}
+            />
+
             {/* 🎯 Ảnh nền — full khung ảnh khách up kiểu polaroid, phủ lớp mờ nhẹ để tách với phần chính */}
             <div className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full overflow-hidden pointer-events-none select-none z-0">
                 {photos.map((p, i) => {
+                    const pet = p.memorial_photo_pets?.[0]?.pets;
+                    const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && p.is_last_photo === true;
+                    if (isMemorialCap) return null; // 🎯 Ảnh tưởng niệm không cần ảnh nền polaroid phía sau, tránh đè lên ảnh tròn chính khi ở giữa màn hình mobile
+
                     const isLeft = i % 2 === 0;
-                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2;
+                    // 🎯 Đồng bộ gapOffset với node ảnh tròn chính (vì node isMemorialCap đã bị return null ở trên,
+                    // nên mọi item còn lại ở đây đều là các item "phía dưới" node tưởng niệm nếu hasMemorialCap = true)
+                    const gapOffset = hasMemorialCap ? extraGap : 0;
+                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + gapOffset;
                     const topPercent = (y / totalHeight) * 100;
                     const rotate = (isLeft ? -1 : 1) * (5 + (i % 3) * 3);
 
                     return (
                         <div
                             key={`bg-${p.id}`}
-                            className="absolute w-28 md:w-40 bg-white p-2 pb-6 rounded-[2px] shadow-lg"
+                            className={`absolute w-28 md:w-40 bg-white p-2.5 pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5 ${isLeft
+                                ? 'right-[8%] md:right-auto md:left-[25%]'
+                                : 'left-[8%] md:left-auto md:right-[25%]'
+                                }`}
                             style={{
                                 top: `${topPercent}%`,
-                                [isLeft ? 'left' : 'right']: '25%',
                                 transform: `translateY(-50%) rotate(${rotate}deg)`,
                             }}
                         >
@@ -21152,8 +21244,8 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                 })}
 
                 {/* Lớp phủ trắng bán trong suốt — làm nền lùi ra sau, KHÔNG blur từng ảnh */}
-                <div className="absolute inset-0 bg-[#FFF8FA]/60" />
-                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA] via-transparent to-[#FFF8FA]" />
+                <div className="absolute inset-0 bg-[#FFF8FA]/25" />
+                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA]/70 via-transparent to-[#FFF8FA]/70" />
             </div>
 
             {/* 🎯 Thân cây + nhánh + lá, đặt trong khung căn giữa như cột nội dung */}
@@ -21166,18 +21258,47 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                 >
                     <defs>
                         <linearGradient id="trunkGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#8bb56f" />
-                            <stop offset="100%" stopColor="#4c7536" />
+                            <stop offset="0%" stopColor="#a3a06a" />
+                            <stop offset="100%" stopColor="#6b6b3f" />
                         </linearGradient>
+
+                        {/* 🎯 Khuôn hình lượn sóng của thân cây — lấy chính đường trunkPath làm mặt nạ */}
+                        <mask id="trunkMask" maskUnits="userSpaceOnUse">
+                            <path d={trunkPath} stroke="white" strokeWidth="18" strokeLinecap="round" fill="none" />
+                        </mask>
+
+                        {/* 🎯 Pattern lặp lại ảnh lá dọc theo trục Y để phủ hết chiều cao thân cây */}
+                        <pattern
+                            id="leafPattern"
+                            patternUnits="userSpaceOnUse"
+                            x="0"
+                            y="0"
+                            width={VB_WIDTH}
+                            height={LEAF_TILE_HEIGHT}
+                        >
+                            <image
+                                href="/images/vine-real.png"
+                                x={TRUNK_CENTER - LEAF_TILE_WIDTH / 2}
+                                y="0"
+                                width={LEAF_TILE_WIDTH}
+                                height={LEAF_TILE_HEIGHT}
+                                preserveAspectRatio="xMidYMid slice"
+                            />
+                        </pattern>
                     </defs>
 
-                    {/* Thân cây chính: to, có bóng đổ để trông có khối */}
-                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.25" />
-                    <path d={trunkPath} stroke="url(#trunkGradient)" strokeWidth="16" strokeLinecap="round" />
-                    <path d={trunkPath} stroke="#a8d18a" strokeWidth="3" strokeLinecap="round" opacity="0.5" />
+                    {/* Bóng đổ phía sau cho có khối (giữ nguyên) */}
+                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.2" />
+
+                    {/* 🎯 Thân cây = hình chữ nhật phủ ảnh leaf.svg, chỉ hiện phần nằm trong khuôn lượn sóng */}
+                    <rect x="0" y="0" width={VB_WIDTH} height={totalHeight} fill="url(#leafPattern)" mask="url(#trunkMask)" />
+
+                    {/* Viền sáng nhẹ phía trên cho có ánh sáng (giữ nguyên) */}
+                    <path d={trunkPath} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
 
                     {/* Nhánh rẽ từ thân ra từng ảnh + lá + tua cuốn */}
                     {points.map((pt, i) => {
+                        if (pt.isMemorialCap) return null;
                         const side = pt.isLeft ? -1 : 1;
                         const branchPath = `M ${pt.trunkX},${pt.y} C ${pt.trunkX + side * (BRANCH_REACH * 0.35)},${pt.y - 14} ${pt.x - side * (BRANCH_REACH * 0.35)},${pt.y + 14} ${pt.x},${pt.y}`;
                         return (
@@ -21206,10 +21327,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 left: `${(pt.x / VB_WIDTH) * 100}%`,
                                 top: `${(pt.y / totalHeight) * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isMemorialCap ? '11rem' : '9rem',
+                                width: isMemorialCap ? '16rem' : '9rem',
                             }}
                         >
-                            <div className={`relative ${isMemorialCap ? 'w-36 h-36 md:w-44 md:h-44' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                            <div className={`relative ${isMemorialCap ? 'w-48 h-48 md:w-60 md:h-60' : 'w-24 h-24 md:w-28 md:h-28'}`}>
                                 {isMemorialCap ? (
                                     <>
                                         {/* Hào quang phía sau */}
@@ -21278,25 +21399,24 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                         >
                                             <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} className="w-full h-full object-cover" />
                                         </button>
-                                        <svg className="absolute -bottom-2 -left-2 w-7 h-7 z-20" viewBox="0 0 24 24" fill="none">
-                                            <circle cx="7" cy="9" r="2.8" fill="#f7b955" />
-                                            <circle cx="17" cy="9" r="2.8" fill="#f7b955" />
-                                            <circle cx="7" cy="16" r="2.8" fill="#f7b955" />
-                                            <circle cx="17" cy="16" r="2.8" fill="#f7b955" />
-                                            <circle cx="12" cy="12.5" r="3.2" fill="#f2994a" />
-                                        </svg>
-                                        <svg className="absolute -top-2 -right-2 w-8 h-8 z-20" viewBox="0 0 24 24" fill="none">
-                                            <path d="M12 2C12 2 20 6 20 13C20 18 16 21 12 21C8 21 4 18 4 13C4 6 12 2 12 2Z" fill="#8bb56f" />
-                                            <path d="M12 4V19" stroke="#4c7536" strokeWidth="1" strokeLinecap="round" />
-                                        </svg>
                                     </>
                                 )}
                             </div>
 
-                            {pet?.petname && <p className={`mt-2 font-black text-emerald-700 ${isMemorialCap ? 'text-sm' : 'text-xs'}`}>{pet.petname}</p>}
-                            {age && <p className="text-[11px] font-bold text-stone-500">{age}</p>}
-                            {isMemorialCap && <p className="text-[10px] text-stone-400 italic mt-0.5">🌈 Đã an nghỉ</p>}
-                            {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-400 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                            {isMemorialCap ? (
+                                <div className="mt-4 px-4 py-2.5 rounded-2xl bg-white/85 backdrop-blur-sm shadow-lg ring-1 ring-black/5">
+                                    {pet?.petname && <p className="text-sm font-black text-emerald-700">{pet.petname}</p>}
+                                    {age && <p className="text-[11px] font-bold text-stone-600">{age}</p>}
+                                    <p className="text-[10px] text-stone-500 italic mt-0.5">🌈 Đã an nghỉ</p>
+                                    {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-500 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                                </div>
+                            ) : (
+                                <>
+                                    {pet?.petname && <p className="mt-2 font-black text-emerald-700 text-xs">{pet.petname}</p>}
+                                    {age && <p className="text-[11px] font-bold text-stone-500">{age}</p>}
+                                    {pt.photo.caption && <p className="mt-0.5 text-[10px] text-stone-400 italic line-clamp-2">"{pt.photo.caption}"</p>}
+                                </>
+                            )}
                         </div>
                     );
                 })}
