@@ -26,10 +26,11 @@ export default function PetDetailPage() {
   const [isSavingLog, setIsSavingLog] = useState(false);
 
   // HÀM TÍNH TUỔI TỪ CỘT 'birthdate'
-  const calculateAge = (dobString: string) => {
+  // 🎯 endDateString: nếu bé đã mất, truyền death_date vào đây để tuổi DỪNG LẠI ở ngày mất, không tính đến hiện tại nữa
+  const calculateAge = (dobString: string, endDateString?: string | null) => {
     if (!dobString) return 'Chưa cập nhật';
     const dob = new Date(dobString);
-    const now = new Date();
+    const now = endDateString ? new Date(endDateString) : new Date();
     const diffMonths = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
     
     if (diffMonths < 1) return 'Dưới 1 tháng tuổi';
@@ -38,6 +39,13 @@ export default function PetDetailPage() {
     const years = Math.floor(diffMonths / 12);
     const months = diffMonths % 12;
     return `${years} năm ${months > 0 ? `${months} tháng` : ''} tuổi`;
+  };
+
+  // 🎯 CẤU HÌNH HIỂN THỊ THEO TÌNH TRẠNG (dùng chung màu/emoji với PET_STATUS_OPTIONS ở trang edit-pet)
+  const STATUS_DISPLAY: Record<string, { label: string; emoji: string; className: string }> = {
+    'Khỏe mạnh': { label: 'Đang ở nhà', emoji: '🏠', className: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+    'Đang mất tích': { label: 'Đang mất tích', emoji: '📢', className: 'bg-amber-500 text-white border-amber-500' },
+    'Đã lên thiên đường mèo': { label: 'Đã lên thiên đường mèo', emoji: '🌈', className: 'bg-stone-700 text-white border-stone-700' },
   };
 
   const fetchPetData = async () => {
@@ -154,12 +162,21 @@ export default function PetDetailPage() {
               </div>
               
               <div className="flex-1 text-center sm:text-left">
-                <div className="inline-block px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-full mb-3 border border-pink-100">
-                  {pet.has_pedigree ? 'KINVIE CATTERY (CÓ PHẢ)' : 'THÚ CƯNG'}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
+                  <div className="inline-block px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-pink-100">
+                    {pet.has_pedigree ? 'KINVIE CATTERY (CÓ PHẢ)' : 'THÚ CƯNG'}
+                  </div>
+                  {/* 🎯 BADGE TÌNH TRẠNG: Đang ở nhà / Đang mất tích / Đã lên thiên đường mèo */}
+                  {pet.status && (
+                    <div className={`inline-flex items-center gap-1 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).className}`}>
+                      <span>{(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).emoji}</span>
+                      {(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).label}
+                    </div>
+                  )}
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-800 mb-4">{pet.petname}</h1>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div className={`grid grid-cols-2 gap-4 text-sm ${pet.status === 'Đã lên thiên đường mèo' && pet.death_date ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
                   <div>
                     <p className="text-stone-400 text-xs font-bold uppercase mb-1">Giới tính</p>
                     <p className="font-bold text-stone-700">{pet.gender ? '♂ Đực' : '♀ Cái'}</p>
@@ -172,9 +189,19 @@ export default function PetDetailPage() {
                     <p className="text-stone-400 text-xs font-bold uppercase mb-1">Ngày sinh</p>
                     <p className="font-medium text-stone-700">{pet.birthdate ? new Date(pet.birthdate).toLocaleDateString('vi-VN') : 'Chưa rõ'}</p>
                   </div>
+                  {/* 🎯 CHỈ HIỆN "Ngày mất" KHI BÉ ĐÃ LÊN THIÊN ĐƯỜNG VÀ CÓ death_date */}
+                  {pet.status === 'Đã lên thiên đường mèo' && pet.death_date && (
+                    <div>
+                      <p className="text-stone-400 text-xs font-bold uppercase mb-1">Ngày mất</p>
+                      <p className="font-medium text-stone-700">{new Date(pet.death_date).toLocaleDateString('vi-VN')}</p>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-stone-400 text-xs font-bold uppercase mb-1">Tuổi</p>
-                    <p className="font-bold text-pink-500">{calculateAge(pet.birthdate)}</p>
+                    {/* 🎯 Nếu đã mất: nhãn đổi thành "Tuổi lúc mất" và tuổi tính dừng lại ở death_date, KHÔNG tính tới hiện tại nữa */}
+                    <p className="text-stone-400 text-xs font-bold uppercase mb-1">{pet.status === 'Đã lên thiên đường mèo' ? 'Tuổi lúc mất' : 'Tuổi'}</p>
+                    <p className="font-bold text-pink-500">
+                      {calculateAge(pet.birthdate, pet.status === 'Đã lên thiên đường mèo' ? pet.death_date : null)}
+                    </p>
                   </div>
                 </div>
                 

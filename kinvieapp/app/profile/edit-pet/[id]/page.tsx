@@ -61,6 +61,8 @@ export default function EditPetPage() {
   const [neutered, setNeutered] = useState(false);
 
   const [status, setStatus] = useState('Khỏe mạnh');
+  // 🎯 NGÀY MẤT: chỉ có ý nghĩa khi status === 'Đã lên thiên đường mèo', dùng để tính tuổi lúc mất ở trang /pet/[id]
+  const [deathDate, setDeathDate] = useState('');
 
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -140,6 +142,7 @@ export default function EditPetPage() {
           setHasPedigree(petData.has_pedigree || false);
           setNeutered(petData.neutered || false);
           setStatus(petData.status || 'Khỏe mạnh');
+          setDeathDate(formatDateForInput(petData.death_date));
           setBirthdate(formatDateForInput(petData.birthdate));
 
           if (petData.breed && petData.breed.startsWith('Lai: ')) {
@@ -210,6 +213,11 @@ export default function EditPetPage() {
     e.preventDefault();
     if (!petname) { alert("Sen ơi nhập tên cho Boss đi nào!"); return; }
     if (!ownerId) return;
+    // 🎯 Bắt buộc nhập ngày mất khi đánh dấu bé đã lên thiên đường, để tính đúng "tuổi lúc mất"
+    if (status === 'Đã lên thiên đường mèo' && !formatDBDate(deathDate)) {
+      alert("Sen ơi nhập ngày mất của Boss để lưu lại kỷ niệm nhé!");
+      return;
+    }
 
     setIsSaving(true);
     let finalImageUrl = existingImageUrl;
@@ -241,6 +249,8 @@ export default function EditPetPage() {
         neutered: neutered,
         description: description,
         status: status,
+        // 🎯 Chỉ lưu death_date khi tình trạng là "Đã lên thiên đường mèo", đổi tình trạng khác thì tự xoá ngày mất cũ
+        death_date: status === 'Đã lên thiên đường mèo' ? formatDBDate(deathDate) : null,
         imageurl: finalImageUrl,
         father_id: fatherId || null,
         mother_id: motherId || null
@@ -375,7 +385,18 @@ export default function EditPetPage() {
                   })}
                 </div>
                 {status === 'Đã lên thiên đường mèo' && (
-                  <p className="mt-2 text-xs text-stone-400 italic">Ảnh của Boss sẽ được đặt trong vòng hoa tưởng nhớ ở trang quản lý.</p>
+                  <>
+                    <p className="mt-2 text-xs text-stone-400 italic">Ảnh của Boss sẽ được đặt trong vòng hoa tưởng nhớ ở trang quản lý.</p>
+                    {/* 🎯 NGÀY MẤT: dùng để tính "tuổi lúc mất" thay vì tính tuổi tới hiện tại */}
+                    <div className="mt-4">
+                      <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày mất <span className="text-rose-500">*</span></label>
+                      <div className="relative max-w-xs">
+                        <input type="text" value={deathDate} onChange={handleDateInput(setDeathDate)} placeholder="dd/mm/yyyy" className="w-full bg-stone-50 border border-stone-200 pl-4 pr-10 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 font-medium tracking-wide" />
+                        <input type="date" onChange={handleNativeDateChange(setDeathDate)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 cursor-pointer w-7 h-full z-10" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>

@@ -1,41 +1,46 @@
 "use client";
 
 import React, { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useDropdownStore } from '@/store/useDropdownStore';
 
 export interface SelectOption {
   value: string | number;
   label: string;
-  subLabel?: string; 
-  iconOrImage?: string; 
+  subLabel?: string;
+  iconOrImage?: string;
 }
 
 interface GlassSelectProps {
-  id: string; 
-  label?: string; 
+  id: string;
+  label?: string;
   options: SelectOption[];
   selectedValue: any;
   onChange: (value: any) => void;
-  themeColor?: 'cyan' | 'rose' | 'amber' | 'stone' | 'purple'; 
+  themeColor?: 'cyan' | 'rose' | 'amber' | 'stone' | 'purple' | 'pink';
   placeholder?: string;
+  allowClear?: boolean;
+  disabled?: boolean;
 }
 
-export default function GlassSelect({ 
-  id, label, options, selectedValue, onChange, 
-  themeColor = 'stone', placeholder = '-- Vui lòng chọn --'
+export default function GlassSelect({
+  id, label, options, selectedValue, onChange,
+  themeColor = 'stone', placeholder = '-- Vui lòng chọn --',
+  allowClear = true, disabled = false
 }: GlassSelectProps) {
-  
+
   const { activeDropdownId, setActiveDropdownId } = useDropdownStore();
   const isOpen = activeDropdownId === id;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 🎯 Bộ từ điển màu sắc (Tự đổi theo trang)
   const themeMap = {
-    cyan: { text: 'text-cyan-600', border: 'border-cyan-200 focus:ring-cyan-400', hover: 'hover:bg-cyan-50 hover:border-cyan-200', activeBg: 'bg-cyan-500 text-white' },
-    rose: { text: 'text-rose-600', border: 'border-rose-200 focus:ring-rose-400', hover: 'hover:bg-rose-50 hover:border-rose-200', activeBg: 'bg-rose-500 text-white' },
-    amber: { text: 'text-amber-600', border: 'border-amber-200 focus:ring-amber-400', hover: 'hover:bg-amber-50 hover:border-amber-200', activeBg: 'bg-amber-500 text-white' },
-    stone: { text: 'text-stone-600', border: 'border-stone-200 focus:ring-stone-400', hover: 'hover:bg-stone-50 hover:border-stone-200', activeBg: 'bg-stone-800 text-white' },
-    purple: { text: 'text-purple-600', border: 'border-purple-200 focus:ring-purple-400', hover: 'hover:bg-purple-50 hover:border-purple-200', activeBg: 'bg-purple-500 text-white' },
+    cyan: { text: 'text-cyan-600', border: 'border-cyan-200 focus:ring-cyan-400', hover: 'hover:bg-cyan-50 hover:border-cyan-200', activeBg: 'bg-cyan-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    rose: { text: 'text-rose-600', border: 'border-rose-200 focus:ring-rose-400', hover: 'hover:bg-rose-50 hover:border-rose-200', activeBg: 'bg-rose-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    amber: { text: 'text-amber-600', border: 'border-amber-200 focus:ring-amber-400', hover: 'hover:bg-amber-50 hover:border-amber-200', activeBg: 'bg-amber-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    stone: { text: 'text-stone-600', border: 'border-stone-200 focus:ring-stone-400', hover: 'hover:bg-stone-50 hover:border-stone-200', activeBg: 'bg-stone-800', activeText: 'text-white', activeSubText: 'text-white/70' },
+    purple: { text: 'text-purple-600', border: 'border-purple-200 focus:ring-purple-400', hover: 'hover:bg-purple-50 hover:border-purple-200', activeBg: 'bg-purple-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    pink: { text: 'text-pink-600', border: 'border-pink-200 focus:ring-pink-400', hover: 'hover:bg-pink-50 hover:border-pink-200', activeBg: 'bg-pink-100 border border-pink-200', activeText: 'text-pink-700', activeSubText: 'text-pink-500' },
   };
 
   const colors = themeMap[themeColor];
@@ -68,13 +73,14 @@ export default function GlassSelect({
       {/* 🎯 NÚT BẤM KÍNH MỜ */}
       <button
         type="button"
-        onClick={() => setActiveDropdownId(isOpen ? null : id)}
-        className={`w-full flex items-center justify-between bg-white/80 backdrop-blur-xl border ${isOpen ? colors.border + ' ring-2' : 'border-stone-200'} p-3.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300`}
+        disabled={disabled}
+        onClick={() => !disabled && setActiveDropdownId(isOpen ? null : id)}
+        className={`w-full flex items-center justify-between bg-white/80 backdrop-blur-xl border ${isOpen ? colors.border + ' ring-2' : 'border-stone-200'} p-3.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed bg-stone-100' : ''}`}
       >
         {selectedOption ? (
           <div className="flex items-center gap-3">
             {selectedOption.iconOrImage && (
-              selectedOption.iconOrImage.includes('http') || selectedOption.iconOrImage.includes('/') 
+              selectedOption.iconOrImage.includes('http') || selectedOption.iconOrImage.includes('/')
                 ? <img src={selectedOption.iconOrImage} alt="" className="w-8 h-8 rounded-full object-cover border border-stone-100" />
                 : <span className="text-xl">{selectedOption.iconOrImage}</span>
             )}
@@ -86,27 +92,32 @@ export default function GlassSelect({
         ) : (
           <span className="text-stone-400 font-bold text-sm">{placeholder}</span>
         )}
-        
+
         <svg className={`w-4 h-4 text-stone-400 transition-transform duration-300 ${isOpen ? 'rotate-180 ' + colors.text : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {/* 🎯 DANH SÁCH SỔ XUỐNG */}
-      <div 
+      <div
         className={`absolute top-[calc(100%+8px)] left-0 w-full z-50 transition-all duration-300 origin-top
           ${isOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
         `}
       >
         <div className="bg-white/90 backdrop-blur-2xl border border-white p-2 rounded-[1.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] max-h-64 overflow-y-auto">
-          
-          <div onClick={() => handleSelect(null)} className="p-3 rounded-xl cursor-pointer text-stone-400 hover:bg-stone-100 text-sm font-bold mb-1">
-            -- Bỏ chọn --
-          </div>
 
-          {options.map((item) => (
-            <div
+          {allowClear && (
+            <div onClick={() => handleSelect(null)} className="p-3 rounded-xl cursor-pointer text-stone-400 hover:bg-stone-100 text-sm font-bold mb-1">
+              -- Bỏ chọn --
+            </div>
+          )}
+
+          {options.map((item, index) => (
+            <motion.div
               key={item.value}
+              initial={{ opacity: 0, scale: 0.9, y: -6 }}
+              animate={isOpen ? { opacity: 1, scale: 1, y: 0 } : {}}
+              transition={{ duration: 0.15, delay: index * 0.03 }}
               onClick={() => handleSelect(item.value)}
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent 
                 ${selectedValue === item.value ? colors.activeBg : colors.hover + ' text-stone-700'}
@@ -118,10 +129,10 @@ export default function GlassSelect({
                   : <span className="text-xl">{item.iconOrImage}</span>
               )}
               <div>
-                <p className={`text-sm font-black leading-tight ${selectedValue === item.value ? 'text-white' : ''}`}>{item.label}</p>
-                {item.subLabel && <p className={`text-[11px] font-bold mt-0.5 ${selectedValue === item.value ? 'text-white/70' : 'text-stone-400'}`}>{item.subLabel}</p>}
+                <p className={`text-sm font-black leading-tight ${selectedValue === item.value ? colors.activeText : ''}`}>{item.label}</p>
+                {item.subLabel && <p className={`text-[11px] font-bold mt-0.5 ${selectedValue === item.value ? colors.activeSubText : 'text-stone-400'}`}>{item.subLabel}</p>}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>

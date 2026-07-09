@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import LiquidEther from '@/components/home/LiquidEther';
 
 // Danh sách thành phố cho phép khách chọn để xem đúng thời tiết của họ.
 // Mặc định luôn là Hải Phòng (theo yêu cầu).
@@ -71,7 +72,7 @@ export default function HeroBanner() {
       // Ban ngày: từ 6h sáng (0%) đến 18h tối (100%)
       if (timeInHours >= 6 && timeInHours < 18) {
         progress = (timeInHours - 6) / 12;
-      } 
+      }
       // Ban đêm: từ 18h tối (0%) đến 6h sáng hôm sau (100%)
       else {
         let nightHour = timeInHours >= 18 ? timeInHours - 18 : timeInHours + 6;
@@ -115,7 +116,7 @@ export default function HeroBanner() {
       }
     }
     fetchWeather();
-    const interval = setInterval(fetchWeather, 5 * 60 * 1000); 
+    const interval = setInterval(fetchWeather, 5 * 60 * 1000);
     return () => {
       isCancelled = true;
       clearInterval(interval);
@@ -129,7 +130,7 @@ export default function HeroBanner() {
     if (weatherCondition === 'cloudy') return '🍃 Trời nhiều gió rùi, sen nhớ mặc thêm áo cho Boss nha.';
     if (weatherCondition === 'rain') return '☔ Đang mưa rí rắc, ở nhà đặt ship pate là chuẩn bài!';
     if (weatherCondition === 'thunder') return '⚡ Sấm đùng đùng kìa, sen ôm Boss chặt vào kẻo em nó sợ.';
-    return '✨ Mọi thứ Boss cần, KinVie đều có đủ!'; 
+    return '✨ Mọi thứ Boss cần, KinVie đều có đủ!';
   };
 
   // 🎨 ICON THỜI TIẾT nhỏ gọn dùng cho thẻ hiển thị (không phụ thuộc font ngoài)
@@ -178,7 +179,7 @@ export default function HeroBanner() {
     if (weatherCondition === 'thunder') return 'from-slate-900 via-stone-900 to-black';
     if (weatherCondition === 'rain') return isDay ? 'from-slate-500 via-gray-600 to-slate-800' : 'from-slate-800 via-stone-900 to-black';
     if (weatherCondition === 'cloudy') return isDay ? 'from-sky-300 via-slate-300 to-gray-400' : 'from-slate-800 to-gray-900';
-    return isDay ? 'from-sky-400 via-blue-300 to-amber-100' : 'from-indigo-950 via-purple-900 to-stone-900'; 
+    return isDay ? 'from-sky-400 via-blue-300 to-amber-100' : 'from-indigo-950 via-purple-900 to-stone-900';
   };
 
   const scrollSlide = (direction: 'left' | 'right') => {
@@ -192,13 +193,14 @@ export default function HeroBanner() {
   };
 
   return (
-    <section 
+    <section
       ref={scrollContainerRef}
       className="w-full h-[750px] md:h-[700px] flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar relative bg-stone-900"
     >
-      
+
       {/* TẤT CẢ CSS ANIMATION NẰM Ở ĐÂY */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* Import Font Dancing Script cho Logo và Lora cho Slogan hỗ trợ tiếng Việt chuẩn */
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Lora:ital,wght@0,500;1,500&display=swap');
         
@@ -289,14 +291,14 @@ export default function HeroBanner() {
           SLIDE 1: BANNER NỀN ẢNH + NGÔI SAO
           ======================================= */}
       <div className="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-[#fdf3f5]">
-        
+
         <div className="absolute inset-0 w-full h-full animate-subtle-float origin-center z-0">
           {/* Ảnh dành cho MÀN HÌNH ĐIỆN THOẠI (banner_2.png dọc) */}
           <div className="block md:hidden absolute inset-0 w-full h-full">
-            <Image 
-              src="/images/banner_2.png" 
-              alt="KinVie Banner Background Mobile" 
-              fill 
+            <Image
+              src="/images/banner_2.png"
+              alt="KinVie Banner Background Mobile"
+              fill
               sizes="(max-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
               className="object-cover object-center opacity-80"
               priority
@@ -305,10 +307,10 @@ export default function HeroBanner() {
 
           {/* Ảnh dành cho MÀN HÌNH MÁY TÍNH (banner.png ngang) */}
           <div className="hidden md:block absolute inset-0 w-full h-full">
-            <Image 
-              src="/images/banner.png" 
-              alt="KinVie Banner Background Desktop" 
-              fill 
+            <Image
+              src="/images/banner.png"
+              alt="KinVie Banner Background Desktop"
+              fill
               sizes="(min-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
               className="object-cover object-center opacity-80"
               priority
@@ -320,30 +322,30 @@ export default function HeroBanner() {
           <div className="star-wrapper star-1">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
           <div className="star-wrapper star-2">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
           <div className="star-wrapper star-3">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
         </div>
-        
+
         <div className="relative z-20 text-center px-6 max-w-4xl flex flex-col items-center">
-          
+
           {/* Logo KinVie */}
           <h1 className="font-cursive text-[length:clamp(56px,18vw,160px)] text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 animate-smooth-breathe leading-tight mb-2 pb-4">
             KinVie
           </h1>
-          
+
           {/* Slogan */}
           <div className="flex items-center gap-4 mb-16 opacity-90">
             <span className="hidden md:block w-16 h-[1.5px] bg-gradient-to-r from-transparent to-rose-400 rounded-full"></span>
@@ -352,14 +354,14 @@ export default function HeroBanner() {
             </p>
             <span className="hidden md:block w-16 h-[1.5px] bg-gradient-to-l from-transparent to-rose-400 rounded-full"></span>
           </div>
-          
+
           <div className="md:hidden inline-flex items-center gap-3 bg-white/50 backdrop-blur-md px-6 py-3 rounded-full text-pink-600 font-bold uppercase tracking-widest text-xs border border-white/60 shadow-sm mt-4">
             <span>Vuốt sang trái xem thời tiết</span>
             <span className="text-lg animate-bounce-horizontal">👉</span>
           </div>
         </div>
 
-        <button 
+        <button
           onClick={() => scrollSlide('right')}
           className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-30 w-14 h-14 bg-white/40 hover:bg-white/70 backdrop-blur-md border border-white/50 text-pink-500 rounded-full items-center justify-center shadow-lg transition-all"
         >
@@ -372,24 +374,31 @@ export default function HeroBanner() {
           SLIDE 2: DIORAMA THỜI TIẾT (KHÔNG MÈO)
           ======================================= */}
       <div className={`w-full h-full flex-shrink-0 snap-center relative overflow-hidden transition-colors duration-[3000ms] bg-gradient-to-br ${getSkyGradient()}`}>
-        
-        <button 
+
+        <button
           onClick={() => scrollSlide('left')}
           className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
         >
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
         </button>
 
+        <button
+          onClick={() => scrollSlide('right')}
+          className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center flex-col gap-4 bg-slate-900/50 backdrop-blur-sm z-50">
-            <svg className="w-16 h-16 text-pink-400 animate-bounce opacity-80" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 19c-2.48 0-4.5-2.02-4.5-4.5 0-.25.02-.5.06-.74A5.996 5.996 0 0 0 8 15c-3.31 0-6-2.69-6-6s2.69-6 6-6c.38 0 .75.04 1.11.1A6.994 6.994 0 0 1 16 2.01c3.86 0 7 3.14 7 7 0 3.3-2.26 6.09-5.32 6.84-.36.09-.75.15-1.18.15z"/></svg>
+            <svg className="w-16 h-16 text-pink-400 animate-bounce opacity-80" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 19c-2.48 0-4.5-2.02-4.5-4.5 0-.25.02-.5.06-.74A5.996 5.996 0 0 0 8 15c-3.31 0-6-2.69-6-6s2.69-6 6-6c.38 0 .75.04 1.11.1A6.994 6.994 0 0 1 16 2.01c3.86 0 7 3.14 7 7 0 3.3-2.26 6.09-5.32 6.84-.36.09-.75.15-1.18.15z" /></svg>
             <p className="text-pink-200 font-medium tracking-wide animate-pulse">Đang kết nối trạm thời tiết...</p>
           </div>
         ) : (
           <>
             {/* THIÊN THỂ QUỸ ĐẠO BÁN NGUYỆT: Biến mất khi có Mưa/Sấm */}
             {weatherCondition !== 'rain' && weatherCondition !== 'thunder' && (
-              <div 
+              <div
                 className="absolute z-0 transition-all duration-[60000ms] ease-linear pointer-events-none"
                 style={{
                   left: `${celestialProgress * 100}%`,
@@ -409,10 +418,10 @@ export default function HeroBanner() {
                   <div className="relative flex items-center justify-center w-24 h-24 md:w-32 md:h-32">
                     <div className="absolute inset-0 bg-blue-300 rounded-full blur-[30px] opacity-40 animate-pulse"></div>
                     <div className="relative w-full h-full bg-gradient-to-br from-stone-100 to-stone-400 rounded-full shadow-[0_0_60px_rgba(255,255,255,0.5)] overflow-hidden border border-white/20">
-                       {/* Các hố thiên thạch (Craters) */}
-                       <div className="absolute top-[20%] left-[25%] w-[25%] h-[25%] bg-stone-500/30 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
-                       <div className="absolute top-[55%] left-[60%] w-[35%] h-[35%] bg-stone-500/20 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
-                       <div className="absolute top-[65%] left-[20%] w-[15%] h-[15%] bg-stone-500/30 rounded-full shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2)]"></div>
+                      {/* Các hố thiên thạch (Craters) */}
+                      <div className="absolute top-[20%] left-[25%] w-[25%] h-[25%] bg-stone-500/30 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                      <div className="absolute top-[55%] left-[60%] w-[35%] h-[35%] bg-stone-500/20 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                      <div className="absolute top-[65%] left-[20%] w-[15%] h-[15%] bg-stone-500/30 rounded-full shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2)]"></div>
                     </div>
                   </div>
                 )}
@@ -433,26 +442,26 @@ export default function HeroBanner() {
 
             {(weatherCondition === 'cloudy' || weatherCondition === 'rain' || weatherCondition === 'thunder') && (
               <div className="absolute inset-0 z-0 pointer-events-none">
-                <svg className="cloud-slow top-[5%] w-[400px] md:w-[600px]" fill={isDay ? "#f1f5f9" : "#334155"} viewBox="0 0 512 512"><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z"/></svg>
-                <svg className="cloud-fast top-[20%] w-[300px] md:w-[450px]" fill={isDay ? "#ffffff" : "#475569"} opacity="0.8" viewBox="0 0 512 512" style={{ animationDelay: '5s' }}><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z"/></svg>
-                
+                <svg className="cloud-slow top-[5%] w-[400px] md:w-[600px]" fill={isDay ? "#f1f5f9" : "#334155"} viewBox="0 0 512 512"><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z" /></svg>
+                <svg className="cloud-fast top-[20%] w-[300px] md:w-[450px]" fill={isDay ? "#ffffff" : "#475569"} opacity="0.8" viewBox="0 0 512 512" style={{ animationDelay: '5s' }}><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z" /></svg>
+
                 {weatherCondition === 'cloudy' && (
                   <>
                     <div className="falling-leaf" style={{ animationDelay: '0s' }}>🍂</div>
                     <div className="falling-leaf" style={{ animationDelay: '2.5s', top: '10%' }}>🍃</div>
                     <div className="falling-leaf" style={{ animationDelay: '4s', top: '30%', fontSize: '18px' }}>🍂</div>
-                    
+
                     {/* HIỆU ỨNG GIÓ THỔI CUỘN LINE */}
                     <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
                       {/* Vệt gió 1 */}
                       <svg className="wind-line top-[20%] w-[300px] md:w-[500px]" style={{ animationDuration: '7s', animationDelay: '0s', strokeWidth: '2px' }} viewBox="0 0 200 40">
                         <path d="M -50 20 Q 20 20 40 10 T 100 20 T 160 30 T 250 20" />
-                        <path d="M 0 30 Q 30 30 50 20 T 110 30 T 170 40 T 230 30" stroke="rgba(255,255,255,0.2)"/>
+                        <path d="M 0 30 Q 30 30 50 20 T 110 30 T 170 40 T 230 30" stroke="rgba(255,255,255,0.2)" />
                       </svg>
                       {/* Vệt gió 2 có cuộn xoáy */}
                       <svg className="wind-line top-[50%] w-[400px] md:w-[600px]" style={{ animationDuration: '9s', animationDelay: '2s', strokeWidth: '3px' }} viewBox="0 0 200 40">
                         <path d="M -50 20 Q 30 30 50 15 T 120 20 T 180 10 T 250 20" />
-                        <path d="M 120 20 C 130 20 140 10 130 5 C 120 0 110 10 120 20" strokeWidth="2"/>
+                        <path d="M 120 20 C 130 20 140 10 130 5 C 120 0 110 10 120 20" strokeWidth="2" />
                       </svg>
                       {/* Vệt gió 3 */}
                       <svg className="wind-line top-[75%] w-[250px] md:w-[400px]" style={{ animationDuration: '6s', animationDelay: '4s', strokeWidth: '2px' }} viewBox="0 0 200 40">
@@ -466,9 +475,9 @@ export default function HeroBanner() {
 
             {(weatherCondition === 'rain' || weatherCondition === 'thunder') && (
               <div className="absolute inset-0 w-full h-full z-10 pointer-events-none overflow-hidden">
-                 {[...Array(50)].map((_, i) => (
-                   <div key={i} className="raindrop" style={{ left: `${Math.random() * 120 - 10}%`, animationDelay: `${Math.random() * 2}s` }} />
-                 ))}
+                {[...Array(50)].map((_, i) => (
+                  <div key={i} className="raindrop" style={{ left: `${Math.random() * 120 - 10}%`, animationDelay: `${Math.random() * 2}s` }} />
+                ))}
               </div>
             )}
             {weatherCondition === 'thunder' && (
@@ -478,7 +487,7 @@ export default function HeroBanner() {
             <div className="absolute inset-0 bg-gradient-to-b from-stone-900/90 via-stone-900/40 to-transparent z-10 pointer-events-none" />
 
             <div className="relative z-20 container mx-auto px-6 max-w-7xl h-full flex flex-col pt-16 pb-0 md:justify-center md:pt-0">
-              
+
               <div className="absolute top-6 right-6 md:top-12 md:right-12 z-50">
                 <div className="relative">
                   <button
@@ -527,11 +536,10 @@ export default function HeroBanner() {
                             key={city.name}
                             type="button"
                             onClick={() => handleSelectCity(city)}
-                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                              city.name === selectedCity.name
-                                ? 'bg-pink-500/20 text-pink-300'
-                                : 'text-stone-200 hover:bg-white/10'
-                            }`}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${city.name === selectedCity.name
+                              ? 'bg-pink-500/20 text-pink-300'
+                              : 'text-stone-200 hover:bg-white/10'
+                              }`}
                           >
                             {city.name}
                             {city.name === selectedCity.name && (
@@ -556,9 +564,49 @@ export default function HeroBanner() {
                 </div>
               </div>
 
+              <div className="md:hidden flex justify-center mt-6 relative z-30">
+                <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white font-bold uppercase tracking-widest text-xs border border-white/20 shadow-sm">
+                  <span>Vuốt sang trái xem thêm</span>
+                  <span className="text-lg animate-bounce-horizontal">👉</span>
+                </div>
+              </div>
+
             </div>
           </>
         )}
+      </div>
+
+      {/* =======================================
+          SLIDE 3: LIQUID ETHER (KHÔNG GIAN TƯƠNG TÁC)
+          ======================================= */}
+      <div className="w-full h-full flex-shrink-0 snap-center relative overflow-hidden bg-stone-900">
+        <div className="absolute inset-0 z-0">
+          <LiquidEther
+            colors={['#fb923c', '#10b981', '#f472b6', '#22d3ee']}
+            mouseForce={18}
+            cursorSize={110}
+            resolution={0.5}
+            autoDemo
+            autoSpeed={0.4}
+            autoIntensity={2}
+            takeoverDuration={0.3}
+            autoResumeDelay={2000}
+            autoRampDuration={0.8}
+          />
+        </div>
+
+        <button
+          onClick={() => scrollSlide('left')}
+          className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+
+        <div className="relative z-10 h-full flex items-center justify-center pointer-events-none px-6">
+          <p className="max-w-2xl text-2xl md:text-4xl font-slogan italic text-white text-center leading-snug drop-shadow-2xl">
+            Hòa mình vào thế giới <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-cyan-300 to-emerald-300 not-italic font-bold">mèo cưng</span> qua dòng chảy sắc màu huyền ảo.
+          </p>
+        </div>
       </div>
 
     </section>

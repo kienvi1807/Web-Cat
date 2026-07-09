@@ -20,6 +20,7 @@ export default function UploadMemorialPhotoPage() {
   const [usedCount, setUsedCount] = useState(0);
 
   const [myCats, setMyCats] = useState<any[]>([]);
+  const [petOwnerMap, setPetOwnerMap] = useState<{ [petid: number]: string }>({}); // Map petid -> tên chủ, hiện badge khi là Boss của gia đình
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
   const deceasedSelectedCats = myCats.filter(c => selectedCatIds.includes(c.id) && c.status === 'Đã lên thiên đường mèo');
 
@@ -55,9 +56,34 @@ export default function UploadMemorialPhotoPage() {
         .neq('status', 'rejected');
       setUsedCount(count || 0);
 
-      // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách)
-      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status').eq('ownerid', dbUser.userid);
-      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status })));
+      // 👨‍👩‍👧‍👦 Gộp thêm Boss của các thành viên gia đình đã accepted — chung nhà thì chung ảnh kỷ niệm luôn
+      const { data: connRows } = await supabase
+        .from('family_connections')
+        .select('requester_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+      const familyOwnerIds = (connRows || []).map(r =>
+        r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id
+      );
+      const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+
+      let ownerNameMap: { [key: number]: string } = {};
+      if (familyOwnerIds.length > 0) {
+        const { data: familyUsers } = await supabase.from('users').select('userid, fullname').in('userid', familyOwnerIds);
+        (familyUsers || []).forEach((u: any) => { ownerNameMap[u.userid] = u.fullname; });
+      }
+
+      // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách hoặc gia đình đã accepted)
+      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status, ownerid').in('ownerid', ownerIdsToFetch);
+      if (pets) {
+        setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status, ownerid: p.ownerid })));
+        const petOwnerLabelMap: { [petid: number]: string } = {};
+        pets.forEach(p => {
+          if (p.ownerid !== dbUser.userid) petOwnerLabelMap[p.petid] = ownerNameMap[p.ownerid] || 'người nhà';
+        });
+        setPetOwnerMap(petOwnerLabelMap);
+      }
 
       setIsLoading(false);
     };
@@ -231,6 +257,7 @@ export default function UploadMemorialPhotoPage() {
               <div className="flex flex-wrap gap-2">
                 {myCats.map((cat) => {
                   const isSelected = selectedCatIds.includes(cat.id);
+                  const ownerLabel = petOwnerMap[cat.id];
                   return (
                     <button
                       type="button"
@@ -240,6 +267,7 @@ export default function UploadMemorialPhotoPage() {
                     >
                       <img src={cat.images?.[0] || 'https://via.placeholder.com/40'} className="w-5 h-5 rounded-full object-cover" alt="" />
                       {cat.name}
+                      {ownerLabel && <span className={`text-[9px] font-bold ${isSelected ? 'text-pink-100' : 'text-pink-400'}`}>🏠 {ownerLabel}</span>}
                     </button>
                   );
                 })}

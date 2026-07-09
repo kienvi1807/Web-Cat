@@ -2,7 +2,7 @@
 import React from 'react';
 
 const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
-const TOP_PADDING = 150;
+const TOP_PADDING = 100;
 const MEMORIAL_TOP_EXTRA_GAP = 220;
 const VB_WIDTH = 450;         // 🎯 tăng từ 400 -> 450 để có chỗ cho thân cây to hơn + nhánh vươn xa hơn
 const TRUNK_CENTER = VB_WIDTH / 2;
@@ -111,10 +111,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                         <div
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
-                            w-16 sm:w-28 md:w-36 lg:w-44 xl:w-52
+                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52
                                 ${isLeft
-                                    ? 'right-0 sm:right-auto sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
-                                    : 'left-0 sm:left-auto sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
+                                    ? 'left-[calc(50%_+_90px)] sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
+                                    : 'right-[calc(50%_+_90px)] sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
                                 }`}
                             style={{
                                 top: `${topPercent}%`,
@@ -186,10 +186,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 left: `${(pt.x / VB_WIDTH) * 100}%`,
                                 top: `${(pt.y / totalHeight) * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isMemorialCap ? '22rem' : '9rem',   // 👈 16rem -> 22rem
+                                width: isMemorialCap ? '24rem' : '9rem',   // 👈 16rem -> 22rem
                             }}
                         >
-                            <div className={`relative ${isMemorialCap ? 'w-64 h-64 md:w-80 md:h-80' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                            <div className={`relative ${isMemorialCap ? 'w-72 h-72 md:w-96 md:h-96' : 'w-24 h-24 md:w-28 md:h-28'}`}>
                                 {isMemorialCap ? (
                                     <>
                                         {/* Hào quang phía sau */}
@@ -198,13 +198,12 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                         {/* Ảnh mèo - thu nhỏ vào trong để vòng hoa phủ được lên mép ảnh */}
                                         <button
                                             onClick={() => setSelected(pt.photo)}
-                                            className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
+                                            className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer bg-stone-900"
                                         >
-                                            <img
-                                                src={pt.photo.image_url}
-                                                alt={pet?.petname || 'Kỷ niệm'}
-                                                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-                                            />
+                                            <img src={pt.photo.image_url} alt="" aria-hidden="true"
+                                                className="absolute inset-0 w-full h-full object-cover grayscale blur-md scale-110 opacity-70 group-hover:grayscale-0 transition-all duration-500" />
+                                            <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'}
+                                                className="absolute inset-0 w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500" />
                                         </button>
 
                                         {/* Vòng hoa tưởng niệm */}

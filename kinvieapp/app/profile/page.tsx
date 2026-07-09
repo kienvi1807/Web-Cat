@@ -40,6 +40,16 @@ export default function ProfilePage() {
     myPosts: [] as any[]
   });
 
+  // --- STATE QUẢN LÝ GIA ĐÌNH (kiểu kết bạn theo từng cặp, không bắc cầu) ---
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]); // Đã đồng ý (accepted)
+  const [incomingFamilyRequests, setIncomingFamilyRequests] = useState<any[]>([]); // Người khác gửi cho mình
+  const [outgoingFamilyRequests, setOutgoingFamilyRequests] = useState<any[]>([]); // Mình gửi đi, đang chờ
+  const [petOwnerMap, setPetOwnerMap] = useState<{ [userid: number]: string }>({});
+  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [familyPhoneInput, setFamilyPhoneInput] = useState('');
+  const [isSendingFamilyRequest, setIsSendingFamilyRequest] = useState(false);
+  const [processingConnectionId, setProcessingConnectionId] = useState<number | null>(null);
+
   const calculateAge = (dobString: string) => {
     if (!dobString) return 'Chưa cập nhật';
     const dob = new Date(dobString);
@@ -50,54 +60,97 @@ export default function ProfilePage() {
     return age > 0 ? `${age} tuổi` : 'Dưới 1 tuổi';
   };
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
+  const fetchUserData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase
-        .from('users')
-        .select(`*, type_users (role, rank_name)`)
-        .eq('email', session.user.email)
-        .single();
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select(`*, type_users (role, rank_name)`)
+      .eq('email', session.user.email)
+      .single();
 
-      if (dbUser) {
-        const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
-        const cleanName = rawName.normalize('NFC');
+    if (dbUser) {
+      const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
+      const cleanName = rawName.normalize('NFC');
 
-        let hdAvatarUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
-        if (hdAvatarUrl) {
-          if (hdAvatarUrl.includes('fbcdn.net')) hdAvatarUrl = hdAvatarUrl.replace(/\/[sp]\d+x\d+\//, '/');
-          else if (hdAvatarUrl.includes('graph.facebook.com')) hdAvatarUrl = `${hdAvatarUrl}${hdAvatarUrl.includes('?') ? '&' : '?'}width=400&height=400`;
-          else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c');
-        }
-
-        const { data: userPets } = await supabase.from('pets').select('*').eq('ownerid', dbUser.userid);
-        const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
-
-        // 🎯 LẤY ĐƠN HÀNG THẬT TỪ BẢNG ORDERS
-        const { data: userOrders } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('userid', dbUser.userid)
-          .order('orderdate', { ascending: false }); // Mới nhất lên đầu
-
-        setUserData({
-          userid: dbUser.userid,
-          name: cleanName,
-          rank: dbUser.type_users?.rank_name || 'Đồng',
-          phone: dbUser.phone || 'Chưa cập nhật',
-          age: dbUser.age || 'Chưa cập nhật',
-          birthdate: dbUser.birthdate || '',
-          address: dbUser.address || 'Chưa cập nhật',
-          avatarUrl: hdAvatarUrl,
-          pets: userPets || [],
-          orders: userOrders || [],
-          myPosts: userPosts || []
-        });
+      let hdAvatarUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
+      if (hdAvatarUrl) {
+        if (hdAvatarUrl.includes('fbcdn.net')) hdAvatarUrl = hdAvatarUrl.replace(/\/[sp]\d+x\d+\//, '/');
+        else if (hdAvatarUrl.includes('graph.facebook.com')) hdAvatarUrl = `${hdAvatarUrl}${hdAvatarUrl.includes('?') ? '&' : '?'}width=400&height=400`;
+        else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c');
       }
-      setIsLoading(false);
-    };
+
+      // 👨‍👩‍👧‍👦 Lấy quan hệ gia đình — KHÔNG join chung với users (2 FK cùng trỏ users.userid -> ambiguous)
+      const { data: connRows } = await supabase
+        .from('family_connections')
+        .select('*')
+        .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+      const rows = connRows || [];
+      const acceptedRows = rows.filter(r => r.status === 'accepted');
+      const incomingRows = rows.filter(r => r.status === 'pending' && r.receiver_id === dbUser.userid);
+      const outgoingRows = rows.filter(r => r.status === 'pending' && r.requester_id === dbUser.userid);
+
+      const otherIds = Array.from(new Set([
+        ...acceptedRows.map(r => (r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id)),
+        ...incomingRows.map(r => r.requester_id),
+        ...outgoingRows.map(r => r.receiver_id),
+      ]));
+
+      let othersMap: { [key: number]: any } = {};
+      if (otherIds.length > 0) {
+        const { data: otherUsers } = await supabase.from('users').select('userid, fullname, avatarurl, phone').in('userid', otherIds);
+        (otherUsers || []).forEach((u: any) => { othersMap[u.userid] = u; });
+      }
+
+      const acceptedFamily = acceptedRows.map(r => {
+        const otherId = r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id;
+        return { connectionId: r.id, ...othersMap[otherId] };
+      }).filter(f => f.userid);
+
+      const incomingFamily = incomingRows.map(r => ({ connectionId: r.id, ...othersMap[r.requester_id] })).filter(f => f.userid);
+      const outgoingFamily = outgoingRows.map(r => ({ connectionId: r.id, ...othersMap[r.receiver_id] })).filter(f => f.userid);
+
+      setFamilyMembers(acceptedFamily);
+      setIncomingFamilyRequests(incomingFamily);
+      setOutgoingFamilyRequests(outgoingFamily);
+
+      const ownerNameMap: { [key: number]: string } = { [dbUser.userid]: cleanName };
+      acceptedFamily.forEach(f => { ownerNameMap[f.userid] = f.fullname; });
+      setPetOwnerMap(ownerNameMap);
+
+      // 🐱 GỘP BOSS: mèo của mình + mèo của các thành viên gia đình đã accepted
+      const familyOwnerIds = acceptedFamily.map(f => f.userid).filter(Boolean);
+      const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch);
+      const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
+
+      const { data: userOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('userid', dbUser.userid)
+        .order('orderdate', { ascending: false });
+
+      setUserData({
+        userid: dbUser.userid,
+        name: cleanName,
+        rank: dbUser.type_users?.rank_name || 'Đồng',
+        phone: dbUser.phone || 'Chưa cập nhật',
+        age: dbUser.age || 'Chưa cập nhật',
+        birthdate: dbUser.birthdate || '',
+        address: dbUser.address || 'Chưa cập nhật',
+        avatarUrl: hdAvatarUrl,
+        pets: userPets || [],
+        orders: userOrders || [],
+        myPosts: userPosts || []
+      });
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
     fetchUserData();
   }, [router]);
 
@@ -128,6 +181,113 @@ export default function ProfilePage() {
     'Đang vận chuyển': { label: 'Đang giao', class: 'bg-indigo-100 text-indigo-600' },
     'Đã giao hàng': { label: 'Thành công', class: 'bg-green-100 text-green-600' },
     'Đã hủy': { label: 'Đã hủy', class: 'bg-stone-200 text-stone-500' },
+  };
+
+  const handleSendFamilyRequest = async () => {
+    const phone = familyPhoneInput.trim();
+    if (!phone) { alert("Sen nhập số điện thoại của người muốn set gia đình đi đã!"); return; }
+    setIsSendingFamilyRequest(true);
+    try {
+      const { data: targetUser } = await supabase.from('users').select('userid, fullname, phone').eq('phone', phone).maybeSingle();
+      if (!targetUser) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      if (targetUser.userid === userData.userid) { alert("Sen không thể tự set gia đình với chính mình đâu 😅"); return; }
+
+      const { data: existing } = await supabase
+        .from('family_connections')
+        .select('id, status')
+        .or(`and(requester_id.eq.${userData.userid},receiver_id.eq.${targetUser.userid}),and(requester_id.eq.${targetUser.userid},receiver_id.eq.${userData.userid})`)
+        .in('status', ['pending', 'accepted']);
+
+      if (existing && existing.length > 0) {
+        alert(existing[0].status === 'accepted' ? `${targetUser.fullname} đã là gia đình của Sen rồi!` : `Đã gửi yêu cầu tới ${targetUser.fullname} trước đó, đang chờ phản hồi nha!`);
+        return;
+      }
+
+      const { error } = await supabase.from('family_connections').insert([{ requester_id: userData.userid, receiver_id: targetUser.userid, status: 'pending' }]);
+      if (error) throw error;
+
+      await supabase.from('notifications').insert([{
+        user_id: targetUser.userid,
+        title: 'Yêu cầu set gia đình',
+        content: `${userData.name} muốn set gia đình với Sen. Vào trang cá nhân để đồng ý hoặc từ chối nhé!`,
+        type: 'family_request',
+        link: '/profile',
+        related_id: `family_${userData.userid}_${targetUser.userid}`,
+        actor_id: userData.userid
+      }]);
+
+      alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      setFamilyPhoneInput('');
+      setIsFamilyModalOpen(false);
+      fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi gửi yêu cầu set gia đình. Vui lòng thử lại!");
+    } finally {
+      setIsSendingFamilyRequest(false);
+    }
+  };
+
+  const handleAcceptFamilyRequest = async (req: any) => {
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', req.connectionId);
+      if (error) throw error;
+      await supabase.from('notifications').insert([{
+        user_id: req.userid,
+        title: 'Yêu cầu gia đình được đồng ý',
+        content: `${userData.name} đã đồng ý set gia đình với Sen rồi đó!`,
+        type: 'family_accepted',
+        link: '/profile',
+        actor_id: userData.userid
+      }]);
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi đồng ý yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleRejectFamilyRequest = async (req: any) => {
+    if (!window.confirm(`Từ chối yêu cầu gia đình từ ${req.fullname}?`)) return;
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', req.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi từ chối yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleCancelOutgoingRequest = async (req: any) => {
+    if (!window.confirm(`Hủy yêu cầu gia đình đã gửi tới ${req.fullname}?`)) return;
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', req.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi hủy yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleRemoveFamilyMember = async (member: any) => {
+    if (!window.confirm(`Bỏ set gia đình với ${member.fullname}? Boss của 2 nhà sẽ không còn hiển thị chung nữa.`)) return;
+    setProcessingConnectionId(member.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', member.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi bỏ set gia đình. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
   };
 
   // 🎯 LOGIC XÓA BÉ MÈO CỦA KHÁCH
@@ -248,6 +408,64 @@ export default function ProfilePage() {
               </div>
             </section>
 
+            {/* Khối 1.5: Gia đình */}
+            <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black flex items-center gap-3">👨‍👩‍👧‍👦 Gia đình</h3>
+                <button onClick={() => setIsFamilyModalOpen(true)} className="text-xs font-bold text-pink-500 bg-pink-50 px-4 py-2 rounded-xl hover:bg-pink-100 transition-all">+ Set gia đình</button>
+              </div>
+
+              {incomingFamilyRequests.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">💌 Đang chờ Sen phản hồi</p>
+                  {incomingFamilyRequests.map(req => (
+                    <div key={req.connectionId} className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={req.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(req.fullname || 'Sen')} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={req.fullname} />
+                        <div className="min-w-0"><p className="font-bold text-stone-800 truncate">{req.fullname}</p><p className="text-[11px] text-stone-400">muốn set gia đình với Sen</p></div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button disabled={processingConnectionId === req.connectionId} onClick={() => handleAcceptFamilyRequest(req)} className="px-3 py-2 bg-pink-500 text-white text-xs font-bold rounded-xl hover:bg-pink-600 transition disabled:opacity-50">Đồng ý</button>
+                        <button disabled={processingConnectionId === req.connectionId} onClick={() => handleRejectFamilyRequest(req)} className="px-3 py-2 bg-stone-100 text-stone-500 text-xs font-bold rounded-xl hover:bg-rose-50 hover:text-rose-500 transition disabled:opacity-50">Từ chối</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {familyMembers.length === 0 && incomingFamilyRequests.length === 0 && outgoingFamilyRequests.length === 0 ? (
+                <p className="text-center py-6 text-stone-400 font-medium italic text-sm">Sen chưa set gia đình với ai cả. Bấm "+ Set gia đình" để bắt đầu nhé!</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {familyMembers.map(member => (
+                    <div key={member.connectionId} className="relative group bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-3">
+                      <img src={member.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(member.fullname || 'Sen')} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={member.fullname} />
+                      <div className="min-w-0 pr-6">
+                        <p className="font-bold text-stone-800 truncate">{member.fullname}</p>
+                        <p className="text-[11px] text-stone-400">{member.phone || 'Chưa cập nhật SĐT'}</p>
+                      </div>
+                      <button onClick={() => handleRemoveFamilyMember(member)} disabled={processingConnectionId === member.connectionId} className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50" title="Bỏ set gia đình">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {outgoingFamilyRequests.length > 0 && (
+                <div className="mt-6 space-y-2">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">🕓 Đã gửi, đang chờ đồng ý</p>
+                  {outgoingFamilyRequests.map(req => (
+                    <div key={req.connectionId} className="flex items-center justify-between gap-3 bg-stone-50 border border-stone-100 rounded-2xl p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={req.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(req.fullname || 'Sen')} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={req.fullname} />
+                        <p className="text-sm font-bold text-stone-600 truncate">{req.fullname}</p>
+                      </div>
+                      <button disabled={processingConnectionId === req.connectionId} onClick={() => handleCancelOutgoingRequest(req)} className="text-[11px] font-bold text-stone-400 hover:text-rose-500 transition shrink-0">Hủy yêu cầu</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             {/* Khối 2: Boss nhà mình */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
               <h3 className="text-xl font-black mb-8 flex items-center gap-3">🐱 Boss nhà mình</h3>
@@ -325,18 +543,23 @@ export default function ProfilePage() {
                           {pet.status === 'Đang mất tích' && (
                             <p className="text-[10px] text-amber-500 font-black mt-0.5">📢 Đang mất tích</p>
                           )}
+                          {pet.ownerid !== userData.userid && (
+                            <p className="text-[10px] text-pink-400 font-bold mt-0.5 truncate">🏠 Của {petOwnerMap[pet.ownerid] || 'người nhà'}</p>
+                          )}
                         </div>
                       </div>
                     </Link>
 
                     {/* 🎯 NÚT XÓA MÈO NẰM NỔI LÊN TRÊN */}
-                    <button
-                      onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
-                      className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                      title="Xóa hồ sơ bé này"
-                    >
-                      ✕
-                    </button>
+                    {pet.ownerid === userData.userid && (
+                      <button
+                        onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
+                        className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                        title="Xóa hồ sơ bé này"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
 
@@ -521,6 +744,34 @@ export default function ProfilePage() {
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isFamilyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm cursor-pointer" onClick={() => { setIsFamilyModalOpen(false); setFamilyPhoneInput(''); }}></div>
+          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-black text-stone-800 flex items-center gap-2"><span className="text-pink-500">👨‍👩‍👧‍👦</span> Set gia đình</h3>
+              <button onClick={() => { setIsFamilyModalOpen(false); setFamilyPhoneInput(''); }} className="w-9 h-9 flex items-center justify-center bg-stone-100 text-stone-500 rounded-full hover:bg-rose-100 hover:text-rose-500 transition-colors">✕</button>
+            </div>
+            <p className="text-sm text-stone-400 font-medium mb-6">Nhập số điện thoại của Sen mà bạn muốn set gia đình. Sau khi Sen ấy đồng ý, Boss của cả 2 nhà sẽ hiện chung ở đây nha!</p>
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Số điện thoại</label>
+            <input
+              type="tel"
+              value={familyPhoneInput}
+              onChange={(e) => setFamilyPhoneInput(e.target.value)}
+              placeholder="VD: 0902250168"
+              className="w-full mt-1.5 bg-stone-50 border border-stone-200 rounded-xl p-3 text-stone-700 focus:outline-none focus:ring-2 focus:ring-pink-200"
+            />
+            <button
+              onClick={handleSendFamilyRequest}
+              disabled={isSendingFamilyRequest}
+              className="w-full mt-6 py-4 bg-pink-500 text-white font-black rounded-2xl shadow-lg shadow-pink-100 hover:bg-pink-600 transition disabled:opacity-50"
+            >
+              {isSendingFamilyRequest ? 'Đang gửi...' : 'Gửi yêu cầu'}
+            </button>
           </div>
         </div>
       )}

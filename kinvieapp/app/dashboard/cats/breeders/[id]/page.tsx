@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function BreederCatDetailPage() {
   const params = useParams();

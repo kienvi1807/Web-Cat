@@ -6,6 +6,7 @@ import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import ProductCard from '@/components/common/ProductCard';
 import { getAffiliatePlatform } from '@/lib/utils';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function PetshopPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -214,16 +215,21 @@ export default function PetshopPage() {
           <div className="lg:w-3/4">
 
             <div className="flex justify-end mb-4">
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value)}
-                className="bg-white border border-stone-200 px-4 py-2 rounded-xl text-sm font-bold text-stone-600 focus:outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100 shadow-sm cursor-pointer transition-all"
-              >
-                <option value="popular">🔥 Phổ biến nhất</option>
-                <option value="price_asc">💵 Giá: Thấp đến Cao</option>
-                <option value="price_desc">💎 Giá: Cao xuống Thấp</option>
-                <option value="newest">✨ Mới cập nhật</option>
-              </select>
+              <div className="w-full sm:w-56">
+                <GlassSelect
+                  id="petshop-sort"
+                  themeColor="pink"
+                  allowClear={false}
+                  selectedValue={sortOption}
+                  onChange={setSortOption}
+                  options={[
+                    { value: 'popular', label: '🔥 Phổ biến nhất' },
+                    { value: 'price_asc', label: '💵 Giá: Thấp đến Cao' },
+                    { value: 'price_desc', label: '💎 Giá: Cao xuống Thấp' },
+                    { value: 'newest', label: '✨ Mới cập nhật' },
+                  ]}
+                />
+              </div>
             </div>
 
             {isLoading ? (

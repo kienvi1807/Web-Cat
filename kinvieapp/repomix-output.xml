@@ -110,11 +110,13 @@ app/profile/page.tsx
 app/quan-ly/inquiries/[id]/page.tsx
 app/register/complete-profile/page.tsx
 components/common/CatCard.tsx
+components/common/EvilEye.tsx
 components/common/ProductCard.tsx
 components/home/BlogPreview.tsx
 components/home/CarouselBanner.tsx
 components/home/CatteryList.tsx
 components/home/HeroBanner.tsx
+components/home/LiquidEther.tsx
 components/home/PetshopGrid.tsx
 components/home/ReviewPopup.tsx
 components/layout/BackgroundGlow.tsx
@@ -253,18 +255,19 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `ems_patterns`: `code` (character varying), `name` (character varying)
 - `expenses`: `title` (text), `id` (uuid), `amount` (numeric), `expense_date` (timestamp with time zone), `category` (text)
 - `families`: `updatedat` (timestamp with time zone), `familyname` (character varying), `familyid` (integer), `createdat` (timestamp with time zone)
+- `family_connections`: `id` (bigint, identity PK), `requester_id` (integer, FK -> users.userid, người gửi yêu cầu), `receiver_id` (integer, FK -> users.userid, người nhận yêu cầu, tìm qua SĐT), `status` (text: 'pending'|'accepted'|'rejected'), `created_at` (timestamptz), `updated_at` (timestamptz). Đây là tính năng "Set gia đình" ở `/profile` — quan hệ theo TỪNG CẶP kiểu kết bạn, KHÔNG bắc cầu (A-B accepted và A-C accepted KHÔNG khiến B-C tự động thành gia đình). ⚠️ KHÔNG dùng cột `users.familyid`/bảng `families` cũ cho tính năng này vì đó là mô hình 1-group-dùng-chung-ID sẽ gây bắc cầu sai yêu cầu; `familyid` hiện không phục vụ tính năng gia đình. Có unique index chặn gửi trùng yêu cầu khi đang pending/accepted giữa 2 người. Khi truy vấn quan hệ của 1 user, dùng `.or('requester_id.eq.X,receiver_id.eq.X')` rồi tự map sang bảng `users` bằng query riêng — KHÔNG join chung `select('*, users(*)')` vì cả `requester_id` và `receiver_id` cùng trỏ `users.userid` sẽ gây lỗi ambiguous relationship (giống case `buyer_id`/`breeder_id` của bảng `cats`). Trang `/profile` (`app/profile/page.tsx`) dùng bảng này để gộp `pets` của mình + của các thành viên có `status = 'accepted'` (query `pets.ownerid IN [...]`); mèo không phải của mình chỉ xem được, KHÔNG xoá được. Trang `/memorial` (Dây Leo Ký Ức) cũng dùng `family_connections` (status='accepted') để gộp `memorial_photos.user_id IN [mình, ...thành viên gia đình]` — gia đình đã set thì xem chung ảnh kỷ niệm vì chung Boss. Trang `/profile/memorial` ("Ảnh tôi đã gửi") thì KHÔNG gộp, chỉ hiện đúng ảnh do chính mình upload, vì đây là trang quản lý riêng tư (sửa chú thích/xoá ảnh). Trang `/memorial/upload` (form Gửi Ảnh Kỷ Niệm) cũng gộp `pets.ownerid IN [mình, ...gia đình accepted]` cho dropdown chọn bé mèo — vì chung Boss thì Sen nào cũng gửi ảnh kỷ niệm cho Boss đó được, có badge 🏠 tên chủ để phân biệt Boss của người nhà.
 - `feedbacks`: `status` (text), `content` (text), `admin_reply` (text), `type` (text), `created_at` (timestamp with time zone), `userid` (integer), `id` (uuid)
 - `health_records`: `note` (text), `record_date` (date), `petid` (integer), `created_at` (timestamp with time zone), `record_type` (character varying), `id` (integer)
 - `login_logs`: `loginid` (bigint, identity PK), `userid` (bigint, FK -> users.userid, on delete cascade), `loginat` (timestamptz, default now()), `source` (text: 'password'|'google'|'facebook'). Ghi log mỗi lượt đăng nhập thành công của khách. Có RLS bật, cho phép `insert`/`select` với cả `authenticated` và `anon` (dự án đang thao tác trực tiếp từ client giống cách làm với bảng `users`).
 - `medicalrecords`: `dosenumber` (integer), `recordid` (integer), `nextduedate` (date), `petid` (integer), `administereddate` (date), `createdat` (timestamp with time zone), `notes` (text), `medicinename` (character varying), `recordtype` (character varying)
 - `memorial_photos`: `id` (bigint), `user_id` (integer - trỏ về users.userid), `image_url` (text), `caption` (text), `taken_date` (date), `status` (text: 'pending'|'approved'|'rejected'), `admin_note` (text), `file_size` (integer), `created_at` (timestamptz), `is_last_photo` (boolean, default false - khách tự đánh dấu ở `/memorial/upload` khi chọn đúng 1 bé có `status = 'Đã lên thiên đường mèo'`; ảnh này sẽ là ảnh tưởng niệm to nhất có vòng hoa ở đầu Cây Ký Ức, KHÔNG còn tự suy theo `taken_date` muộn nhất nữa)
 - `memorial_photo_cats`: `photo_id` (bigint, FK memorial_photos.id), `cat_id` (integer, FK cats.id) — bảng nối N-N, 1 ảnh gắn được nhiều mèo
-- `notifications`: `content` (text), `created_at` (timestamp with time zone), `is_read` (boolean), `user_id` (integer), `id` (integer), `title` (character varying), `type` (text: 'order_success'|'order_approved'|'cat_inquiry'|'post_like'|'post_comment'|'comment_reply'|'cat_approved'|'cat_rejected'|'system'), `link` (text - đường dẫn điều hướng khi bấm), `related_id` (text - id liên quan, dùng để dedupe/xoá khi unlike), `actor_id` (integer - userid người gây ra thông báo)
+- `notifications`: `content` (text), `created_at` (timestamp with time zone), `is_read` (boolean), `user_id` (integer), `id` (integer), `title` (character varying), `type` (text: 'order_success'|'order_approved'|'cat_inquiry'|'post_like'|'post_comment'|'comment_reply'|'cat_approved'|'cat_rejected'|'family_request'|'family_accepted'|'system'), `link` (text - đường dẫn điều hướng khi bấm), `related_id` (text - id liên quan, dùng để dedupe/xoá khi unlike), `actor_id` (integer - userid người gây ra thông báo)
 - `orderdetails`: `productid` (integer), `orderdetailid` (integer), `quantity` (integer), `orderid` (integer), `unitprice` (numeric), `petid` (integer), `variant` (text)
 - `orders`: `totalamount` (numeric), `delivery_date` (date), `orderdate` (timestamp with time zone), `orderid` (integer), `customer_phone` (text), `userid` (integer), `address` (text), `customer_name` (text), `paymentmethod` (character varying), `orderstatus` (character varying)
 - `page_banners`: `image_url` (text), `created_at` (timestamp with time zone), `group_id` (bigint), `id` (bigint)
 - `pate_types`: `name` (text), `description` (text), `image_url` (text), `icons` (text), `created_at` (timestamp with time zone), `default_price` (numeric), `id` (uuid)
-- `pets`: `description` (text), `videourl` (text), `status` (character varying), `ems_base_code` (character varying), `ems_pattern_code` (character varying), `simple_color` (character varying), `mother_id` (integer), `father_id` (integer), `has_pedigree` (boolean), `petid` (integer), `ems_silver` (boolean), `last_deworming_date` (date), `last_vaccine_date` (date), `neutered` (boolean), `familyid` (integer), `ownerid` (integer), `price` (numeric), `birthdate` (date), `gender` (boolean), `petname` (character varying), `breed` (character varying), `imageurl` (text)
+- `pets`: `description` (text), `videourl` (text), `status` (character varying: 'Khỏe mạnh'|'Đang mất tích'|'Đã lên thiên đường mèo'), `death_date` (date, nullable - ngày mất, CHỈ có giá trị khi `status = 'Đã lên thiên đường mèo'`; nhập ở `app/profile/edit-pet/[id]/page.tsx`, bắt buộc nhập khi chọn tình trạng này, tự động set về NULL nếu đổi tình trạng khác. Dùng ở `app/pet/[id]/page.tsx` để tính "tuổi lúc mất" — `calculateAge(birthdate, death_date)` tính tuổi DỪNG LẠI ở `death_date` thay vì tính tới ngày hiện tại như bé còn sống), `ems_base_code` (character varying), `ems_pattern_code` (character varying), `simple_color` (character varying), `mother_id` (integer), `father_id` (integer), `has_pedigree` (boolean), `petid` (integer), `ems_silver` (boolean), `last_deworming_date` (date), `last_vaccine_date` (date), `neutered` (boolean), `familyid` (integer), `ownerid` (integer), `price` (numeric), `birthdate` (date), `gender` (boolean), `petname` (character varying), `breed` (character varying), `imageurl` (text)
 - `post_comments`: `user_id` (integer), `id` (bigint), `content` (text), `post_id` (bigint), `created_at` (timestamp with time zone), `parent_id` (integer)
 - `post_likes`: `id` (bigint), `post_id` (bigint), `created_at` (timestamp with time zone), `user_id` (integer)
 - `post_pets`: `pet_id` (bigint), `post_id` (bigint)
@@ -272,7 +275,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `products`: `origin` (text), `reviews_count` (integer), `rating` (numeric), `discount_percent` (integer), `sales_count` (integer), `created_at` (timestamp with time zone), `expiry_date` (date), `stock` (integer), `price` (numeric), `categoryid` (integer), `id` (integer), `imageurl` (text), `description` (text), `category` (text), `status` (text), `images` (ARRAY), `name` (text), `brand` (text), `is_affiliate` (boolean), `affiliate_url` (text), `affiliate_clicks` (integer)
 - `system_settings`: `zalo` (text), `hotline` (text), `theme_mode` (text), `id` (integer), `email` (text), `facebook_url` (text), `tiktok_url` (text), `instagram_url` (text), `updated_at` (timestamp with time zone)
 - `product_reviews`: `id` (bigint), `product_id` (integer), `order_id` (integer), `user_id` (integer), `rating` (integer 1-5), `comment` (text), `created_at` (timestamp with time zone). Có UNIQUE(product_id, order_id, user_id) — 1 đơn chỉ đánh giá 1 lần cho 1 sản phẩm. Có trigger `trg_update_product_rating` tự động tính lại `products.rating` và `products.reviews_count` mỗi khi insert/update/delete — KHÔNG tự tay update 2 cột đó trong code nữa.
-- `type_users`: `description`, `rank_name`, `role`, `point_required`, `id`, `max_memorial_photos` (integer - quota ảnh kỷ niệm theo hạng), `is_memorial_eligible` (boolean - Staff/Breeder = false, Boss/Customer = true)
+- `type_users`: `description`, `rank_name`, `role`, `point_required` (numeric - hạn mức TỔNG chi tiêu tích lũy để lên hạng: Đồng 0đ, Bạc 2.000.000đ, Vàng 5.000.000đ, Bạch Kim 15.000.000đ, Lục Bảo 30.000.000đ, Kim Cương 50.000.000đ hoặc auto-gán khi mua mèo tại trại), `id`, `max_memorial_photos` (integer - quota ảnh kỷ niệm theo hạng: Đồng 10, Bạc 20, Vàng 40, Bạch Kim 60, Lục Bảo 80, Kim Cương 200), `is_memorial_eligible` (boolean - Staff/Breeder = false, Boss/Customer = true), `point_multiplier` (numeric(3,1) - hệ số nhân điểm tích lũy khi mua hàng theo hạng, mặc định 1.0: Đồng x1.0, Bạc x1.2, Vàng x1.5, Bạch Kim x1.7, Lục Bảo x2.0, Kim Cương x2.5 — ⚠️ cột này MỚI THÊM, hiện CHƯA được áp dụng vào logic cộng điểm lúc tạo đơn hàng, logic tính điểm ở checkout vẫn đang hard-code tỷ lệ theo loại sản phẩm (Petshop 100k=1đ, Pate 100k=10đ) chứ chưa nhân theo `point_multiplier` của khách)
 - `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text)
 
 
@@ -290,6 +293,7 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 8. **Hệ thống thông báo (notifications):** Mọi thông báo insert vào bảng `notifications` PHẢI có `type` và `link` rõ ràng để chuông thông báo (Header.tsx) hiển thị đúng icon và điều hướng đúng chỗ. Khi thông báo gắn với hành động có thể "undo" (VD: thích bài viết), phải set `related_id` dạng `${post_id}_${actor_userid}` để khi undo (bỏ thích) thì xoá được đúng thông báo đã gửi, tránh rác. Chuông dùng Supabase Realtime (`postgres_changes`) lắng nghe theo `user_id`, không polling.
 9. **Yêu cầu đón bé (cat_inquiries):** Khi khách gửi form "Gửi Yêu Cầu Đón Bé" ở `/cattery/[id]`, BẮT BUỘC lưu vào bảng `cat_inquiries` (không chỉ gửi notification suông) để còn quản lý lead sau này. Thông báo phải gửi cho TOÀN BỘ user có `type_id` 1 hoặc 2 (staff/boss), CỘNG THÊM trại đối tác nếu `cats.breeder_id` thuộc `type_id` 3 — tránh gửi trùng nếu breeder cũng đang là staff (type_id 1/2).
 10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard). Bảng memorial_photos có thêm cột is_last_photo (boolean, default false) — khách tự đánh dấu ở trang /memorial/upload khi chọn đúng 1 bé có status === 'Đã lên thiên đường mèo'. Ảnh có cờ này TRUE sẽ là ảnh tưởng niệm to nhất, có vòng hoa, hiển thị trắng đen (hover ra màu) ở đầu Cây Ký Ức (VineTimeline.tsx, biến isMemorialCap) — KHÔNG còn tự suy đoán theo taken_date muộn nhất nữa. Khi insert ảnh mới với is_last_photo = true, phải gỡ cờ này khỏi ảnh cũ của đúng bé đó trước (qua bảng nối memorial_photo_pets) để đảm bảo mỗi bé chỉ có 1 ảnh cuối.
+11. **Set gia đình (family_connections):** Tính năng ở `/profile` cho khách liên kết tài khoản với nhau qua SĐT để gộp chung Boss quản lý. BẮT BUỘC hiểu đây là quan hệ CẶP kiểu kết bạn (bảng `family_connections`), KHÔNG PHẢI cột `users.familyid`/bảng `families` — 2 cái đó là mô hình cũ dùng chung 1 group ID, không đáp ứng được yêu cầu "không bắc cầu" (A set gia đình với B và C, nhưng B-C không tự động thành gia đình nếu 2 người đó chưa tự set với nhau). Mỗi request gửi đi phải kèm insert `notifications` (`type: 'family_request'`, `link: '/profile'`) cho người nhận; khi đồng ý phải insert thêm `notifications` (`type: 'family_accepted'`) báo lại cho người gửi. Khi hiển thị Boss gộp chung ở `/profile`, chỉ gộp mèo của các quan hệ có `status = 'accepted'`; mèo không phải chủ thật của mình CHỈ ĐƯỢC XEM, không cho xoá (check `pet.ownerid === userData.userid` trước khi hiện nút xoá).
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.
@@ -1434,6 +1438,7 @@ import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import CatCard from '@/components/common/CatCard';
 import { formatEmsCode } from '@/lib/utils';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 const getAgeInMonths = (dob: string) => {
   if (!dob) return 0;
@@ -1503,12 +1508,9 @@ export default function CatteryDetailsPage() {
       <Header />
 
       <main className="pt-28 pb-24 container mx-auto px-4 lg:px-8 relative z-10">
-        
+
         <div className="text-center mb-10 md:mb-16 relative">
           <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-pink-200/50 rounded-full blur-[80px] -z-10"></div>
-          <div className="inline-flex items-center justify-center gap-2 px-5 py-2 rounded-full bg-white border border-pink-100 text-pink-500 text-xs font-black uppercase tracking-widest mb-6 shadow-sm">
-            <span className="text-lg">👑</span> Showroom Độc Quyền
-          </div>
           <h1 className="text-4xl md:text-7xl font-black text-stone-800 mb-6 tracking-tight">
             Đàn Mèo Của <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 to-rose-400 font-serif italic pr-2">KinVie</span>
           </h1>
@@ -1518,9 +1520,9 @@ export default function CatteryDetailsPage() {
         </div>
 
         <div className="flex flex-col lg:flex-row">
-          
+
           {/* NỀN TỐI CHE MÀN HÌNH KHI MỞ BỘ LỌC ĐIỆN THOẠI */}
-          <div 
+          <div
             className={`fixed inset-0 bg-stone-900/50 z-40 backdrop-blur-sm transition-opacity lg:hidden ${isMobileFilterOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
             onClick={() => setIsMobileFilterOpen(false)}
           />
@@ -1536,13 +1538,13 @@ export default function CatteryDetailsPage() {
           `}>
             {/* Thêm min-w-[280px] để khi bóp chiều ngang lại chữ không bị móp méo */}
             <div className="w-full min-w-[280px] h-full overflow-y-auto bg-white p-6 md:p-8 border-r border-pink-100 shadow-2xl lg:bg-white/80 lg:backdrop-blur-xl lg:rounded-[2.5rem] lg:border lg:border-white lg:shadow-[0_20px_50px_-10px_rgba(236,72,153,0.1)] lg:sticky lg:top-28 lg:h-auto">
-              
+
               <div className="flex justify-between items-center mb-8">
                 <h3 className="font-black text-xl text-stone-800 flex items-center gap-3">
                   <span className="text-2xl">⚡</span> Bộ Lọc Nhanh
                 </h3>
-                <button 
-                  onClick={() => setIsMobileFilterOpen(false)} 
+                <button
+                  onClick={() => setIsMobileFilterOpen(false)}
                   className="lg:hidden w-8 h-8 flex items-center justify-center bg-stone-100 rounded-full text-stone-500 hover:bg-pink-100 hover:text-pink-500"
                 >
                   ✕
@@ -1553,7 +1555,7 @@ export default function CatteryDetailsPage() {
                 <h4 className="font-bold text-pink-400 text-xs mb-4 uppercase tracking-widest">Giống Mèo</h4>
                 <div className="flex flex-col gap-2">
                   {breeds.map(breed => (
-                    <button 
+                    <button
                       key={breed} onClick={() => setFilterBreed(breed)}
                       className={`text-left px-4 py-3 rounded-2xl text-sm font-bold transition-all ${filterBreed === breed ? 'bg-gradient-to-r from-pink-500 to-rose-400 text-white shadow-md shadow-pink-200 translate-x-2' : 'bg-stone-50 text-stone-500 hover:bg-pink-50 hover:text-pink-500'}`}
                     >
@@ -1567,7 +1569,7 @@ export default function CatteryDetailsPage() {
                 <h4 className="font-bold text-pink-400 text-xs mb-4 uppercase tracking-widest">Màu Lông (EMS)</h4>
                 <div className="flex flex-wrap gap-2">
                   {colors.map(color => (
-                    <button 
+                    <button
                       key={color} onClick={() => setFilterColor(color)}
                       className={`px-4 py-2 rounded-xl text-xs font-black uppercase tracking-wider transition-all border ${filterColor === color ? 'bg-stone-800 text-white border-stone-800 shadow-lg shadow-stone-300' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-400'}`}
                     >
@@ -1581,9 +1583,9 @@ export default function CatteryDetailsPage() {
                 <h4 className="font-bold text-pink-400 text-xs mb-4 uppercase tracking-widest">Độ Tuổi</h4>
                 <div className="flex flex-col gap-3">
                   {ages.map(age => (
-                    <label 
-                      key={age} 
-                      onClick={() => setFilterAge(age)} 
+                    <label
+                      key={age}
+                      onClick={() => setFilterAge(age)}
                       className="flex items-center gap-3 cursor-pointer group"
                     >
                       <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${filterAge === age ? 'border-pink-500 bg-pink-500 scale-110' : 'border-stone-300 bg-white group-hover:border-pink-400'}`}>
@@ -1595,7 +1597,7 @@ export default function CatteryDetailsPage() {
                 </div>
               </div>
 
-              <button 
+              <button
                 onClick={() => { setFilterBreed('Tất cả'); setFilterColor('Tất cả'); setFilterAge('Tất cả'); }}
                 className="w-full py-4 border-2 border-pink-100 text-pink-500 font-black uppercase tracking-widest text-xs rounded-2xl hover:bg-pink-50 hover:border-pink-200 transition-all flex justify-center items-center gap-2 group"
               >
@@ -1608,16 +1610,16 @@ export default function CatteryDetailsPage() {
               CỘT PHẢI: LƯỚI SHOWROOM MÈO
               ======================================= */}
           <div className="flex-1 w-full transition-all duration-500 min-w-0">
-            
+
             {/* Header Lưới */}
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
               <div className="flex items-center flex-wrap gap-3 w-full sm:w-auto">
                 <p className="text-stone-500 font-medium text-sm md:text-base">
                   Tìm thấy <span className="font-black text-pink-500 text-xl mx-1">{filteredCats.length}</span> Boss
                 </p>
-                
+
                 {/* NÚT MỞ BỘ LỌC DÀNH RIÊNG CHO ĐIỆN THOẠI */}
-                <button 
+                <button
                   onClick={() => setIsMobileFilterOpen(true)}
                   className="lg:hidden flex items-center gap-2 bg-white px-4 py-2 rounded-xl shadow-sm border border-stone-200 text-stone-700 font-bold text-sm hover:bg-pink-50 hover:text-pink-500 transition-all"
                 >
@@ -1626,7 +1628,7 @@ export default function CatteryDetailsPage() {
                 </button>
 
                 {/* NÚT THU/MỞ BỘ LỌC DÀNH RIÊNG CHO MÁY TÍNH */}
-                <button 
+                <button
                   onClick={() => setIsDesktopFilterOpen(!isDesktopFilterOpen)}
                   className="hidden lg:flex items-center gap-2 bg-white px-4 py-2 ml-2 rounded-xl shadow-sm border border-stone-200 text-stone-700 font-bold text-sm hover:bg-pink-50 hover:text-pink-500 transition-all"
                 >
@@ -1636,18 +1638,20 @@ export default function CatteryDetailsPage() {
                   {isDesktopFilterOpen ? 'Ẩn bộ lọc' : 'Mở bộ lọc'}
                 </button>
               </div>
-              
-              <div className="relative w-full sm:w-auto">
-                <select 
-                  value={sortOption}
-                  onChange={(e) => setSortOption(e.target.value)}
-                  className="w-full sm:w-auto appearance-none cursor-pointer bg-white border border-stone-200 px-6 py-3 pr-10 rounded-2xl text-sm font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-100 transition-all shadow-sm"
-                >
-                  <option value="newest">✨ Mới gia nhập</option>
-                  <option value="price_asc">💎 Giá từ Thấp → Cao</option>
-                  <option value="price_desc">👑 Giá từ Cao → Thấp</option>
-                </select>
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none text-stone-400">▼</span>
+
+              <div className="w-full sm:w-56">
+                <GlassSelect
+                  id="cattery-sort"
+                  themeColor="pink"
+                  allowClear={false}
+                  selectedValue={sortOption}
+                  onChange={setSortOption}
+                  options={[
+                    { value: 'newest', label: '✨ Mới gia nhập' },
+                    { value: 'price_asc', label: '💎 Giá từ Thấp → Cao' },
+                    { value: 'price_desc', label: '👑 Giá từ Cao → Thấp' },
+                  ]}
+                />
               </div>
             </div>
 
@@ -1657,7 +1661,7 @@ export default function CatteryDetailsPage() {
                 <h2 className="text-xl font-black uppercase tracking-widest animate-pulse">Đang rước các Boss ra...</h2>
               </div>
             ) : filteredCats.length > 0 ? (
-              
+
               /* 🌟 ĐÃ FIX: Chỉ giữ nguyên tối đa 3 cột. Khi đóng bộ lọc thì 3 cột này giãn to ra */
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-8 transition-all duration-500">
                 {filteredCats.map((cat) => (
@@ -1672,7 +1676,7 @@ export default function CatteryDetailsPage() {
                 <p className="text-stone-500 max-w-md text-sm md:text-lg font-medium mb-8">
                   Hiện tại KinVie chưa có bé nào khớp với bộ lọc khắt khe của Sen. Hãy thử nới lỏng tiêu chí tìm kiếm nhé.
                 </p>
-                <button 
+                <button
                   onClick={() => { setFilterBreed('Tất cả'); setFilterColor('Tất cả'); setFilterAge('Tất cả'); }}
                   className="bg-stone-800 text-white px-8 py-4 rounded-full font-black uppercase tracking-widest text-xs shadow-xl hover:bg-pink-500 hover:shadow-pink-500/30 hover:-translate-y-1 transition-all"
                 >
@@ -2109,6 +2113,7 @@ import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function BreederCatDetailPage() {
   const params = useParams();
@@ -13897,9 +13902,11 @@ body {
 }
 
 /* 🎯 Ảnh/video mặc định không bao giờ được vượt quá chiều rộng khung chứa */
-img, svg, video {
-  max-width: 100%;
-  height: auto;
+@layer base {
+  img, svg, video {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 /* Smooth transitions for all interactive elements */
@@ -13911,6 +13918,19 @@ img, svg, video {
 /* Ép tất cả các nút bấm và thẻ a đều hiện hình bàn tay */
 button, a, [role="button"] {
   cursor: pointer !important;
+}
+
+.liquid-ether-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-x;
+}
+
+.evil-eye-container {
+  width: 100%;
+  height: 100%;
 }
 </file>
 
@@ -14360,11 +14380,25 @@ export default function MemorialVinePage() {
             if (!dbUser) { setIsLoading(false); return; }
             setDbUserId(dbUser.userid);
 
+            // 👨‍👩‍👧‍👦 Đã set gia đình thì xem chung Cây Ký Ức, vì chung Boss rồi.
+            // Không join chung với users (requester_id/receiver_id cùng trỏ users.userid -> ambiguous),
+            // fetch rời family_connections rồi lấy ra id các thành viên accepted.
+            const { data: connRows } = await supabase
+                .from('family_connections')
+                .select('requester_id, receiver_id')
+                .eq('status', 'accepted')
+                .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+            const familyOwnerIds = (connRows || []).map(r =>
+                r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id
+            );
+            const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+
             const { data, error } = await supabase
                 .from('memorial_photos')
                 .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status))')
                 .eq('status', 'approved')
-                .eq('user_id', dbUser.userid)
+                .in('user_id', ownerIdsToFetch)
                 .order('taken_date', { ascending: true });
             if (error) console.error('Lỗi tải ảnh kỷ niệm:', error.message);
             if (data) setPhotos(data);
@@ -14472,10 +14506,19 @@ export default function MemorialVinePage() {
 
             <button
                 onClick={toggleMusic}
-                className={`fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform ${isPlaying ? 'animate-pulse ring-2 ring-pink-300' : ''}`}
+                className="fixed top-24 right-6 z-50 w-14 h-14 flex items-center justify-center text-3xl hover:scale-110 active:scale-95 transition-transform duration-300"
                 title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
             >
-                {isPlaying ? '🔊' : '🔈'}
+                <span
+                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-0 scale-50 rotate-180' : 'opacity-100 scale-100 rotate-0'}`}
+                >
+                    🎁
+                </span>
+                <span
+                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-100 scale-100 rotate-0 animate-pulse ring-2 ring-pink-300' : 'opacity-0 scale-50 -rotate-180'}`}
+                >
+                    🔊
+                </span>
             </button>
 
             <Footer />
@@ -14507,6 +14550,7 @@ export default function UploadMemorialPhotoPage() {
   const [usedCount, setUsedCount] = useState(0);
 
   const [myCats, setMyCats] = useState<any[]>([]);
+  const [petOwnerMap, setPetOwnerMap] = useState<{ [petid: number]: string }>({}); // Map petid -> tên chủ, hiện badge khi là Boss của gia đình
   const [selectedCatIds, setSelectedCatIds] = useState<number[]>([]);
   const deceasedSelectedCats = myCats.filter(c => selectedCatIds.includes(c.id) && c.status === 'Đã lên thiên đường mèo');
 
@@ -14542,9 +14586,34 @@ export default function UploadMemorialPhotoPage() {
         .neq('status', 'rejected');
       setUsedCount(count || 0);
 
-      // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách)
-      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status').eq('ownerid', dbUser.userid);
-      if (pets) setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status })));
+      // 👨‍👩‍👧‍👦 Gộp thêm Boss của các thành viên gia đình đã accepted — chung nhà thì chung ảnh kỷ niệm luôn
+      const { data: connRows } = await supabase
+        .from('family_connections')
+        .select('requester_id, receiver_id')
+        .eq('status', 'accepted')
+        .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+      const familyOwnerIds = (connRows || []).map(r =>
+        r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id
+      );
+      const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+
+      let ownerNameMap: { [key: number]: string } = {};
+      if (familyOwnerIds.length > 0) {
+        const { data: familyUsers } = await supabase.from('users').select('userid, fullname').in('userid', familyOwnerIds);
+        (familyUsers || []).forEach((u: any) => { ownerNameMap[u.userid] = u.fullname; });
+      }
+
+      // 🎯 LẤY THÚ CƯNG KHÁCH TỰ QUẢN LÝ Ở "THÚ CƯNG CỦA TÔI" (bảng pets, ownerid = khách hoặc gia đình đã accepted)
+      const { data: pets } = await supabase.from('pets').select('petid, petname, imageurl, status, ownerid').in('ownerid', ownerIdsToFetch);
+      if (pets) {
+        setMyCats(pets.map(p => ({ id: p.petid, name: p.petname, images: [p.imageurl], status: p.status, ownerid: p.ownerid })));
+        const petOwnerLabelMap: { [petid: number]: string } = {};
+        pets.forEach(p => {
+          if (p.ownerid !== dbUser.userid) petOwnerLabelMap[p.petid] = ownerNameMap[p.ownerid] || 'người nhà';
+        });
+        setPetOwnerMap(petOwnerLabelMap);
+      }
 
       setIsLoading(false);
     };
@@ -14718,6 +14787,7 @@ export default function UploadMemorialPhotoPage() {
               <div className="flex flex-wrap gap-2">
                 {myCats.map((cat) => {
                   const isSelected = selectedCatIds.includes(cat.id);
+                  const ownerLabel = petOwnerMap[cat.id];
                   return (
                     <button
                       type="button"
@@ -14727,6 +14797,7 @@ export default function UploadMemorialPhotoPage() {
                     >
                       <img src={cat.images?.[0] || 'https://via.placeholder.com/40'} className="w-5 h-5 rounded-full object-cover" alt="" />
                       {cat.name}
+                      {ownerLabel && <span className={`text-[9px] font-bold ${isSelected ? 'text-pink-100' : 'text-pink-400'}`}>🏠 {ownerLabel}</span>}
                     </button>
                   );
                 })}
@@ -15012,25 +15083,25 @@ const ReviewPopup = () => {
   const [showPopup, setShowPopup] = useState(false);
   const [hateButtonPos, setHateButtonPos] = useState({ top: 0, left: 0 });
   const buttonRef = useRef<HTMLButtonElement>(null);
-  
+
   // Lưu state user để lúc bấm Like còn biết user nào mà update
-  const [currentUser, setCurrentUser] = useState<any>(null); 
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     const checkUserAndLikeStatus = async () => {
       try {
         // 1. KIỂM TRA KHÁCH ĐÃ ĐĂNG NHẬP CHƯA
         const { data: { user }, error: authError } = await supabase.auth.getUser();
-        
+
         // Nếu khách chưa đăng nhập -> Dừng luôn, không làm gì cả
-        if (!user || authError) return; 
+        if (!user || authError) return;
 
         // 2. KIỂM TRA TRONG DATABASE XEM KHÁCH ĐÃ LIKE CHƯA
         const { data: userData, error: dbError } = await supabase
           .from('users')
           .select('userid, hasliked')
           // So khớp user đăng nhập với cột email trong bảng users (sếp có thể đổi thành providerid nếu muốn)
-          .eq('email', user.email) 
+          .eq('email', user.email)
           .single();
 
         if (dbError || !userData) return;
@@ -15042,10 +15113,10 @@ const ReviewPopup = () => {
         // 4. NẾU BẰNG FALSE -> CHƯA LIKE -> CHỜ 2 PHÚT (120.000 ms) RỒI BẬT LAYER
         const timer = setTimeout(() => {
           setShowPopup(true);
-        }, 15000); 
+        }, 15000);
 
         return () => clearTimeout(timer);
-        
+
       } catch (error) {
         console.error("Lỗi khi kiểm tra trạng thái User:", error);
       }
@@ -15093,11 +15164,11 @@ const ReviewPopup = () => {
       <div className="bg-white p-8 rounded-[2rem] shadow-[0_20px_50px_rgba(0,0,0,0.3)] text-center max-w-md w-full relative overflow-hidden border border-pink-100">
         <h2 className="text-3xl font-black text-pink-500 mb-3">Xin chào Sen! 👋</h2>
         <p className="text-stone-600 mb-8 font-medium">Lượn web KinVie nãy giờ, Sen thấy web của tụi mình có xịn không nàooo?</p>
-        
+
         <div className="relative h-40 flex items-center justify-center gap-4">
-          
+
           {/* NÚT THÍCH (Đứng im, bấm được) */}
-          <button 
+          <button
             onClick={handleLike}
             className="relative z-10 bg-gradient-to-r from-pink-400 to-rose-400 text-white font-bold py-3 px-8 rounded-full shadow-[0_10px_20px_-10px_rgba(244,113,182,0.8)] hover:scale-105 transition-transform"
           >
@@ -15128,18 +15199,21 @@ const ReviewPopup = () => {
 // ==========================================
 export default function Home() {
   return (
-    <div className="min-h-screen bg-white text-stone-700 font-sans selection:bg-pink-200 selection:text-pink-900 relative">
+    <div className="min-h-screen bg-white text-stone-700 font-sans selection:bg-pink-200 selection:text-pink-900 relative isolate">
       <Header />
 
+      {/* 🌟 LỚP NỀN ẢNH CỐ ĐỊNH DÙNG CHUNG CHO 4 BANNER — thay cho bg-fixed (Safari iOS chặn bg-fixed) */}
+      <div
+        className="fixed inset-0 -z-10 bg-cover bg-center bg-no-repeat"
+        style={{ backgroundImage: "url('/images/logo.jpg')" }}
+      />
+
       <main className="relative z-10 pt-16">
-        
+
         <HeroBanner />
 
         {/* PHẦN 1: KINVIE CATTERY */}
-        <section 
-          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
-          style={{ backgroundImage: "url('/images/logo.jpg')" }}
-        >
+        <section className="relative h-[60vh] flex items-center justify-center">
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
           <div className="relative z-10 text-center px-4">
             <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
@@ -15154,7 +15228,7 @@ export default function Home() {
 
           <div className="container mx-auto px-6 max-w-6xl relative z-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-              
+
               <div className="space-y-6">
                 <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-pink-50 border border-pink-100 text-pink-500 text-xs font-black uppercase tracking-widest shadow-sm">
                   <span className="text-lg">👑</span> Trại Mèo Thuần Chủng
@@ -15171,7 +15245,7 @@ export default function Home() {
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </Link>
               </div>
-              
+
               <div className="w-full relative">
                 <CarouselBanner groupId={1} />
               </div>
@@ -15180,10 +15254,7 @@ export default function Home() {
         </section>
 
         {/* PHẦN 2: BEAM PETSHOP */}
-        <section 
-          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
-          style={{ backgroundImage: "url('/images/logo.jpg')" }}
-        >
+        <section className="relative h-[60vh] flex items-center justify-center">
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
           <div className="relative z-10 text-center px-4">
             <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
@@ -15198,9 +15269,9 @@ export default function Home() {
 
           <div className="container mx-auto px-6 max-w-6xl relative z-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-              
+
               <div className="order-last md:order-first w-full relative">
-                 <CarouselBanner groupId={2} />
+                <CarouselBanner groupId={2} />
               </div>
 
               <div className="space-y-6 md:pl-8">
@@ -15213,21 +15284,18 @@ export default function Home() {
                 <p className="text-lg text-stone-500 leading-relaxed">
                   Beam Petshop tự hào mang đến những dòng sản phẩm pate và hạt dinh dưỡng cao cấp nhất. Công thức độc quyền giúp các Boss phát triển toàn diện, lông mượt, dáng xinh và luôn tràn đầy năng lượng.
                 </p>
-                <Link href="/shop" className="inline-flex items-center gap-3 px-8 py-4 bg-stone-900 text-white font-bold rounded-full hover:bg-orange-500 hover:shadow-[0_10px_40px_-10px_rgba(249,115,22,0.6)] transition-all duration-300 mt-4 group">
+                <Link href="/petshop" className="inline-flex items-center gap-3 px-8 py-4 bg-stone-900 text-white font-bold rounded-full hover:bg-orange-500 hover:shadow-[0_10px_40px_-10px_rgba(249,115,22,0.6)] transition-all duration-300 mt-4 group">
                   Khám phá Menu
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </Link>
               </div>
-              
+
             </div>
           </div>
         </section>
 
         {/* PHẦN 3: CỘNG ĐỒNG KINVIE */}
-        <section 
-          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
-          style={{ backgroundImage: "url('/images/logo.jpg')" }}
-        >
+        <section className="relative h-[60vh] flex items-center justify-center">
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
           <div className="relative z-10 text-center px-4">
             <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
@@ -15257,7 +15325,7 @@ export default function Home() {
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </Link>
               </div>
-              
+
               <div className="w-full relative">
                 <CarouselBanner groupId={3} />
               </div>
@@ -15266,10 +15334,7 @@ export default function Home() {
         </section>
 
         {/* PHẦN 4: KHO BÁU KÝ ỨC */}
-        <section 
-          className="relative h-[60vh] flex items-center justify-center bg-cover bg-center bg-no-repeat bg-scroll md:bg-fixed"
-          style={{ backgroundImage: "url('/images/logo.jpg')" }}
-        >
+        <section className="relative h-[60vh] flex items-center justify-center">
           <div className="absolute inset-0 bg-stone-900/65 z-0"></div>
           <div className="relative z-10 text-center px-4">
             <h2 className="text-5xl md:text-7xl font-black text-white tracking-tight drop-shadow-2xl">
@@ -15284,7 +15349,7 @@ export default function Home() {
 
           <div className="container mx-auto px-6 max-w-6xl relative z-10">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-16 items-center">
-              
+
               <div className="order-last md:order-first w-full relative">
                 <CarouselBanner groupId={4} />
               </div>
@@ -15299,12 +15364,12 @@ export default function Home() {
                 <p className="text-lg text-stone-500 leading-relaxed">
                   Cuốn nhật ký điện tử lưu lại những thước phim, hình ảnh đẹp nhất của Boss từ lúc còn bé xíu đến khi trưởng thành. Nơi thời gian ngừng trôi và ký ức còn mãi.
                 </p>
-                <Link href="/memories" className="inline-flex items-center gap-3 px-8 py-4 bg-stone-900 text-white font-bold rounded-full hover:bg-emerald-500 hover:shadow-[0_10px_40px_-10px_rgba(16,185,129,0.6)] transition-all duration-300 mt-4 group">
+                <Link href="/memorial" className="inline-flex items-center gap-3 px-8 py-4 bg-stone-900 text-white font-bold rounded-full hover:bg-emerald-500 hover:shadow-[0_10px_40px_-10px_rgba(16,185,129,0.6)] transition-all duration-300 mt-4 group">
                   Mở rương ký ức
                   <svg className="w-5 h-5 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" /></svg>
                 </Link>
               </div>
-              
+
             </div>
           </div>
         </section>
@@ -15312,7 +15377,7 @@ export default function Home() {
       </main>
 
       <Footer />
-      
+
       {/* 🌟 GỌI POPUP RA Ở ĐÂY ĐỂ ĐÈ LÊN TẤT CẢ */}
       <ReviewPopup />
     </div>
@@ -15349,10 +15414,11 @@ export default function PetDetailPage() {
   const [isSavingLog, setIsSavingLog] = useState(false);
 
   // HÀM TÍNH TUỔI TỪ CỘT 'birthdate'
-  const calculateAge = (dobString: string) => {
+  // 🎯 endDateString: nếu bé đã mất, truyền death_date vào đây để tuổi DỪNG LẠI ở ngày mất, không tính đến hiện tại nữa
+  const calculateAge = (dobString: string, endDateString?: string | null) => {
     if (!dobString) return 'Chưa cập nhật';
     const dob = new Date(dobString);
-    const now = new Date();
+    const now = endDateString ? new Date(endDateString) : new Date();
     const diffMonths = (now.getFullYear() - dob.getFullYear()) * 12 + (now.getMonth() - dob.getMonth());
     
     if (diffMonths < 1) return 'Dưới 1 tháng tuổi';
@@ -15361,6 +15427,13 @@ export default function PetDetailPage() {
     const years = Math.floor(diffMonths / 12);
     const months = diffMonths % 12;
     return `${years} năm ${months > 0 ? `${months} tháng` : ''} tuổi`;
+  };
+
+  // 🎯 CẤU HÌNH HIỂN THỊ THEO TÌNH TRẠNG (dùng chung màu/emoji với PET_STATUS_OPTIONS ở trang edit-pet)
+  const STATUS_DISPLAY: Record<string, { label: string; emoji: string; className: string }> = {
+    'Khỏe mạnh': { label: 'Đang ở nhà', emoji: '🏠', className: 'bg-emerald-50 text-emerald-600 border-emerald-100' },
+    'Đang mất tích': { label: 'Đang mất tích', emoji: '📢', className: 'bg-amber-500 text-white border-amber-500' },
+    'Đã lên thiên đường mèo': { label: 'Đã lên thiên đường mèo', emoji: '🌈', className: 'bg-stone-700 text-white border-stone-700' },
   };
 
   const fetchPetData = async () => {
@@ -15477,12 +15550,21 @@ export default function PetDetailPage() {
               </div>
               
               <div className="flex-1 text-center sm:text-left">
-                <div className="inline-block px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-full mb-3 border border-pink-100">
-                  {pet.has_pedigree ? 'KINVIE CATTERY (CÓ PHẢ)' : 'THÚ CƯNG'}
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-3">
+                  <div className="inline-block px-3 py-1 bg-pink-50 text-pink-600 text-[10px] font-black uppercase tracking-widest rounded-full border border-pink-100">
+                    {pet.has_pedigree ? 'KINVIE CATTERY (CÓ PHẢ)' : 'THÚ CƯNG'}
+                  </div>
+                  {/* 🎯 BADGE TÌNH TRẠNG: Đang ở nhà / Đang mất tích / Đã lên thiên đường mèo */}
+                  {pet.status && (
+                    <div className={`inline-flex items-center gap-1 px-3 py-1 text-[10px] font-black uppercase tracking-widest rounded-full border ${(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).className}`}>
+                      <span>{(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).emoji}</span>
+                      {(STATUS_DISPLAY[pet.status] || STATUS_DISPLAY['Khỏe mạnh']).label}
+                    </div>
+                  )}
                 </div>
                 <h1 className="text-3xl sm:text-4xl font-serif font-bold text-stone-800 mb-4">{pet.petname}</h1>
                 
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
+                <div className={`grid grid-cols-2 gap-4 text-sm ${pet.status === 'Đã lên thiên đường mèo' && pet.death_date ? 'sm:grid-cols-5' : 'sm:grid-cols-4'}`}>
                   <div>
                     <p className="text-stone-400 text-xs font-bold uppercase mb-1">Giới tính</p>
                     <p className="font-bold text-stone-700">{pet.gender ? '♂ Đực' : '♀ Cái'}</p>
@@ -15495,9 +15577,19 @@ export default function PetDetailPage() {
                     <p className="text-stone-400 text-xs font-bold uppercase mb-1">Ngày sinh</p>
                     <p className="font-medium text-stone-700">{pet.birthdate ? new Date(pet.birthdate).toLocaleDateString('vi-VN') : 'Chưa rõ'}</p>
                   </div>
+                  {/* 🎯 CHỈ HIỆN "Ngày mất" KHI BÉ ĐÃ LÊN THIÊN ĐƯỜNG VÀ CÓ death_date */}
+                  {pet.status === 'Đã lên thiên đường mèo' && pet.death_date && (
+                    <div>
+                      <p className="text-stone-400 text-xs font-bold uppercase mb-1">Ngày mất</p>
+                      <p className="font-medium text-stone-700">{new Date(pet.death_date).toLocaleDateString('vi-VN')}</p>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-stone-400 text-xs font-bold uppercase mb-1">Tuổi</p>
-                    <p className="font-bold text-pink-500">{calculateAge(pet.birthdate)}</p>
+                    {/* 🎯 Nếu đã mất: nhãn đổi thành "Tuổi lúc mất" và tuổi tính dừng lại ở death_date, KHÔNG tính tới hiện tại nữa */}
+                    <p className="text-stone-400 text-xs font-bold uppercase mb-1">{pet.status === 'Đã lên thiên đường mèo' ? 'Tuổi lúc mất' : 'Tuổi'}</p>
+                    <p className="font-bold text-pink-500">
+                      {calculateAge(pet.birthdate, pet.status === 'Đã lên thiên đường mèo' ? pet.death_date : null)}
+                    </p>
                   </div>
                 </div>
                 
@@ -16090,6 +16182,7 @@ import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import ProductCard from '@/components/common/ProductCard';
 import { getAffiliatePlatform } from '@/lib/utils';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function PetshopPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -16298,16 +16391,21 @@ export default function PetshopPage() {
           <div className="lg:w-3/4">
 
             <div className="flex justify-end mb-4">
-              <select
-                value={sortOption}
-                onChange={(e) => setSortOption(e.target.value)}
-                className="bg-white border border-stone-200 px-4 py-2 rounded-xl text-sm font-bold text-stone-600 focus:outline-none focus:border-pink-300 focus:ring-2 focus:ring-pink-100 shadow-sm cursor-pointer transition-all"
-              >
-                <option value="popular">🔥 Phổ biến nhất</option>
-                <option value="price_asc">💵 Giá: Thấp đến Cao</option>
-                <option value="price_desc">💎 Giá: Cao xuống Thấp</option>
-                <option value="newest">✨ Mới cập nhật</option>
-              </select>
+              <div className="w-full sm:w-56">
+                <GlassSelect
+                  id="petshop-sort"
+                  themeColor="pink"
+                  allowClear={false}
+                  selectedValue={sortOption}
+                  onChange={setSortOption}
+                  options={[
+                    { value: 'popular', label: '🔥 Phổ biến nhất' },
+                    { value: 'price_asc', label: '💵 Giá: Thấp đến Cao' },
+                    { value: 'price_desc', label: '💎 Giá: Cao xuống Thấp' },
+                    { value: 'newest', label: '✨ Mới cập nhật' },
+                  ]}
+                />
+              </div>
             </div>
 
             {isLoading ? (
@@ -16920,6 +17018,8 @@ export default function EditPetPage() {
   const [neutered, setNeutered] = useState(false);
 
   const [status, setStatus] = useState('Khỏe mạnh');
+  // 🎯 NGÀY MẤT: chỉ có ý nghĩa khi status === 'Đã lên thiên đường mèo', dùng để tính tuổi lúc mất ở trang /pet/[id]
+  const [deathDate, setDeathDate] = useState('');
 
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -16999,6 +17099,7 @@ export default function EditPetPage() {
           setHasPedigree(petData.has_pedigree || false);
           setNeutered(petData.neutered || false);
           setStatus(petData.status || 'Khỏe mạnh');
+          setDeathDate(formatDateForInput(petData.death_date));
           setBirthdate(formatDateForInput(petData.birthdate));
 
           if (petData.breed && petData.breed.startsWith('Lai: ')) {
@@ -17069,6 +17170,11 @@ export default function EditPetPage() {
     e.preventDefault();
     if (!petname) { alert("Sen ơi nhập tên cho Boss đi nào!"); return; }
     if (!ownerId) return;
+    // 🎯 Bắt buộc nhập ngày mất khi đánh dấu bé đã lên thiên đường, để tính đúng "tuổi lúc mất"
+    if (status === 'Đã lên thiên đường mèo' && !formatDBDate(deathDate)) {
+      alert("Sen ơi nhập ngày mất của Boss để lưu lại kỷ niệm nhé!");
+      return;
+    }
 
     setIsSaving(true);
     let finalImageUrl = existingImageUrl;
@@ -17100,6 +17206,8 @@ export default function EditPetPage() {
         neutered: neutered,
         description: description,
         status: status,
+        // 🎯 Chỉ lưu death_date khi tình trạng là "Đã lên thiên đường mèo", đổi tình trạng khác thì tự xoá ngày mất cũ
+        death_date: status === 'Đã lên thiên đường mèo' ? formatDBDate(deathDate) : null,
         imageurl: finalImageUrl,
         father_id: fatherId || null,
         mother_id: motherId || null
@@ -17234,7 +17342,18 @@ export default function EditPetPage() {
                   })}
                 </div>
                 {status === 'Đã lên thiên đường mèo' && (
-                  <p className="mt-2 text-xs text-stone-400 italic">Ảnh của Boss sẽ được đặt trong vòng hoa tưởng nhớ ở trang quản lý.</p>
+                  <>
+                    <p className="mt-2 text-xs text-stone-400 italic">Ảnh của Boss sẽ được đặt trong vòng hoa tưởng nhớ ở trang quản lý.</p>
+                    {/* 🎯 NGÀY MẤT: dùng để tính "tuổi lúc mất" thay vì tính tuổi tới hiện tại */}
+                    <div className="mt-4">
+                      <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Ngày mất <span className="text-rose-500">*</span></label>
+                      <div className="relative max-w-xs">
+                        <input type="text" value={deathDate} onChange={handleDateInput(setDeathDate)} placeholder="dd/mm/yyyy" className="w-full bg-stone-50 border border-stone-200 pl-4 pr-10 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 font-medium tracking-wide" />
+                        <input type="date" onChange={handleNativeDateChange(setDeathDate)} className="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 cursor-pointer w-7 h-full z-10" />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 text-stone-400 pointer-events-none text-lg">📅</span>
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
@@ -17771,6 +17890,8 @@ export default function MyMemorialPhotosPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [editCaption, setEditCaption] = useState('');
   const [isSavingCaption, setIsSavingCaption] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchMyPhotos = async (userId: number) => {
     setIsLoading(true);
@@ -17794,15 +17915,13 @@ export default function MyMemorialPhotosPage() {
   }, []);
 
   const handleDelete = async (photo: any) => {
-    if (photo.status === 'approved') {
-      setToast({ message: 'Ảnh đã duyệt không thể tự xoá, liên hệ Boss nếu cần gỡ nhé!', type: 'error' });
-      return;
-    }
-    if (!window.confirm('Xoá ảnh này khỏi danh sách?')) return;
-
+    setIsDeleting(true);
     const { error } = await supabase.from('memorial_photos').delete().eq('id', photo.id);
+    setIsDeleting(false);
     if (error) { setToast({ message: 'Lỗi khi xoá: ' + error.message, type: 'error' }); return; }
     setPhotos(prev => prev.filter(p => p.id !== photo.id));
+    setDeleteTarget(null);
+    setSelectedPhoto(null);
     setToast({ message: 'Đã xoá ảnh.', type: 'success' });
   };
 
@@ -17856,16 +17975,24 @@ export default function MyMemorialPhotosPage() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                 {photos.map((photo) => (
-                  <button
-                    key={photo.id}
-                    onClick={() => { setSelectedPhoto(photo); setEditCaption(photo.caption || ''); }}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-stone-100"
-                  >
-                    <img src={photo.image_url} className="w-full h-full object-cover" alt="" />
-                    <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase border ${STATUS_STYLE[photo.status]}`}>
-                      {STATUS_LABEL[photo.status]}
-                    </span>
-                  </button>
+                  <div key={photo.id} className="relative group">
+                    <button
+                      onClick={() => { setSelectedPhoto(photo); setEditCaption(photo.caption || ''); }}
+                      className="relative aspect-square w-full rounded-xl overflow-hidden border border-stone-100 block"
+                    >
+                      <img src={photo.image_url} className="w-full h-full object-cover" alt="" />
+                      <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase border ${STATUS_STYLE[photo.status]}`}>
+                        {STATUS_LABEL[photo.status]}
+                      </span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(photo); }}
+                      className="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Xoá ảnh"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -17916,7 +18043,7 @@ export default function MyMemorialPhotosPage() {
                 </button>
                 {selectedPhoto.status !== 'approved' && (
                   <button
-                    onClick={() => { handleDelete(selectedPhoto); setSelectedPhoto(null); }}
+                    onClick={() => setDeleteTarget(selectedPhoto)}
                     className="px-5 py-3 border border-rose-200 text-rose-500 rounded-xl font-black text-sm"
                   >
                     🗑️ Xoá
@@ -17930,6 +18057,38 @@ export default function MyMemorialPhotosPage() {
           </div>
         </div>
       )}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !isDeleting && setDeleteTarget(null)}
+        >
+          <div
+            className="bg-white rounded-[2rem] p-6 max-w-xs w-full text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-4xl block mb-3">🗑️</span>
+            <p className="font-black text-stone-700 mb-1">Xoá ảnh này?</p>
+            <p className="text-xs text-stone-400 font-bold mb-6">Ảnh sẽ bị xoá vĩnh viễn khỏi Dây Leo Ký Ức, không thể khôi phục lại.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-stone-100 rounded-xl font-black text-sm text-stone-600 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => handleDelete(deleteTarget)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-black text-sm disabled:opacity-50"
+              >
+                {isDeleting ? 'Đang xoá...' : 'Xoá ảnh'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Footer />
     </div>
@@ -17980,6 +18139,16 @@ export default function ProfilePage() {
     myPosts: [] as any[]
   });
 
+  // --- STATE QUẢN LÝ GIA ĐÌNH (kiểu kết bạn theo từng cặp, không bắc cầu) ---
+  const [familyMembers, setFamilyMembers] = useState<any[]>([]); // Đã đồng ý (accepted)
+  const [incomingFamilyRequests, setIncomingFamilyRequests] = useState<any[]>([]); // Người khác gửi cho mình
+  const [outgoingFamilyRequests, setOutgoingFamilyRequests] = useState<any[]>([]); // Mình gửi đi, đang chờ
+  const [petOwnerMap, setPetOwnerMap] = useState<{ [userid: number]: string }>({});
+  const [isFamilyModalOpen, setIsFamilyModalOpen] = useState(false);
+  const [familyPhoneInput, setFamilyPhoneInput] = useState('');
+  const [isSendingFamilyRequest, setIsSendingFamilyRequest] = useState(false);
+  const [processingConnectionId, setProcessingConnectionId] = useState<number | null>(null);
+
   const calculateAge = (dobString: string) => {
     if (!dobString) return 'Chưa cập nhật';
     const dob = new Date(dobString);
@@ -17990,54 +18159,97 @@ export default function ProfilePage() {
     return age > 0 ? `${age} tuổi` : 'Dưới 1 tuổi';
   };
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
+  const fetchUserData = async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase
-        .from('users')
-        .select(`*, type_users (role, rank_name)`)
-        .eq('email', session.user.email)
-        .single();
+    const { data: dbUser } = await supabase
+      .from('users')
+      .select(`*, type_users (role, rank_name)`)
+      .eq('email', session.user.email)
+      .single();
 
-      if (dbUser) {
-        const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
-        const cleanName = rawName.normalize('NFC');
+    if (dbUser) {
+      const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
+      const cleanName = rawName.normalize('NFC');
 
-        let hdAvatarUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
-        if (hdAvatarUrl) {
-          if (hdAvatarUrl.includes('fbcdn.net')) hdAvatarUrl = hdAvatarUrl.replace(/\/[sp]\d+x\d+\//, '/');
-          else if (hdAvatarUrl.includes('graph.facebook.com')) hdAvatarUrl = `${hdAvatarUrl}${hdAvatarUrl.includes('?') ? '&' : '?'}width=400&height=400`;
-          else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c');
-        }
-
-        const { data: userPets } = await supabase.from('pets').select('*').eq('ownerid', dbUser.userid);
-        const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
-
-        // 🎯 LẤY ĐƠN HÀNG THẬT TỪ BẢNG ORDERS
-        const { data: userOrders } = await supabase
-          .from('orders')
-          .select('*')
-          .eq('userid', dbUser.userid)
-          .order('orderdate', { ascending: false }); // Mới nhất lên đầu
-
-        setUserData({
-          userid: dbUser.userid,
-          name: cleanName,
-          rank: dbUser.type_users?.rank_name || 'Đồng',
-          phone: dbUser.phone || 'Chưa cập nhật',
-          age: dbUser.age || 'Chưa cập nhật',
-          birthdate: dbUser.birthdate || '',
-          address: dbUser.address || 'Chưa cập nhật',
-          avatarUrl: hdAvatarUrl,
-          pets: userPets || [],
-          orders: userOrders || [],
-          myPosts: userPosts || []
-        });
+      let hdAvatarUrl = dbUser.avatarurl || session.user.user_metadata?.avatar_url || session.user.user_metadata?.picture || '';
+      if (hdAvatarUrl) {
+        if (hdAvatarUrl.includes('fbcdn.net')) hdAvatarUrl = hdAvatarUrl.replace(/\/[sp]\d+x\d+\//, '/');
+        else if (hdAvatarUrl.includes('graph.facebook.com')) hdAvatarUrl = `${hdAvatarUrl}${hdAvatarUrl.includes('?') ? '&' : '?'}width=400&height=400`;
+        else if (hdAvatarUrl.includes('googleusercontent.com')) hdAvatarUrl = hdAvatarUrl.replace('s96-c', 's400-c');
       }
-      setIsLoading(false);
-    };
+
+      // 👨‍👩‍👧‍👦 Lấy quan hệ gia đình — KHÔNG join chung với users (2 FK cùng trỏ users.userid -> ambiguous)
+      const { data: connRows } = await supabase
+        .from('family_connections')
+        .select('*')
+        .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+      const rows = connRows || [];
+      const acceptedRows = rows.filter(r => r.status === 'accepted');
+      const incomingRows = rows.filter(r => r.status === 'pending' && r.receiver_id === dbUser.userid);
+      const outgoingRows = rows.filter(r => r.status === 'pending' && r.requester_id === dbUser.userid);
+
+      const otherIds = Array.from(new Set([
+        ...acceptedRows.map(r => (r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id)),
+        ...incomingRows.map(r => r.requester_id),
+        ...outgoingRows.map(r => r.receiver_id),
+      ]));
+
+      let othersMap: { [key: number]: any } = {};
+      if (otherIds.length > 0) {
+        const { data: otherUsers } = await supabase.from('users').select('userid, fullname, avatarurl, phone').in('userid', otherIds);
+        (otherUsers || []).forEach((u: any) => { othersMap[u.userid] = u; });
+      }
+
+      const acceptedFamily = acceptedRows.map(r => {
+        const otherId = r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id;
+        return { connectionId: r.id, ...othersMap[otherId] };
+      }).filter(f => f.userid);
+
+      const incomingFamily = incomingRows.map(r => ({ connectionId: r.id, ...othersMap[r.requester_id] })).filter(f => f.userid);
+      const outgoingFamily = outgoingRows.map(r => ({ connectionId: r.id, ...othersMap[r.receiver_id] })).filter(f => f.userid);
+
+      setFamilyMembers(acceptedFamily);
+      setIncomingFamilyRequests(incomingFamily);
+      setOutgoingFamilyRequests(outgoingFamily);
+
+      const ownerNameMap: { [key: number]: string } = { [dbUser.userid]: cleanName };
+      acceptedFamily.forEach(f => { ownerNameMap[f.userid] = f.fullname; });
+      setPetOwnerMap(ownerNameMap);
+
+      // 🐱 GỘP BOSS: mèo của mình + mèo của các thành viên gia đình đã accepted
+      const familyOwnerIds = acceptedFamily.map(f => f.userid).filter(Boolean);
+      const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch);
+      const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
+
+      const { data: userOrders } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('userid', dbUser.userid)
+        .order('orderdate', { ascending: false });
+
+      setUserData({
+        userid: dbUser.userid,
+        name: cleanName,
+        rank: dbUser.type_users?.rank_name || 'Đồng',
+        phone: dbUser.phone || 'Chưa cập nhật',
+        age: dbUser.age || 'Chưa cập nhật',
+        birthdate: dbUser.birthdate || '',
+        address: dbUser.address || 'Chưa cập nhật',
+        avatarUrl: hdAvatarUrl,
+        pets: userPets || [],
+        orders: userOrders || [],
+        myPosts: userPosts || []
+      });
+    }
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
     fetchUserData();
   }, [router]);
 
@@ -18068,6 +18280,113 @@ export default function ProfilePage() {
     'Đang vận chuyển': { label: 'Đang giao', class: 'bg-indigo-100 text-indigo-600' },
     'Đã giao hàng': { label: 'Thành công', class: 'bg-green-100 text-green-600' },
     'Đã hủy': { label: 'Đã hủy', class: 'bg-stone-200 text-stone-500' },
+  };
+
+  const handleSendFamilyRequest = async () => {
+    const phone = familyPhoneInput.trim();
+    if (!phone) { alert("Sen nhập số điện thoại của người muốn set gia đình đi đã!"); return; }
+    setIsSendingFamilyRequest(true);
+    try {
+      const { data: targetUser } = await supabase.from('users').select('userid, fullname, phone').eq('phone', phone).maybeSingle();
+      if (!targetUser) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      if (targetUser.userid === userData.userid) { alert("Sen không thể tự set gia đình với chính mình đâu 😅"); return; }
+
+      const { data: existing } = await supabase
+        .from('family_connections')
+        .select('id, status')
+        .or(`and(requester_id.eq.${userData.userid},receiver_id.eq.${targetUser.userid}),and(requester_id.eq.${targetUser.userid},receiver_id.eq.${userData.userid})`)
+        .in('status', ['pending', 'accepted']);
+
+      if (existing && existing.length > 0) {
+        alert(existing[0].status === 'accepted' ? `${targetUser.fullname} đã là gia đình của Sen rồi!` : `Đã gửi yêu cầu tới ${targetUser.fullname} trước đó, đang chờ phản hồi nha!`);
+        return;
+      }
+
+      const { error } = await supabase.from('family_connections').insert([{ requester_id: userData.userid, receiver_id: targetUser.userid, status: 'pending' }]);
+      if (error) throw error;
+
+      await supabase.from('notifications').insert([{
+        user_id: targetUser.userid,
+        title: 'Yêu cầu set gia đình',
+        content: `${userData.name} muốn set gia đình với Sen. Vào trang cá nhân để đồng ý hoặc từ chối nhé!`,
+        type: 'family_request',
+        link: '/profile',
+        related_id: `family_${userData.userid}_${targetUser.userid}`,
+        actor_id: userData.userid
+      }]);
+
+      alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      setFamilyPhoneInput('');
+      setIsFamilyModalOpen(false);
+      fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi gửi yêu cầu set gia đình. Vui lòng thử lại!");
+    } finally {
+      setIsSendingFamilyRequest(false);
+    }
+  };
+
+  const handleAcceptFamilyRequest = async (req: any) => {
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', req.connectionId);
+      if (error) throw error;
+      await supabase.from('notifications').insert([{
+        user_id: req.userid,
+        title: 'Yêu cầu gia đình được đồng ý',
+        content: `${userData.name} đã đồng ý set gia đình với Sen rồi đó!`,
+        type: 'family_accepted',
+        link: '/profile',
+        actor_id: userData.userid
+      }]);
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi đồng ý yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleRejectFamilyRequest = async (req: any) => {
+    if (!window.confirm(`Từ chối yêu cầu gia đình từ ${req.fullname}?`)) return;
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', req.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi từ chối yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleCancelOutgoingRequest = async (req: any) => {
+    if (!window.confirm(`Hủy yêu cầu gia đình đã gửi tới ${req.fullname}?`)) return;
+    setProcessingConnectionId(req.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', req.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi hủy yêu cầu. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
+  };
+
+  const handleRemoveFamilyMember = async (member: any) => {
+    if (!window.confirm(`Bỏ set gia đình với ${member.fullname}? Boss của 2 nhà sẽ không còn hiển thị chung nữa.`)) return;
+    setProcessingConnectionId(member.connectionId);
+    try {
+      const { error } = await supabase.from('family_connections').delete().eq('id', member.connectionId);
+      if (error) throw error;
+      await fetchUserData(false);
+    } catch (err) {
+      alert("Lỗi khi bỏ set gia đình. Vui lòng thử lại!");
+    } finally {
+      setProcessingConnectionId(null);
+    }
   };
 
   // 🎯 LOGIC XÓA BÉ MÈO CỦA KHÁCH
@@ -18188,6 +18507,64 @@ export default function ProfilePage() {
               </div>
             </section>
 
+            {/* Khối 1.5: Gia đình */}
+            <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
+              <div className="flex items-center justify-between mb-6">
+                <h3 className="text-xl font-black flex items-center gap-3">👨‍👩‍👧‍👦 Gia đình</h3>
+                <button onClick={() => setIsFamilyModalOpen(true)} className="text-xs font-bold text-pink-500 bg-pink-50 px-4 py-2 rounded-xl hover:bg-pink-100 transition-all">+ Set gia đình</button>
+              </div>
+
+              {incomingFamilyRequests.length > 0 && (
+                <div className="mb-6 space-y-3">
+                  <p className="text-[10px] font-black text-amber-500 uppercase tracking-widest">💌 Đang chờ Sen phản hồi</p>
+                  {incomingFamilyRequests.map(req => (
+                    <div key={req.connectionId} className="flex items-center justify-between gap-3 bg-amber-50 border border-amber-100 rounded-2xl p-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={req.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(req.fullname || 'Sen')} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={req.fullname} />
+                        <div className="min-w-0"><p className="font-bold text-stone-800 truncate">{req.fullname}</p><p className="text-[11px] text-stone-400">muốn set gia đình với Sen</p></div>
+                      </div>
+                      <div className="flex gap-2 shrink-0">
+                        <button disabled={processingConnectionId === req.connectionId} onClick={() => handleAcceptFamilyRequest(req)} className="px-3 py-2 bg-pink-500 text-white text-xs font-bold rounded-xl hover:bg-pink-600 transition disabled:opacity-50">Đồng ý</button>
+                        <button disabled={processingConnectionId === req.connectionId} onClick={() => handleRejectFamilyRequest(req)} className="px-3 py-2 bg-stone-100 text-stone-500 text-xs font-bold rounded-xl hover:bg-rose-50 hover:text-rose-500 transition disabled:opacity-50">Từ chối</button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {familyMembers.length === 0 && incomingFamilyRequests.length === 0 && outgoingFamilyRequests.length === 0 ? (
+                <p className="text-center py-6 text-stone-400 font-medium italic text-sm">Sen chưa set gia đình với ai cả. Bấm "+ Set gia đình" để bắt đầu nhé!</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {familyMembers.map(member => (
+                    <div key={member.connectionId} className="relative group bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-3">
+                      <img src={member.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(member.fullname || 'Sen')} className="w-10 h-10 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={member.fullname} />
+                      <div className="min-w-0 pr-6">
+                        <p className="font-bold text-stone-800 truncate">{member.fullname}</p>
+                        <p className="text-[11px] text-stone-400">{member.phone || 'Chưa cập nhật SĐT'}</p>
+                      </div>
+                      <button onClick={() => handleRemoveFamilyMember(member)} disabled={processingConnectionId === member.connectionId} className="absolute top-2 right-2 w-7 h-7 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100 disabled:opacity-50" title="Bỏ set gia đình">✕</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {outgoingFamilyRequests.length > 0 && (
+                <div className="mt-6 space-y-2">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest">🕓 Đã gửi, đang chờ đồng ý</p>
+                  {outgoingFamilyRequests.map(req => (
+                    <div key={req.connectionId} className="flex items-center justify-between gap-3 bg-stone-50 border border-stone-100 rounded-2xl p-3">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <img src={req.avatarurl || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(req.fullname || 'Sen')} className="w-8 h-8 rounded-full object-cover border-2 border-white shadow-sm shrink-0" alt={req.fullname} />
+                        <p className="text-sm font-bold text-stone-600 truncate">{req.fullname}</p>
+                      </div>
+                      <button disabled={processingConnectionId === req.connectionId} onClick={() => handleCancelOutgoingRequest(req)} className="text-[11px] font-bold text-stone-400 hover:text-rose-500 transition shrink-0">Hủy yêu cầu</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+
             {/* Khối 2: Boss nhà mình */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
               <h3 className="text-xl font-black mb-8 flex items-center gap-3">🐱 Boss nhà mình</h3>
@@ -18265,18 +18642,23 @@ export default function ProfilePage() {
                           {pet.status === 'Đang mất tích' && (
                             <p className="text-[10px] text-amber-500 font-black mt-0.5">📢 Đang mất tích</p>
                           )}
+                          {pet.ownerid !== userData.userid && (
+                            <p className="text-[10px] text-pink-400 font-bold mt-0.5 truncate">🏠 Của {petOwnerMap[pet.ownerid] || 'người nhà'}</p>
+                          )}
                         </div>
                       </div>
                     </Link>
 
                     {/* 🎯 NÚT XÓA MÈO NẰM NỔI LÊN TRÊN */}
-                    <button
-                      onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
-                      className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
-                      title="Xóa hồ sơ bé này"
-                    >
-                      ✕
-                    </button>
+                    {pet.ownerid === userData.userid && (
+                      <button
+                        onClick={(e) => handleDeletePet(e, pet.petid, pet.petname)}
+                        className="absolute top-2 right-2 w-8 h-8 flex items-center justify-center text-stone-300 hover:text-rose-500 hover:bg-rose-100 rounded-full transition-all opacity-0 group-hover:opacity-100"
+                        title="Xóa hồ sơ bé này"
+                      >
+                        ✕
+                      </button>
+                    )}
                   </div>
                 ))}
 
@@ -18461,6 +18843,34 @@ export default function ProfilePage() {
                 })
               )}
             </div>
+          </div>
+        </div>
+      )}
+
+      {isFamilyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-stone-900/70 backdrop-blur-sm cursor-pointer" onClick={() => { setIsFamilyModalOpen(false); setFamilyPhoneInput(''); }}></div>
+          <div className="relative bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex items-center justify-between mb-2">
+              <h3 className="text-xl font-black text-stone-800 flex items-center gap-2"><span className="text-pink-500">👨‍👩‍👧‍👦</span> Set gia đình</h3>
+              <button onClick={() => { setIsFamilyModalOpen(false); setFamilyPhoneInput(''); }} className="w-9 h-9 flex items-center justify-center bg-stone-100 text-stone-500 rounded-full hover:bg-rose-100 hover:text-rose-500 transition-colors">✕</button>
+            </div>
+            <p className="text-sm text-stone-400 font-medium mb-6">Nhập số điện thoại của Sen mà bạn muốn set gia đình. Sau khi Sen ấy đồng ý, Boss của cả 2 nhà sẽ hiện chung ở đây nha!</p>
+            <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest">Số điện thoại</label>
+            <input
+              type="tel"
+              value={familyPhoneInput}
+              onChange={(e) => setFamilyPhoneInput(e.target.value)}
+              placeholder="VD: 0902250168"
+              className="w-full mt-1.5 bg-stone-50 border border-stone-200 rounded-xl p-3 text-stone-700 focus:outline-none focus:ring-2 focus:ring-pink-200"
+            />
+            <button
+              onClick={handleSendFamilyRequest}
+              disabled={isSendingFamilyRequest}
+              className="w-full mt-6 py-4 bg-pink-500 text-white font-black rounded-2xl shadow-lg shadow-pink-100 hover:bg-pink-600 transition disabled:opacity-50"
+            >
+              {isSendingFamilyRequest ? 'Đang gửi...' : 'Gửi yêu cầu'}
+            </button>
           </div>
         </div>
       )}
@@ -19074,6 +19484,357 @@ export default function CatCard({ cat }: { cat: any }) {
 }
 </file>
 
+<file path="components/common/EvilEye.tsx">
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { Renderer, Program, Mesh, Triangle, Texture } from "ogl";
+import { useEffect, useRef } from "react";
+
+interface EvilEyeProps {
+    eyeColor?: string;
+    cycleColors?: boolean;
+    cycleIntervalMs?: number;
+    intensity?: number;
+    pupilSize?: number;
+    irisWidth?: number;
+    glowIntensity?: number;
+    scale?: number;
+    noiseScale?: number;
+    pupilFollow?: number;
+    flameSpeed?: number;
+    backgroundColor?: string;
+    className?: string;
+}
+
+function hexToVec3(hex: string): [number, number, number] {
+    const h = hex.replace("#", "");
+    return [
+        parseInt(h.slice(0, 2), 16) / 255,
+        parseInt(h.slice(2, 4), 16) / 255,
+        parseInt(h.slice(4, 6), 16) / 255,
+    ];
+}
+
+const BRAND_COLOR_CYCLE = ["#FF6F37", "#3B82F6", "#22C55E", "#eb589f"];
+
+function getCycledColor(intervalMs: number): string {
+    const idx = Math.floor(Date.now() / intervalMs) % BRAND_COLOR_CYCLE.length;
+    return BRAND_COLOR_CYCLE[idx];
+}
+
+function generateNoiseTexture(size = 256) {
+    const data = new Uint8Array(size * size * 4);
+
+    function hash(x: number, y: number, s: number) {
+        let n = x * 374761393 + y * 668265263 + s * 1274126177;
+        n = Math.imul(n ^ (n >>> 13), 1274126177);
+        return ((n ^ (n >>> 16)) >>> 0) / 4294967296;
+    }
+
+    function noise(px: number, py: number, freq: number, seed: number) {
+        const fx = (px / size) * freq;
+        const fy = (py / size) * freq;
+        const ix = Math.floor(fx);
+        const iy = Math.floor(fy);
+        const tx = fx - ix;
+        const ty = fy - iy;
+        const w = freq | 0;
+        const v00 = hash(((ix % w) + w) % w, ((iy % w) + w) % w, seed);
+        const v10 = hash((((ix + 1) % w) + w) % w, ((iy % w) + w) % w, seed);
+        const v01 = hash(((ix % w) + w) % w, (((iy + 1) % w) + w) % w, seed);
+        const v11 = hash((((ix + 1) % w) + w) % w, (((iy + 1) % w) + w) % w, seed);
+        return v00 * (1 - tx) * (1 - ty) + v10 * tx * (1 - ty) + v01 * (1 - tx) * ty + v11 * tx * ty;
+    }
+
+    for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+            let v = 0;
+            let amp = 0.4;
+            let totalAmp = 0;
+            for (let o = 0; o < 8; o++) {
+                const f = 32 * (1 << o);
+                v += amp * noise(x, y, f, o * 31);
+                totalAmp += amp;
+                amp *= 0.65;
+            }
+            v /= totalAmp;
+            v = (v - 0.5) * 2.2 + 0.5;
+            v = Math.max(0, Math.min(1, v));
+            const val = Math.round(v * 255);
+            const i = (y * size + x) * 4;
+            data[i] = val;
+            data[i + 1] = val;
+            data[i + 2] = val;
+            data[i + 3] = 255;
+        }
+    }
+
+    return data;
+}
+
+const vertexShader = `
+attribute vec2 uv;
+attribute vec2 position;
+varying vec2 vUv;
+void main() {
+  vUv = uv;
+  gl_Position = vec4(position, 0, 1);
+}
+`;
+
+const fragmentShader = `
+precision highp float;
+
+uniform float uTime;
+uniform vec3 uResolution;
+uniform sampler2D uNoiseTexture;
+uniform float uPupilSize;
+uniform float uIrisWidth;
+uniform float uGlowIntensity;
+uniform float uIntensity;
+uniform float uScale;
+uniform float uNoiseScale;
+uniform vec2 uMouse;
+uniform float uPupilFollow;
+uniform float uFlameSpeed;
+uniform vec3 uEyeColor;
+uniform vec3 uBgColor;
+
+void main() {
+  vec2 uv = (gl_FragCoord.xy * 2.0 - uResolution.xy) / uResolution.y;
+  uv /= uScale;
+  float ft = uTime * uFlameSpeed;
+
+  float polarRadius = length(uv) * 2.0;
+  float polarAngle = (2.0 * atan(uv.x, uv.y)) / 6.28 * 0.3;
+  vec2 polarUv = vec2(polarRadius, polarAngle);
+
+  vec4 noiseA = texture2D(uNoiseTexture, polarUv * vec2(0.2, 7.0) * uNoiseScale + vec2(-ft * 0.1, 0.0));
+  vec4 noiseB = texture2D(uNoiseTexture, polarUv * vec2(0.3, 4.0) * uNoiseScale + vec2(-ft * 0.2, 0.0));
+  vec4 noiseC = texture2D(uNoiseTexture, polarUv * vec2(0.1, 5.0) * uNoiseScale + vec2(-ft * 0.1, 0.0));
+
+  float distanceMask = 1.0 - length(uv);
+
+  // Inner ring
+  float innerRing = clamp(-1.0 * ((distanceMask - 0.7) / uIrisWidth), 0.0, 1.0);
+  innerRing = (innerRing * distanceMask - 0.2) / 0.28;
+  innerRing += noiseA.r - 0.5;
+  innerRing *= 1.3;
+  innerRing = clamp(innerRing, 0.0, 1.0);
+
+  float outerRing = clamp(-1.0 * ((distanceMask - 0.5) / 0.2), 0.0, 1.0);
+  outerRing = (outerRing * distanceMask - 0.1) / 0.38;
+  outerRing += noiseC.r - 0.5;
+  outerRing *= 1.3;
+  outerRing = clamp(outerRing, 0.0, 1.0);
+
+  innerRing += outerRing;
+
+  // Inner eye
+  float innerEye = distanceMask - 0.1 * 2.0;
+  innerEye *= noiseB.r * 2.0;
+
+  // Pupil with cursor tracking
+  vec2 pupilOffset = uMouse * uPupilFollow * 0.12;
+  vec2 pupilUv = uv - pupilOffset;
+  float pupil = 1.0 - length(pupilUv * vec2(9.0, 2.3));
+  pupil *= uPupilSize;
+  pupil = clamp(pupil, 0.0, 1.0);
+  pupil /= 0.35;
+
+  // Outer eye
+  float outerEyeGlow = 1.0 - length(uv * vec2(0.5, 1.5));
+  outerEyeGlow = clamp(outerEyeGlow + 0.5, 0.0, 1.0);
+  outerEyeGlow += noiseC.r - 0.5;
+  float outerBgGlow = outerEyeGlow;
+  outerEyeGlow = pow(outerEyeGlow, 2.0);
+  outerEyeGlow += distanceMask;
+  outerEyeGlow *= uGlowIntensity;
+  outerEyeGlow = clamp(outerEyeGlow, 0.0, 1.0);
+  outerEyeGlow *= pow(1.0 - distanceMask, 2.0) * 2.5;
+
+  // Outer eye bg glow
+  outerBgGlow += distanceMask;
+  outerBgGlow = pow(outerBgGlow, 0.5);
+  outerBgGlow *= 0.15;
+
+  vec3 color = uEyeColor * uIntensity * clamp(max(innerRing + innerEye, outerEyeGlow + outerBgGlow) - pupil, 0.0, 3.0);
+  color += uBgColor;
+
+  gl_FragColor = vec4(color, 1.0);
+}
+`;
+
+export default function EvilEye({
+    eyeColor = "#FF6F37",
+    cycleColors = false,
+    cycleIntervalMs = 0.5 * 60 * 1000, // 5 phút
+    intensity = 1.5,
+    pupilSize = 0.6,
+    irisWidth = 0.25,
+    glowIntensity = 0.35,
+    scale = 0.8,
+    noiseScale = 1.0,
+    pupilFollow = 1.0,
+    flameSpeed = 1.0,
+    backgroundColor = "#000000",
+    className = "",
+}: EvilEyeProps) {
+    const containerRef = useRef<HTMLDivElement | null>(null);
+
+    // Màu hiện đang hiển thị (mượt dần tới targetColorRef mỗi frame)
+    const currentColorRef = useRef<[number, number, number]>(
+        hexToVec3(cycleColors ? getCycledColor(cycleIntervalMs) : eyeColor)
+    );
+    // Màu đích cần tiến tới — đổi mỗi 5 phút nếu cycleColors=true
+    const targetColorRef = useRef<[number, number, number]>(currentColorRef.current);
+
+    useEffect(() => {
+        if (!containerRef.current) return;
+        const container = containerRef.current;
+        const renderer = new Renderer({ alpha: true, premultipliedAlpha: false });
+        const gl = renderer.gl;
+        gl.clearColor(0, 0, 0, 0);
+
+        const noiseData = generateNoiseTexture(256);
+        const noiseTexture = new Texture(gl, {
+            image: noiseData as any,
+            width: 256,
+            height: 256,
+            generateMipmaps: false,
+            flipY: false,
+        });
+        noiseTexture.minFilter = gl.LINEAR;
+        noiseTexture.magFilter = gl.LINEAR;
+        noiseTexture.wrapS = gl.REPEAT;
+        noiseTexture.wrapT = gl.REPEAT;
+
+        const mouse = { x: 0, y: 0, tx: 0, ty: 0 };
+
+        // Tính hướng nhìn dựa trên toạ độ tuyệt đối (x, y) trên màn hình,
+        // so với tâm của khung con mắt — dùng chung cho cả chuột lẫn chạm tay
+        function updateGazeFromPoint(clientX: number, clientY: number) {
+            const rect = container.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            // Khoảng cách tối đa để "nhìn hết cỡ" theo mỗi trục (px) — chỉnh số này để tăng/giảm độ nhạy
+            const maxDist = 600;
+            mouse.tx = Math.max(-1, Math.min(1, (clientX - centerX) / maxDist));
+            mouse.ty = Math.max(-1, Math.min(1, -(clientY - centerY) / maxDist));
+        }
+
+        function onMouseMove(e: MouseEvent) {
+            updateGazeFromPoint(e.clientX, e.clientY);
+        }
+
+        function onTouchMove(e: TouchEvent) {
+            if (e.touches.length === 0) return;
+            updateGazeFromPoint(e.touches[0].clientX, e.touches[0].clientY);
+        }
+
+        function onTouchEnd() {
+            mouse.tx = 0;
+            mouse.ty = 0;
+        }
+
+        window.addEventListener("mousemove", onMouseMove);
+        window.addEventListener("touchstart", onTouchMove, { passive: true });
+        window.addEventListener("touchmove", onTouchMove, { passive: true });
+        window.addEventListener("touchend", onTouchEnd);
+
+        let program: any;
+
+        function resize() {
+            renderer.setSize(container.offsetWidth, container.offsetHeight);
+            if (program) {
+                program.uniforms.uResolution.value = [
+                    gl.canvas.width,
+                    gl.canvas.height,
+                    gl.canvas.width / gl.canvas.height,
+                ];
+            }
+        }
+        window.addEventListener("resize", resize);
+        resize();
+
+        const geometry = new Triangle(gl);
+        program = new Program(gl, {
+            vertex: vertexShader,
+            fragment: fragmentShader,
+            uniforms: {
+                uTime: { value: 0 },
+                uResolution: { value: [gl.canvas.width, gl.canvas.height, gl.canvas.width / gl.canvas.height] },
+                uNoiseTexture: { value: noiseTexture },
+                uPupilSize: { value: pupilSize },
+                uIrisWidth: { value: irisWidth },
+                uGlowIntensity: { value: glowIntensity },
+                uIntensity: { value: intensity },
+                uScale: { value: scale },
+                uNoiseScale: { value: noiseScale },
+                uMouse: { value: [0, 0] },
+                uPupilFollow: { value: pupilFollow },
+                uFlameSpeed: { value: flameSpeed },
+                uEyeColor: { value: currentColorRef.current },
+                uBgColor: { value: hexToVec3(backgroundColor) },
+            },
+        });
+
+        const mesh = new Mesh(gl, { geometry, program });
+        container.appendChild(gl.canvas);
+
+        let animationFrameId: number;
+
+        function update(time: number) {
+            animationFrameId = requestAnimationFrame(update);
+            mouse.x += (mouse.tx - mouse.x) * 0.05;
+            mouse.y += (mouse.ty - mouse.y) * 0.05;
+            program.uniforms.uMouse.value = [mouse.x, mouse.y];
+            program.uniforms.uTime.value = time * 0.001;
+
+            // Crossfade màu mắt mượt dần sang màu đích (đổi số 0.01 để nhanh/chậm hơn)
+            const cur = currentColorRef.current;
+            const tgt = targetColorRef.current;
+            cur[0] += (tgt[0] - cur[0]) * 0.01;
+            cur[1] += (tgt[1] - cur[1]) * 0.01;
+            cur[2] += (tgt[2] - cur[2]) * 0.01;
+            program.uniforms.uEyeColor.value = cur;
+
+            renderer.render({ scene: mesh });
+        }
+        animationFrameId = requestAnimationFrame(update);
+
+        return () => {
+            cancelAnimationFrame(animationFrameId);
+            window.removeEventListener("resize", resize);
+            window.removeEventListener("mousemove", onMouseMove);
+            window.removeEventListener("touchstart", onTouchMove);
+            window.removeEventListener("touchmove", onTouchMove);
+            window.removeEventListener("touchend", onTouchEnd);
+            if (gl.canvas.parentNode === container) {
+                container.removeChild(gl.canvas);
+            }
+            gl.getExtension("WEBGL_lose_context")?.loseContext();
+        };
+    }, [intensity, pupilSize, irisWidth, glowIntensity, scale, noiseScale, pupilFollow, flameSpeed, backgroundColor]);
+
+    useEffect(() => {
+        if (!cycleColors) {
+            targetColorRef.current = hexToVec3(eyeColor);
+            return;
+        }
+        const tick = () => {
+            targetColorRef.current = hexToVec3(getCycledColor(cycleIntervalMs));
+        };
+        tick();
+        const id = setInterval(tick, 5000); // kiểm tra mỗi 5s, đủ nhẹ và chính xác
+        return () => clearInterval(id);
+    }, [cycleColors, cycleIntervalMs, eyeColor]);
+
+    return <div ref={containerRef} className={`evil-eye-container ${className}`} />;
+}
+</file>
+
 <file path="components/common/ProductCard.tsx">
 "use client";
 
@@ -19599,6 +20360,7 @@ export default function CatteryList({ cats }: { cats: any[] }) {
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
+import LiquidEther from '@/components/home/LiquidEther';
 
 // Danh sách thành phố cho phép khách chọn để xem đúng thời tiết của họ.
 // Mặc định luôn là Hải Phòng (theo yêu cầu).
@@ -19668,7 +20430,7 @@ export default function HeroBanner() {
       // Ban ngày: từ 6h sáng (0%) đến 18h tối (100%)
       if (timeInHours >= 6 && timeInHours < 18) {
         progress = (timeInHours - 6) / 12;
-      } 
+      }
       // Ban đêm: từ 18h tối (0%) đến 6h sáng hôm sau (100%)
       else {
         let nightHour = timeInHours >= 18 ? timeInHours - 18 : timeInHours + 6;
@@ -19712,7 +20474,7 @@ export default function HeroBanner() {
       }
     }
     fetchWeather();
-    const interval = setInterval(fetchWeather, 5 * 60 * 1000); 
+    const interval = setInterval(fetchWeather, 5 * 60 * 1000);
     return () => {
       isCancelled = true;
       clearInterval(interval);
@@ -19726,7 +20488,7 @@ export default function HeroBanner() {
     if (weatherCondition === 'cloudy') return '🍃 Trời nhiều gió rùi, sen nhớ mặc thêm áo cho Boss nha.';
     if (weatherCondition === 'rain') return '☔ Đang mưa rí rắc, ở nhà đặt ship pate là chuẩn bài!';
     if (weatherCondition === 'thunder') return '⚡ Sấm đùng đùng kìa, sen ôm Boss chặt vào kẻo em nó sợ.';
-    return '✨ Mọi thứ Boss cần, KinVie đều có đủ!'; 
+    return '✨ Mọi thứ Boss cần, KinVie đều có đủ!';
   };
 
   // 🎨 ICON THỜI TIẾT nhỏ gọn dùng cho thẻ hiển thị (không phụ thuộc font ngoài)
@@ -19775,7 +20537,7 @@ export default function HeroBanner() {
     if (weatherCondition === 'thunder') return 'from-slate-900 via-stone-900 to-black';
     if (weatherCondition === 'rain') return isDay ? 'from-slate-500 via-gray-600 to-slate-800' : 'from-slate-800 via-stone-900 to-black';
     if (weatherCondition === 'cloudy') return isDay ? 'from-sky-300 via-slate-300 to-gray-400' : 'from-slate-800 to-gray-900';
-    return isDay ? 'from-sky-400 via-blue-300 to-amber-100' : 'from-indigo-950 via-purple-900 to-stone-900'; 
+    return isDay ? 'from-sky-400 via-blue-300 to-amber-100' : 'from-indigo-950 via-purple-900 to-stone-900';
   };
 
   const scrollSlide = (direction: 'left' | 'right') => {
@@ -19789,13 +20551,14 @@ export default function HeroBanner() {
   };
 
   return (
-    <section 
+    <section
       ref={scrollContainerRef}
       className="w-full h-[750px] md:h-[700px] flex overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar relative bg-stone-900"
     >
-      
+
       {/* TẤT CẢ CSS ANIMATION NẰM Ở ĐÂY */}
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         /* Import Font Dancing Script cho Logo và Lora cho Slogan hỗ trợ tiếng Việt chuẩn */
         @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Lora:ital,wght@0,500;1,500&display=swap');
         
@@ -19886,14 +20649,14 @@ export default function HeroBanner() {
           SLIDE 1: BANNER NỀN ẢNH + NGÔI SAO
           ======================================= */}
       <div className="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-[#fdf3f5]">
-        
+
         <div className="absolute inset-0 w-full h-full animate-subtle-float origin-center z-0">
           {/* Ảnh dành cho MÀN HÌNH ĐIỆN THOẠI (banner_2.png dọc) */}
           <div className="block md:hidden absolute inset-0 w-full h-full">
-            <Image 
-              src="/images/banner_2.png" 
-              alt="KinVie Banner Background Mobile" 
-              fill 
+            <Image
+              src="/images/banner_2.png"
+              alt="KinVie Banner Background Mobile"
+              fill
               sizes="(max-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
               className="object-cover object-center opacity-80"
               priority
@@ -19902,10 +20665,10 @@ export default function HeroBanner() {
 
           {/* Ảnh dành cho MÀN HÌNH MÁY TÍNH (banner.png ngang) */}
           <div className="hidden md:block absolute inset-0 w-full h-full">
-            <Image 
-              src="/images/banner.png" 
-              alt="KinVie Banner Background Desktop" 
-              fill 
+            <Image
+              src="/images/banner.png"
+              alt="KinVie Banner Background Desktop"
+              fill
               sizes="(min-width: 768px) 100vw, 1px" // Fix lỗi vàng của Next.js
               className="object-cover object-center opacity-80"
               priority
@@ -19917,30 +20680,30 @@ export default function HeroBanner() {
           <div className="star-wrapper star-1">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
           <div className="star-wrapper star-2">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
           <div className="star-wrapper star-3">
             <div className="star-tail"></div>
             <svg className="star-head" viewBox="0 0 24 24" fill="currentColor">
-              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z"/>
+              <path d="M12 0l2.5 9.5L24 12l-9.5 2.5L12 24l-2.5-9.5L0 12l9.5-2.5z" />
             </svg>
           </div>
         </div>
-        
+
         <div className="relative z-20 text-center px-6 max-w-4xl flex flex-col items-center">
-          
+
           {/* Logo KinVie */}
           <h1 className="font-cursive text-[length:clamp(56px,18vw,160px)] text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 animate-smooth-breathe leading-tight mb-2 pb-4">
             KinVie
           </h1>
-          
+
           {/* Slogan */}
           <div className="flex items-center gap-4 mb-16 opacity-90">
             <span className="hidden md:block w-16 h-[1.5px] bg-gradient-to-r from-transparent to-rose-400 rounded-full"></span>
@@ -19949,14 +20712,14 @@ export default function HeroBanner() {
             </p>
             <span className="hidden md:block w-16 h-[1.5px] bg-gradient-to-l from-transparent to-rose-400 rounded-full"></span>
           </div>
-          
+
           <div className="md:hidden inline-flex items-center gap-3 bg-white/50 backdrop-blur-md px-6 py-3 rounded-full text-pink-600 font-bold uppercase tracking-widest text-xs border border-white/60 shadow-sm mt-4">
             <span>Vuốt sang trái xem thời tiết</span>
             <span className="text-lg animate-bounce-horizontal">👉</span>
           </div>
         </div>
 
-        <button 
+        <button
           onClick={() => scrollSlide('right')}
           className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-30 w-14 h-14 bg-white/40 hover:bg-white/70 backdrop-blur-md border border-white/50 text-pink-500 rounded-full items-center justify-center shadow-lg transition-all"
         >
@@ -19969,24 +20732,31 @@ export default function HeroBanner() {
           SLIDE 2: DIORAMA THỜI TIẾT (KHÔNG MÈO)
           ======================================= */}
       <div className={`w-full h-full flex-shrink-0 snap-center relative overflow-hidden transition-colors duration-[3000ms] bg-gradient-to-br ${getSkyGradient()}`}>
-        
-        <button 
+
+        <button
           onClick={() => scrollSlide('left')}
           className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
         >
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
         </button>
 
+        <button
+          onClick={() => scrollSlide('right')}
+          className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"></path></svg>
+        </button>
+
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center flex-col gap-4 bg-slate-900/50 backdrop-blur-sm z-50">
-            <svg className="w-16 h-16 text-pink-400 animate-bounce opacity-80" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 19c-2.48 0-4.5-2.02-4.5-4.5 0-.25.02-.5.06-.74A5.996 5.996 0 0 0 8 15c-3.31 0-6-2.69-6-6s2.69-6 6-6c.38 0 .75.04 1.11.1A6.994 6.994 0 0 1 16 2.01c3.86 0 7 3.14 7 7 0 3.3-2.26 6.09-5.32 6.84-.36.09-.75.15-1.18.15z"/></svg>
+            <svg className="w-16 h-16 text-pink-400 animate-bounce opacity-80" fill="currentColor" viewBox="0 0 24 24"><path d="M17.5 19c-2.48 0-4.5-2.02-4.5-4.5 0-.25.02-.5.06-.74A5.996 5.996 0 0 0 8 15c-3.31 0-6-2.69-6-6s2.69-6 6-6c.38 0 .75.04 1.11.1A6.994 6.994 0 0 1 16 2.01c3.86 0 7 3.14 7 7 0 3.3-2.26 6.09-5.32 6.84-.36.09-.75.15-1.18.15z" /></svg>
             <p className="text-pink-200 font-medium tracking-wide animate-pulse">Đang kết nối trạm thời tiết...</p>
           </div>
         ) : (
           <>
             {/* THIÊN THỂ QUỸ ĐẠO BÁN NGUYỆT: Biến mất khi có Mưa/Sấm */}
             {weatherCondition !== 'rain' && weatherCondition !== 'thunder' && (
-              <div 
+              <div
                 className="absolute z-0 transition-all duration-[60000ms] ease-linear pointer-events-none"
                 style={{
                   left: `${celestialProgress * 100}%`,
@@ -20006,10 +20776,10 @@ export default function HeroBanner() {
                   <div className="relative flex items-center justify-center w-24 h-24 md:w-32 md:h-32">
                     <div className="absolute inset-0 bg-blue-300 rounded-full blur-[30px] opacity-40 animate-pulse"></div>
                     <div className="relative w-full h-full bg-gradient-to-br from-stone-100 to-stone-400 rounded-full shadow-[0_0_60px_rgba(255,255,255,0.5)] overflow-hidden border border-white/20">
-                       {/* Các hố thiên thạch (Craters) */}
-                       <div className="absolute top-[20%] left-[25%] w-[25%] h-[25%] bg-stone-500/30 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
-                       <div className="absolute top-[55%] left-[60%] w-[35%] h-[35%] bg-stone-500/20 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
-                       <div className="absolute top-[65%] left-[20%] w-[15%] h-[15%] bg-stone-500/30 rounded-full shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2)]"></div>
+                      {/* Các hố thiên thạch (Craters) */}
+                      <div className="absolute top-[20%] left-[25%] w-[25%] h-[25%] bg-stone-500/30 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                      <div className="absolute top-[55%] left-[60%] w-[35%] h-[35%] bg-stone-500/20 rounded-full shadow-[inset_2px_2px_4px_rgba(0,0,0,0.2)]"></div>
+                      <div className="absolute top-[65%] left-[20%] w-[15%] h-[15%] bg-stone-500/30 rounded-full shadow-[inset_1px_1px_3px_rgba(0,0,0,0.2)]"></div>
                     </div>
                   </div>
                 )}
@@ -20030,26 +20800,26 @@ export default function HeroBanner() {
 
             {(weatherCondition === 'cloudy' || weatherCondition === 'rain' || weatherCondition === 'thunder') && (
               <div className="absolute inset-0 z-0 pointer-events-none">
-                <svg className="cloud-slow top-[5%] w-[400px] md:w-[600px]" fill={isDay ? "#f1f5f9" : "#334155"} viewBox="0 0 512 512"><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z"/></svg>
-                <svg className="cloud-fast top-[20%] w-[300px] md:w-[450px]" fill={isDay ? "#ffffff" : "#475569"} opacity="0.8" viewBox="0 0 512 512" style={{ animationDelay: '5s' }}><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z"/></svg>
-                
+                <svg className="cloud-slow top-[5%] w-[400px] md:w-[600px]" fill={isDay ? "#f1f5f9" : "#334155"} viewBox="0 0 512 512"><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z" /></svg>
+                <svg className="cloud-fast top-[20%] w-[300px] md:w-[450px]" fill={isDay ? "#ffffff" : "#475569"} opacity="0.8" viewBox="0 0 512 512" style={{ animationDelay: '5s' }}><path d="M400,224c-13.6,0-26.6,2.9-38.3,8.1C343.8,162.7,272.9,112,192,112c-97.2,0-176,78.8-176,176c0,97.2,78.8,176,176,176h208 c61.9,0,112-50.1,112-112C512,274.1,461.9,224,400,224z" /></svg>
+
                 {weatherCondition === 'cloudy' && (
                   <>
                     <div className="falling-leaf" style={{ animationDelay: '0s' }}>🍂</div>
                     <div className="falling-leaf" style={{ animationDelay: '2.5s', top: '10%' }}>🍃</div>
                     <div className="falling-leaf" style={{ animationDelay: '4s', top: '30%', fontSize: '18px' }}>🍂</div>
-                    
+
                     {/* HIỆU ỨNG GIÓ THỔI CUỘN LINE */}
                     <div className="absolute inset-0 z-10 pointer-events-none overflow-hidden">
                       {/* Vệt gió 1 */}
                       <svg className="wind-line top-[20%] w-[300px] md:w-[500px]" style={{ animationDuration: '7s', animationDelay: '0s', strokeWidth: '2px' }} viewBox="0 0 200 40">
                         <path d="M -50 20 Q 20 20 40 10 T 100 20 T 160 30 T 250 20" />
-                        <path d="M 0 30 Q 30 30 50 20 T 110 30 T 170 40 T 230 30" stroke="rgba(255,255,255,0.2)"/>
+                        <path d="M 0 30 Q 30 30 50 20 T 110 30 T 170 40 T 230 30" stroke="rgba(255,255,255,0.2)" />
                       </svg>
                       {/* Vệt gió 2 có cuộn xoáy */}
                       <svg className="wind-line top-[50%] w-[400px] md:w-[600px]" style={{ animationDuration: '9s', animationDelay: '2s', strokeWidth: '3px' }} viewBox="0 0 200 40">
                         <path d="M -50 20 Q 30 30 50 15 T 120 20 T 180 10 T 250 20" />
-                        <path d="M 120 20 C 130 20 140 10 130 5 C 120 0 110 10 120 20" strokeWidth="2"/>
+                        <path d="M 120 20 C 130 20 140 10 130 5 C 120 0 110 10 120 20" strokeWidth="2" />
                       </svg>
                       {/* Vệt gió 3 */}
                       <svg className="wind-line top-[75%] w-[250px] md:w-[400px]" style={{ animationDuration: '6s', animationDelay: '4s', strokeWidth: '2px' }} viewBox="0 0 200 40">
@@ -20063,9 +20833,9 @@ export default function HeroBanner() {
 
             {(weatherCondition === 'rain' || weatherCondition === 'thunder') && (
               <div className="absolute inset-0 w-full h-full z-10 pointer-events-none overflow-hidden">
-                 {[...Array(50)].map((_, i) => (
-                   <div key={i} className="raindrop" style={{ left: `${Math.random() * 120 - 10}%`, animationDelay: `${Math.random() * 2}s` }} />
-                 ))}
+                {[...Array(50)].map((_, i) => (
+                  <div key={i} className="raindrop" style={{ left: `${Math.random() * 120 - 10}%`, animationDelay: `${Math.random() * 2}s` }} />
+                ))}
               </div>
             )}
             {weatherCondition === 'thunder' && (
@@ -20075,7 +20845,7 @@ export default function HeroBanner() {
             <div className="absolute inset-0 bg-gradient-to-b from-stone-900/90 via-stone-900/40 to-transparent z-10 pointer-events-none" />
 
             <div className="relative z-20 container mx-auto px-6 max-w-7xl h-full flex flex-col pt-16 pb-0 md:justify-center md:pt-0">
-              
+
               <div className="absolute top-6 right-6 md:top-12 md:right-12 z-50">
                 <div className="relative">
                   <button
@@ -20124,11 +20894,10 @@ export default function HeroBanner() {
                             key={city.name}
                             type="button"
                             onClick={() => handleSelectCity(city)}
-                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                              city.name === selectedCity.name
-                                ? 'bg-pink-500/20 text-pink-300'
-                                : 'text-stone-200 hover:bg-white/10'
-                            }`}
+                            className={`w-full flex items-center justify-between gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-colors ${city.name === selectedCity.name
+                              ? 'bg-pink-500/20 text-pink-300'
+                              : 'text-stone-200 hover:bg-white/10'
+                              }`}
                           >
                             {city.name}
                             {city.name === selectedCity.name && (
@@ -20153,13 +20922,1279 @@ export default function HeroBanner() {
                 </div>
               </div>
 
+              <div className="md:hidden flex justify-center mt-6 relative z-30">
+                <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white font-bold uppercase tracking-widest text-xs border border-white/20 shadow-sm">
+                  <span>Vuốt sang trái xem thêm</span>
+                  <span className="text-lg animate-bounce-horizontal">👉</span>
+                </div>
+              </div>
+
             </div>
           </>
         )}
       </div>
 
+      {/* =======================================
+          SLIDE 3: LIQUID ETHER (KHÔNG GIAN TƯƠNG TÁC)
+          ======================================= */}
+      <div className="w-full h-full flex-shrink-0 snap-center relative overflow-hidden bg-stone-900">
+        <div className="absolute inset-0 z-0">
+          <LiquidEther
+            colors={['#fb923c', '#10b981', '#f472b6', '#22d3ee']}
+            mouseForce={18}
+            cursorSize={110}
+            resolution={0.5}
+            autoDemo
+            autoSpeed={0.4}
+            autoIntensity={2}
+            takeoverDuration={0.3}
+            autoResumeDelay={2000}
+            autoRampDuration={0.8}
+          />
+        </div>
+
+        <button
+          onClick={() => scrollSlide('left')}
+          className="hidden md:flex absolute left-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
+        >
+          <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
+        </button>
+
+        <div className="relative z-10 h-full flex items-center justify-center pointer-events-none px-6">
+          <p className="max-w-2xl text-2xl md:text-4xl font-slogan italic text-white text-center leading-snug drop-shadow-2xl">
+            Hòa mình vào thế giới <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-cyan-300 to-emerald-300 not-italic font-bold">mèo cưng</span> qua dòng chảy sắc màu huyền ảo.
+          </p>
+        </div>
+      </div>
+
     </section>
   );
+}
+</file>
+
+<file path="components/home/LiquidEther.tsx">
+/* eslint-disable @typescript-eslint/no-explicit-any */
+"use client";
+
+import { useEffect, useRef } from "react";
+import * as THREE from "three";
+
+interface LiquidEtherProps {
+  colors?: string[];
+  mouseForce?: number;
+  cursorSize?: number;
+  isViscous?: boolean;
+  viscous?: number;
+  iterationsViscous?: number;
+  iterationsPoisson?: number;
+  dt?: number;
+  BFECC?: boolean;
+  resolution?: number;
+  isBounce?: boolean;
+  autoDemo?: boolean;
+  autoSpeed?: number;
+  autoIntensity?: number;
+  takeoverDuration?: number;
+  autoResumeDelay?: number;
+  autoRampDuration?: number;
+  style?: React.CSSProperties;
+  className?: string;
+}
+
+export default function LiquidEther({
+  mouseForce = 20,
+  cursorSize = 100,
+  isViscous = false,
+  viscous = 30,
+  iterationsViscous = 32,
+  iterationsPoisson = 32,
+  dt = 0.014,
+  BFECC = true,
+  resolution = 0.5,
+  isBounce = false,
+  colors = ["#5227FF", "#FF9FFC", "#B497CF"],
+  style = {},
+  className = "",
+  autoDemo = true,
+  autoSpeed = 0.5,
+  autoIntensity = 2.2,
+  takeoverDuration = 0.25,
+  autoResumeDelay = 1000,
+  autoRampDuration = 0.6,
+}: LiquidEtherProps) {
+  const mountRef = useRef<HTMLDivElement | null>(null);
+  const webglRef = useRef<any>(null);
+  const resizeObserverRef = useRef<ResizeObserver | null>(null);
+  const rafRef = useRef<number | null>(null);
+  const intersectionObserverRef = useRef<IntersectionObserver | null>(null);
+  const isVisibleRef = useRef(true);
+  const resizeRafRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!mountRef.current) return;
+
+    function makePaletteTexture(stops: string[]) {
+      let arr: string[];
+      if (Array.isArray(stops) && stops.length > 0) {
+        if (stops.length === 1) {
+          arr = [stops[0], stops[0]];
+        } else {
+          arr = stops;
+        }
+      } else {
+        arr = ["#ffffff", "#ffffff"];
+      }
+      const w = arr.length;
+      const data = new Uint8Array(w * 4);
+      for (let i = 0; i < w; i++) {
+        const c = new THREE.Color(arr[i]);
+        data[i * 4 + 0] = Math.round(c.r * 255);
+        data[i * 4 + 1] = Math.round(c.g * 255);
+        data[i * 4 + 2] = Math.round(c.b * 255);
+        data[i * 4 + 3] = 255;
+      }
+      const tex = new THREE.DataTexture(data, w, 1, THREE.RGBAFormat);
+      tex.magFilter = THREE.LinearFilter;
+      tex.minFilter = THREE.LinearFilter;
+      tex.wrapS = THREE.ClampToEdgeWrapping;
+      tex.wrapT = THREE.ClampToEdgeWrapping;
+      tex.generateMipmaps = false;
+      tex.needsUpdate = true;
+      return tex;
+    }
+
+    const paletteTex = makePaletteTexture(colors);
+    const bgVec4 = new THREE.Vector4(0, 0, 0, 0); // luôn trong suốt
+
+    class CommonClass {
+      width = 0;
+      height = 0;
+      aspect = 1;
+      pixelRatio = 1;
+      isMobile = false;
+      breakpoint = 768;
+      fboWidth: number | null = null;
+      fboHeight: number | null = null;
+      time = 0;
+      delta = 0;
+      container: HTMLElement | null = null;
+      renderer: THREE.WebGLRenderer | null = null;
+      clock: THREE.Clock | null = null;
+
+      init(container: HTMLElement) {
+        this.container = container;
+        this.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        this.resize();
+        this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+        this.renderer.autoClear = false;
+        this.renderer.setClearColor(new THREE.Color(0x000000), 0);
+        this.renderer.setPixelRatio(this.pixelRatio);
+        this.renderer.setSize(this.width, this.height);
+        this.renderer.domElement.style.width = "100%";
+        this.renderer.domElement.style.height = "100%";
+        this.renderer.domElement.style.display = "block";
+        this.clock = new THREE.Clock();
+        this.clock.start();
+      }
+      resize() {
+        if (!this.container) return;
+        const rect = this.container.getBoundingClientRect();
+        this.width = Math.max(1, Math.floor(rect.width));
+        this.height = Math.max(1, Math.floor(rect.height));
+        this.aspect = this.width / this.height;
+        if (this.renderer) this.renderer.setSize(this.width, this.height, false);
+      }
+      update() {
+        this.delta = this.clock!.getDelta();
+        this.time += this.delta;
+      }
+    }
+    const Common = new CommonClass();
+
+    class MouseClass {
+      mouseMoved = false;
+      coords = new THREE.Vector2();
+      coords_old = new THREE.Vector2();
+      diff = new THREE.Vector2();
+      timer: any = null;
+      container: HTMLElement | null = null;
+      docTarget: Document | null = null;
+      listenerTarget: any = null;
+      isHoverInside = false;
+      hasUserControl = false;
+      isAutoActive = false;
+      autoIntensity = 2.0;
+      takeoverActive = false;
+      takeoverStartTime = 0;
+      takeoverDuration = 0.25;
+      takeoverFrom = new THREE.Vector2();
+      takeoverTo = new THREE.Vector2();
+      onInteract: (() => void) | null = null;
+      _onMouseMove: any;
+      _onTouchStart: any;
+      _onTouchMove: any;
+      _onTouchEnd: any;
+      _onDocumentLeave: any;
+
+      constructor() {
+        this._onMouseMove = this.onDocumentMouseMove.bind(this);
+        this._onTouchStart = this.onDocumentTouchStart.bind(this);
+        this._onTouchMove = this.onDocumentTouchMove.bind(this);
+        this._onTouchEnd = this.onTouchEnd.bind(this);
+        this._onDocumentLeave = this.onDocumentLeave.bind(this);
+      }
+      init(container: HTMLElement) {
+        this.container = container;
+        this.docTarget = container.ownerDocument || null;
+        const defaultView =
+          (this.docTarget && this.docTarget.defaultView) || (typeof window !== "undefined" ? window : null);
+        if (!defaultView) return;
+        this.listenerTarget = defaultView;
+        this.listenerTarget.addEventListener("mousemove", this._onMouseMove);
+        this.listenerTarget.addEventListener("touchstart", this._onTouchStart, { passive: true });
+        this.listenerTarget.addEventListener("touchmove", this._onTouchMove, { passive: true });
+        this.listenerTarget.addEventListener("touchend", this._onTouchEnd);
+        if (this.docTarget) {
+          this.docTarget.addEventListener("mouseleave", this._onDocumentLeave);
+        }
+      }
+      dispose() {
+        if (this.listenerTarget) {
+          this.listenerTarget.removeEventListener("mousemove", this._onMouseMove);
+          this.listenerTarget.removeEventListener("touchstart", this._onTouchStart);
+          this.listenerTarget.removeEventListener("touchmove", this._onTouchMove);
+          this.listenerTarget.removeEventListener("touchend", this._onTouchEnd);
+        }
+        if (this.docTarget) {
+          this.docTarget.removeEventListener("mouseleave", this._onDocumentLeave);
+        }
+        this.listenerTarget = null;
+        this.docTarget = null;
+        this.container = null;
+      }
+      isPointInside(clientX: number, clientY: number) {
+        if (!this.container) return false;
+        const rect = this.container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return false;
+        return clientX >= rect.left && clientX <= rect.right && clientY >= rect.top && clientY <= rect.bottom;
+      }
+      updateHoverState(clientX: number, clientY: number) {
+        this.isHoverInside = this.isPointInside(clientX, clientY);
+        return this.isHoverInside;
+      }
+      setCoords(x: number, y: number) {
+        if (!this.container) return;
+        if (this.timer) window.clearTimeout(this.timer);
+        const rect = this.container.getBoundingClientRect();
+        if (rect.width === 0 || rect.height === 0) return;
+        const nx = (x - rect.left) / rect.width;
+        const ny = (y - rect.top) / rect.height;
+        this.coords.set(nx * 2 - 1, -(ny * 2 - 1));
+        this.mouseMoved = true;
+        this.timer = window.setTimeout(() => {
+          this.mouseMoved = false;
+        }, 100);
+      }
+      setNormalized(nx: number, ny: number) {
+        this.coords.set(nx, ny);
+        this.mouseMoved = true;
+      }
+      onDocumentMouseMove(event: MouseEvent) {
+        if (!this.updateHoverState(event.clientX, event.clientY)) return;
+        if (this.onInteract) this.onInteract();
+        if (this.isAutoActive && !this.hasUserControl && !this.takeoverActive) {
+          if (!this.container) return;
+          const rect = this.container.getBoundingClientRect();
+          if (rect.width === 0 || rect.height === 0) return;
+          const nx = (event.clientX - rect.left) / rect.width;
+          const ny = (event.clientY - rect.top) / rect.height;
+          this.takeoverFrom.copy(this.coords);
+          this.takeoverTo.set(nx * 2 - 1, -(ny * 2 - 1));
+          this.takeoverStartTime = performance.now();
+          this.takeoverActive = true;
+          this.hasUserControl = true;
+          this.isAutoActive = false;
+          return;
+        }
+        this.setCoords(event.clientX, event.clientY);
+        this.hasUserControl = true;
+      }
+      onDocumentTouchStart(event: TouchEvent) {
+        if (event.touches.length !== 1) return;
+        const t = event.touches[0];
+        if (!this.updateHoverState(t.clientX, t.clientY)) return;
+        if (this.onInteract) this.onInteract();
+        this.setCoords(t.clientX, t.clientY);
+        this.hasUserControl = true;
+      }
+      onDocumentTouchMove(event: TouchEvent) {
+        if (event.touches.length !== 1) return;
+        const t = event.touches[0];
+        if (!this.updateHoverState(t.clientX, t.clientY)) return;
+        if (this.onInteract) this.onInteract();
+        this.setCoords(t.clientX, t.clientY);
+      }
+      onTouchEnd() {
+        this.isHoverInside = false;
+      }
+      onDocumentLeave() {
+        this.isHoverInside = false;
+      }
+      update() {
+        if (this.takeoverActive) {
+          const t = (performance.now() - this.takeoverStartTime) / (this.takeoverDuration * 1000);
+          if (t >= 1) {
+            this.takeoverActive = false;
+            this.coords.copy(this.takeoverTo);
+            this.coords_old.copy(this.coords);
+            this.diff.set(0, 0);
+          } else {
+            const k = t * t * (3 - 2 * t);
+            this.coords.copy(this.takeoverFrom).lerp(this.takeoverTo, k);
+          }
+        }
+        this.diff.subVectors(this.coords, this.coords_old);
+        this.coords_old.copy(this.coords);
+        if (this.coords_old.x === 0 && this.coords_old.y === 0) this.diff.set(0, 0);
+        if (this.isAutoActive && !this.takeoverActive) this.diff.multiplyScalar(this.autoIntensity);
+      }
+    }
+    const Mouse = new MouseClass();
+
+    class AutoDriver {
+      mouse: MouseClass;
+      manager: any;
+      enabled: boolean;
+      speed: number;
+      resumeDelay: number;
+      rampDurationMs: number;
+      active = false;
+      current = new THREE.Vector2(0, 0);
+      target = new THREE.Vector2();
+      lastTime = performance.now();
+      activationTime = 0;
+      margin = 0.2;
+      _tmpDir = new THREE.Vector2();
+
+      constructor(mouse: MouseClass, manager: any, opts: any) {
+        this.mouse = mouse;
+        this.manager = manager;
+        this.enabled = opts.enabled;
+        this.speed = opts.speed;
+        this.resumeDelay = opts.resumeDelay || 3000;
+        this.rampDurationMs = (opts.rampDuration || 0) * 1000;
+        this.pickNewTarget();
+      }
+      pickNewTarget() {
+        const r = Math.random;
+        this.target.set((r() * 2 - 1) * (1 - this.margin), (r() * 2 - 1) * (1 - this.margin));
+      }
+      forceStop() {
+        this.active = false;
+        this.mouse.isAutoActive = false;
+      }
+      update() {
+        if (!this.enabled) return;
+        const now = performance.now();
+        const idle = now - this.manager.lastUserInteraction;
+        if (idle < this.resumeDelay) {
+          if (this.active) this.forceStop();
+          return;
+        }
+        if (this.mouse.isHoverInside) {
+          if (this.active) this.forceStop();
+          return;
+        }
+        if (!this.active) {
+          this.active = true;
+          this.current.copy(this.mouse.coords);
+          this.lastTime = now;
+          this.activationTime = now;
+        }
+        if (!this.active) return;
+        this.mouse.isAutoActive = true;
+        let dtSec = (now - this.lastTime) / 1000;
+        this.lastTime = now;
+        if (dtSec > 0.2) dtSec = 0.016;
+        const dir = this._tmpDir.subVectors(this.target, this.current);
+        const dist = dir.length();
+        if (dist < 0.01) {
+          this.pickNewTarget();
+          return;
+        }
+        dir.normalize();
+        let ramp = 1;
+        if (this.rampDurationMs > 0) {
+          const t = Math.min(1, (now - this.activationTime) / this.rampDurationMs);
+          ramp = t * t * (3 - 2 * t);
+        }
+        const step = this.speed * dtSec * ramp;
+        const move = Math.min(step, dist);
+        this.current.addScaledVector(dir, move);
+        this.mouse.setNormalized(this.current.x, this.current.y);
+      }
+    }
+
+    const face_vert = `
+  attribute vec3 position;
+  uniform vec2 px;
+  uniform vec2 boundarySpace;
+  varying vec2 uv;
+  precision highp float;
+  void main(){
+  vec3 pos = position;
+  vec2 scale = 1.0 - boundarySpace * 2.0;
+  pos.xy = pos.xy * scale;
+  uv = vec2(0.5)+(pos.xy)*0.5;
+  gl_Position = vec4(pos, 1.0);
+}
+`;
+    const line_vert = `
+  attribute vec3 position;
+  uniform vec2 px;
+  precision highp float;
+  varying vec2 uv;
+  void main(){
+  vec3 pos = position;
+  uv = 0.5 + pos.xy * 0.5;
+  vec2 n = sign(pos.xy);
+  pos.xy = abs(pos.xy) - px * 1.0;
+  pos.xy *= n;
+  gl_Position = vec4(pos, 1.0);
+}
+`;
+    const mouse_vert = `
+    precision highp float;
+    attribute vec3 position;
+    attribute vec2 uv;
+    uniform vec2 center;
+    uniform vec2 scale;
+    uniform vec2 px;
+    varying vec2 vUv;
+    void main(){
+    vec2 pos = position.xy * scale * 2.0 * px + center;
+    vUv = uv;
+    gl_Position = vec4(pos, 0.0, 1.0);
+}
+`;
+    const advection_frag = `
+    precision highp float;
+    uniform sampler2D velocity;
+    uniform float dt;
+    uniform bool isBFECC;
+    uniform vec2 fboSize;
+    uniform vec2 px;
+    varying vec2 uv;
+    void main(){
+    vec2 ratio = max(fboSize.x, fboSize.y) / fboSize;
+    if(isBFECC == false){
+        vec2 vel = texture2D(velocity, uv).xy;
+        vec2 uv2 = uv - vel * dt * ratio;
+        vec2 newVel = texture2D(velocity, uv2).xy;
+        gl_FragColor = vec4(newVel, 0.0, 0.0);
+    } else {
+        vec2 spot_new = uv;
+        vec2 vel_old = texture2D(velocity, uv).xy;
+        vec2 spot_old = spot_new - vel_old * dt * ratio;
+        vec2 vel_new1 = texture2D(velocity, spot_old).xy;
+        vec2 spot_new2 = spot_old + vel_new1 * dt * ratio;
+        vec2 error = spot_new2 - spot_new;
+        vec2 spot_new3 = spot_new - error / 2.0;
+        vec2 vel_2 = texture2D(velocity, spot_new3).xy;
+        vec2 spot_old2 = spot_new3 - vel_2 * dt * ratio;
+        vec2 newVel2 = texture2D(velocity, spot_old2).xy; 
+        gl_FragColor = vec4(newVel2, 0.0, 0.0);
+    }
+}
+`;
+    const color_frag = `
+    precision highp float;
+    uniform sampler2D velocity;
+    uniform sampler2D palette;
+    uniform vec4 bgColor;
+    varying vec2 uv;
+    void main(){
+    vec2 vel = texture2D(velocity, uv).xy;
+    float lenv = clamp(length(vel), 0.0, 1.0);
+    vec3 c = texture2D(palette, vec2(lenv, 0.5)).rgb;
+    vec3 outRGB = mix(bgColor.rgb, c, lenv);
+    float outA = mix(bgColor.a, 1.0, lenv);
+    gl_FragColor = vec4(outRGB, outA);
+}
+`;
+    const divergence_frag = `
+    precision highp float;
+    uniform sampler2D velocity;
+    uniform float dt;
+    uniform vec2 px;
+    varying vec2 uv;
+    void main(){
+    float x0 = texture2D(velocity, uv-vec2(px.x, 0.0)).x;
+    float x1 = texture2D(velocity, uv+vec2(px.x, 0.0)).x;
+    float y0 = texture2D(velocity, uv-vec2(0.0, px.y)).y;
+    float y1 = texture2D(velocity, uv+vec2(0.0, px.y)).y;
+    float divergence = (x1 - x0 + y1 - y0) / 2.0;
+    gl_FragColor = vec4(divergence / dt);
+}
+`;
+    const externalForce_frag = `
+    precision highp float;
+    uniform vec2 force;
+    uniform vec2 center;
+    uniform vec2 scale;
+    uniform vec2 px;
+    varying vec2 vUv;
+    void main(){
+    vec2 circle = (vUv - 0.5) * 2.0;
+    float d = 1.0 - min(length(circle), 1.0);
+    d *= d;
+    gl_FragColor = vec4(force * d, 0.0, 1.0);
+}
+`;
+    const poisson_frag = `
+    precision highp float;
+    uniform sampler2D pressure;
+    uniform sampler2D divergence;
+    uniform vec2 px;
+    varying vec2 uv;
+    void main(){
+    float p0 = texture2D(pressure, uv + vec2(px.x * 2.0, 0.0)).r;
+    float p1 = texture2D(pressure, uv - vec2(px.x * 2.0, 0.0)).r;
+    float p2 = texture2D(pressure, uv + vec2(0.0, px.y * 2.0)).r;
+    float p3 = texture2D(pressure, uv - vec2(0.0, px.y * 2.0)).r;
+    float div = texture2D(divergence, uv).r;
+    float newP = (p0 + p1 + p2 + p3) / 4.0 - div;
+    gl_FragColor = vec4(newP);
+}
+`;
+    const pressure_frag = `
+    precision highp float;
+    uniform sampler2D pressure;
+    uniform sampler2D velocity;
+    uniform vec2 px;
+    uniform float dt;
+    varying vec2 uv;
+    void main(){
+    float step = 1.0;
+    float p0 = texture2D(pressure, uv + vec2(px.x * step, 0.0)).r;
+    float p1 = texture2D(pressure, uv - vec2(px.x * step, 0.0)).r;
+    float p2 = texture2D(pressure, uv + vec2(0.0, px.y * step)).r;
+    float p3 = texture2D(pressure, uv - vec2(0.0, px.y * step)).r;
+    vec2 v = texture2D(velocity, uv).xy;
+    vec2 gradP = vec2(p0 - p1, p2 - p3) * 0.5;
+    v = v - gradP * dt;
+    gl_FragColor = vec4(v, 0.0, 1.0);
+}
+`;
+    const viscous_frag = `
+    precision highp float;
+    uniform sampler2D velocity;
+    uniform sampler2D velocity_new;
+    uniform float v;
+    uniform vec2 px;
+    uniform float dt;
+    varying vec2 uv;
+    void main(){
+    vec2 old = texture2D(velocity, uv).xy;
+    vec2 new0 = texture2D(velocity_new, uv + vec2(px.x * 2.0, 0.0)).xy;
+    vec2 new1 = texture2D(velocity_new, uv - vec2(px.x * 2.0, 0.0)).xy;
+    vec2 new2 = texture2D(velocity_new, uv + vec2(0.0, px.y * 2.0)).xy;
+    vec2 new3 = texture2D(velocity_new, uv - vec2(0.0, px.y * 2.0)).xy;
+    vec2 newv = 4.0 * old + v * dt * (new0 + new1 + new2 + new3);
+    newv /= 4.0 * (1.0 + v * dt);
+    gl_FragColor = vec4(newv, 0.0, 0.0);
+}
+`;
+
+    class ShaderPass {
+      props: any;
+      uniforms: any;
+      scene: THREE.Scene | null = null;
+      camera: THREE.Camera | null = null;
+      material: THREE.RawShaderMaterial | null = null;
+      geometry: THREE.PlaneGeometry | null = null;
+      plane: THREE.Mesh | null = null;
+
+      constructor(props?: any) {
+        this.props = props || {};
+        this.uniforms = this.props.material?.uniforms;
+      }
+      init() {
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.Camera();
+        if (this.uniforms) {
+          this.material = new THREE.RawShaderMaterial(this.props.material);
+          this.geometry = new THREE.PlaneGeometry(2.0, 2.0);
+          this.plane = new THREE.Mesh(this.geometry, this.material);
+          this.scene.add(this.plane);
+        }
+      }
+      update(_props?: any) {
+        Common.renderer!.setRenderTarget(this.props.output || null);
+        Common.renderer!.render(this.scene!, this.camera!);
+        Common.renderer!.setRenderTarget(null);
+      }
+    }
+
+    class Advection extends ShaderPass {
+      line: any;
+      constructor(simProps: any) {
+        super({
+          material: {
+            vertexShader: face_vert,
+            fragmentShader: advection_frag,
+            uniforms: {
+              boundarySpace: { value: simProps.cellScale },
+              px: { value: simProps.cellScale },
+              fboSize: { value: simProps.fboSize },
+              velocity: { value: simProps.src.texture },
+              dt: { value: simProps.dt },
+              isBFECC: { value: true },
+            },
+          },
+          output: simProps.dst,
+        });
+        this.uniforms = this.props.material.uniforms;
+        this.init();
+      }
+      init() {
+        super.init();
+        this.createBoundary();
+      }
+      createBoundary() {
+        const boundaryG = new THREE.BufferGeometry();
+        const vertices_boundary = new Float32Array([
+          -1, -1, 0, -1, 1, 0, -1, 1, 0, 1, 1, 0, 1, 1, 0, 1, -1, 0, 1, -1, 0, -1, -1, 0,
+        ]);
+        boundaryG.setAttribute("position", new THREE.BufferAttribute(vertices_boundary, 3));
+        const boundaryM = new THREE.RawShaderMaterial({
+          vertexShader: line_vert,
+          fragmentShader: advection_frag,
+          uniforms: this.uniforms,
+        });
+        this.line = new THREE.LineSegments(boundaryG, boundaryM);
+        this.scene!.add(this.line);
+      }
+      update({ dt, isBounce, BFECC }: any) {
+        this.uniforms.dt.value = dt;
+        this.line.visible = isBounce;
+        this.uniforms.isBFECC.value = BFECC;
+        super.update();
+      }
+    }
+
+    class ExternalForce extends ShaderPass {
+      mouse: any;
+      constructor(simProps: any) {
+        super({ output: simProps.dst });
+        this.init(simProps);
+      }
+      init(simProps?: any) {
+        super.init();
+        const mouseG = new THREE.PlaneGeometry(1, 1);
+        const mouseM = new THREE.RawShaderMaterial({
+          vertexShader: mouse_vert,
+          fragmentShader: externalForce_frag,
+          blending: THREE.AdditiveBlending,
+          depthWrite: false,
+          uniforms: {
+            px: { value: simProps.cellScale },
+            force: { value: new THREE.Vector2(0.0, 0.0) },
+            center: { value: new THREE.Vector2(0.0, 0.0) },
+            scale: { value: new THREE.Vector2(simProps.cursor_size, simProps.cursor_size) },
+          },
+        });
+        this.mouse = new THREE.Mesh(mouseG, mouseM);
+        this.scene!.add(this.mouse);
+      }
+      update(props: any) {
+        const forceX = (Mouse.diff.x / 2) * props.mouse_force;
+        const forceY = (Mouse.diff.y / 2) * props.mouse_force;
+        const cursorSizeX = props.cursor_size * props.cellScale.x;
+        const cursorSizeY = props.cursor_size * props.cellScale.y;
+        const centerX = Math.min(
+          Math.max(Mouse.coords.x, -1 + cursorSizeX + props.cellScale.x * 2),
+          1 - cursorSizeX - props.cellScale.x * 2
+        );
+        const centerY = Math.min(
+          Math.max(Mouse.coords.y, -1 + cursorSizeY + props.cellScale.y * 2),
+          1 - cursorSizeY - props.cellScale.y * 2
+        );
+        const uniforms = this.mouse.material.uniforms;
+        uniforms.force.value.set(forceX, forceY);
+        uniforms.center.value.set(centerX, centerY);
+        uniforms.scale.value.set(props.cursor_size, props.cursor_size);
+        super.update();
+      }
+    }
+
+    class Viscous extends ShaderPass {
+      constructor(simProps: any) {
+        super({
+          material: {
+            vertexShader: face_vert,
+            fragmentShader: viscous_frag,
+            uniforms: {
+              boundarySpace: { value: simProps.boundarySpace },
+              velocity: { value: simProps.src.texture },
+              velocity_new: { value: simProps.dst_.texture },
+              v: { value: simProps.viscous },
+              px: { value: simProps.cellScale },
+              dt: { value: simProps.dt },
+            },
+          },
+          output: simProps.dst,
+          output0: simProps.dst_,
+          output1: simProps.dst,
+        });
+        this.init();
+      }
+      update({ viscous, iterations, dt }: any) {
+        let fbo_in, fbo_out;
+        this.uniforms.v.value = viscous;
+        for (let i = 0; i < iterations; i++) {
+          if (i % 2 === 0) {
+            fbo_in = this.props.output0;
+            fbo_out = this.props.output1;
+          } else {
+            fbo_in = this.props.output1;
+            fbo_out = this.props.output0;
+          }
+          this.uniforms.velocity_new.value = fbo_in.texture;
+          this.props.output = fbo_out;
+          this.uniforms.dt.value = dt;
+          super.update();
+        }
+        return fbo_out;
+      }
+    }
+
+    class Divergence extends ShaderPass {
+      constructor(simProps: any) {
+        super({
+          material: {
+            vertexShader: face_vert,
+            fragmentShader: divergence_frag,
+            uniforms: {
+              boundarySpace: { value: simProps.boundarySpace },
+              velocity: { value: simProps.src.texture },
+              px: { value: simProps.cellScale },
+              dt: { value: simProps.dt },
+            },
+          },
+          output: simProps.dst,
+        });
+        this.init();
+      }
+      update({ vel }: any) {
+        this.uniforms.velocity.value = vel.texture;
+        super.update();
+      }
+    }
+
+    class Poisson extends ShaderPass {
+      constructor(simProps: any) {
+        super({
+          material: {
+            vertexShader: face_vert,
+            fragmentShader: poisson_frag,
+            uniforms: {
+              boundarySpace: { value: simProps.boundarySpace },
+              pressure: { value: simProps.dst_.texture },
+              divergence: { value: simProps.src.texture },
+              px: { value: simProps.cellScale },
+            },
+          },
+          output: simProps.dst,
+          output0: simProps.dst_,
+          output1: simProps.dst,
+        });
+        this.init();
+      }
+      update({ iterations }: any) {
+        let p_in, p_out;
+        for (let i = 0; i < iterations; i++) {
+          if (i % 2 === 0) {
+            p_in = this.props.output0;
+            p_out = this.props.output1;
+          } else {
+            p_in = this.props.output1;
+            p_out = this.props.output0;
+          }
+          this.uniforms.pressure.value = p_in.texture;
+          this.props.output = p_out;
+          super.update();
+        }
+        return p_out;
+      }
+    }
+
+    class Pressure extends ShaderPass {
+      constructor(simProps: any) {
+        super({
+          material: {
+            vertexShader: face_vert,
+            fragmentShader: pressure_frag,
+            uniforms: {
+              boundarySpace: { value: simProps.boundarySpace },
+              pressure: { value: simProps.src_p.texture },
+              velocity: { value: simProps.src_v.texture },
+              px: { value: simProps.cellScale },
+              dt: { value: simProps.dt },
+            },
+          },
+          output: simProps.dst,
+        });
+        this.init();
+      }
+      update({ vel, pressure }: any) {
+        this.uniforms.velocity.value = vel.texture;
+        this.uniforms.pressure.value = pressure.texture;
+        super.update();
+      }
+    }
+
+    class Simulation {
+      options: any;
+      fbos: any = {
+        vel_0: null,
+        vel_1: null,
+        vel_viscous0: null,
+        vel_viscous1: null,
+        div: null,
+        pressure_0: null,
+        pressure_1: null,
+      };
+      fboSize = new THREE.Vector2();
+      cellScale = new THREE.Vector2();
+      boundarySpace = new THREE.Vector2();
+      advection: any;
+      externalForce: any;
+      viscous: any;
+      divergence: any;
+      poisson: any;
+      pressure: any;
+
+      constructor(options?: any) {
+        this.options = {
+          iterations_poisson: 32,
+          iterations_viscous: 32,
+          mouse_force: 20,
+          resolution: 0.5,
+          cursor_size: 100,
+          viscous: 30,
+          isBounce: false,
+          dt: 0.014,
+          isViscous: false,
+          BFECC: true,
+          ...options,
+        };
+        this.init();
+      }
+      init() {
+        this.calcSize();
+        this.createAllFBO();
+        this.createShaderPass();
+      }
+      getFloatType() {
+        const isIOS = /(iPad|iPhone|iPod)/i.test(navigator.userAgent);
+        return isIOS ? THREE.HalfFloatType : THREE.FloatType;
+      }
+      createAllFBO() {
+        const type = this.getFloatType();
+        const opts = {
+          type,
+          depthBuffer: false,
+          stencilBuffer: false,
+          minFilter: THREE.LinearFilter,
+          magFilter: THREE.LinearFilter,
+          wrapS: THREE.ClampToEdgeWrapping,
+          wrapT: THREE.ClampToEdgeWrapping,
+        };
+        for (const key in this.fbos) {
+          this.fbos[key] = new THREE.WebGLRenderTarget(this.fboSize.x, this.fboSize.y, opts);
+        }
+      }
+      createShaderPass() {
+        this.advection = new Advection({
+          cellScale: this.cellScale,
+          fboSize: this.fboSize,
+          dt: this.options.dt,
+          src: this.fbos.vel_0,
+          dst: this.fbos.vel_1,
+        });
+        this.externalForce = new ExternalForce({
+          cellScale: this.cellScale,
+          cursor_size: this.options.cursor_size,
+          dst: this.fbos.vel_1,
+        });
+        this.viscous = new Viscous({
+          cellScale: this.cellScale,
+          boundarySpace: this.boundarySpace,
+          viscous: this.options.viscous,
+          src: this.fbos.vel_1,
+          dst: this.fbos.vel_viscous1,
+          dst_: this.fbos.vel_viscous0,
+          dt: this.options.dt,
+        });
+        this.divergence = new Divergence({
+          cellScale: this.cellScale,
+          boundarySpace: this.boundarySpace,
+          src: this.fbos.vel_viscous0,
+          dst: this.fbos.div,
+          dt: this.options.dt,
+        });
+        this.poisson = new Poisson({
+          cellScale: this.cellScale,
+          boundarySpace: this.boundarySpace,
+          src: this.fbos.div,
+          dst: this.fbos.pressure_1,
+          dst_: this.fbos.pressure_0,
+        });
+        this.pressure = new Pressure({
+          cellScale: this.cellScale,
+          boundarySpace: this.boundarySpace,
+          src_p: this.fbos.pressure_0,
+          src_v: this.fbos.vel_viscous0,
+          dst: this.fbos.vel_0,
+          dt: this.options.dt,
+        });
+      }
+      calcSize() {
+        const width = Math.max(1, Math.round(this.options.resolution * Common.width));
+        const height = Math.max(1, Math.round(this.options.resolution * Common.height));
+        const px_x = 1.0 / width;
+        const px_y = 1.0 / height;
+        this.cellScale.set(px_x, px_y);
+        this.fboSize.set(width, height);
+      }
+      resize() {
+        this.calcSize();
+        for (const key in this.fbos) {
+          this.fbos[key].setSize(this.fboSize.x, this.fboSize.y);
+        }
+      }
+      update() {
+        if (this.options.isBounce) {
+          this.boundarySpace.set(0, 0);
+        } else {
+          this.boundarySpace.copy(this.cellScale);
+        }
+        this.advection.update({
+          dt: this.options.dt,
+          isBounce: this.options.isBounce,
+          BFECC: this.options.BFECC,
+        });
+        this.externalForce.update({
+          cursor_size: this.options.cursor_size,
+          mouse_force: this.options.mouse_force,
+          cellScale: this.cellScale,
+        });
+        let vel = this.fbos.vel_1;
+        if (this.options.isViscous) {
+          vel = this.viscous.update({
+            viscous: this.options.viscous,
+            iterations: this.options.iterations_viscous,
+            dt: this.options.dt,
+          });
+        }
+        this.divergence.update({ vel });
+        const pressure = this.poisson.update({
+          iterations: this.options.iterations_poisson,
+        });
+        this.pressure.update({ vel, pressure });
+      }
+    }
+
+    class Output {
+      simulation: Simulation;
+      scene: THREE.Scene;
+      camera: THREE.Camera;
+      output: THREE.Mesh;
+
+      constructor() {
+        this.simulation = new Simulation();
+        this.scene = new THREE.Scene();
+        this.camera = new THREE.Camera();
+        this.output = new THREE.Mesh(
+          new THREE.PlaneGeometry(2, 2),
+          new THREE.RawShaderMaterial({
+            vertexShader: face_vert,
+            fragmentShader: color_frag,
+            transparent: true,
+            depthWrite: false,
+            uniforms: {
+              velocity: { value: this.simulation.fbos.vel_0.texture },
+              boundarySpace: { value: new THREE.Vector2() },
+              palette: { value: paletteTex },
+              bgColor: { value: bgVec4 },
+            },
+          })
+        );
+        this.scene.add(this.output);
+      }
+      resize() {
+        this.simulation.resize();
+      }
+      render() {
+        Common.renderer!.setRenderTarget(null);
+        Common.renderer!.render(this.scene, this.camera);
+      }
+      update() {
+        this.simulation.update();
+        this.render();
+      }
+    }
+
+    class WebGLManager {
+      props: any;
+      lastUserInteraction: number;
+      autoDriver: AutoDriver;
+      output: Output | null = null;
+      running = false;
+      _loop: any;
+      _resize: any;
+      _onVisibility: any;
+
+      constructor(props: any) {
+        this.props = props;
+        Common.init(props.$wrapper);
+        Mouse.init(props.$wrapper);
+        Mouse.autoIntensity = props.autoIntensity;
+        Mouse.takeoverDuration = props.takeoverDuration;
+        this.lastUserInteraction = performance.now();
+        Mouse.onInteract = () => {
+          this.lastUserInteraction = performance.now();
+          if (this.autoDriver) this.autoDriver.forceStop();
+        };
+        this.autoDriver = new AutoDriver(Mouse, this, {
+          enabled: props.autoDemo,
+          speed: props.autoSpeed,
+          resumeDelay: props.autoResumeDelay,
+          rampDuration: props.autoRampDuration,
+        });
+        this.init();
+        this._loop = this.loop.bind(this);
+        this._resize = this.resize.bind(this);
+        window.addEventListener("resize", this._resize);
+        this._onVisibility = () => {
+          const hidden = document.hidden;
+          if (hidden) {
+            this.pause();
+          } else if (isVisibleRef.current) {
+            this.start();
+          }
+        };
+        document.addEventListener("visibilitychange", this._onVisibility);
+      }
+      init() {
+        this.props.$wrapper.prepend(Common.renderer!.domElement);
+        this.output = new Output();
+      }
+      resize() {
+        Common.resize();
+        this.output!.resize();
+      }
+      render() {
+        if (this.autoDriver) this.autoDriver.update();
+        Mouse.update();
+        Common.update();
+        this.output!.update();
+      }
+      loop() {
+        if (!this.running) return;
+        this.render();
+        rafRef.current = requestAnimationFrame(this._loop);
+      }
+      start() {
+        if (this.running) return;
+        this.running = true;
+        this._loop();
+      }
+      pause() {
+        this.running = false;
+        if (rafRef.current) {
+          cancelAnimationFrame(rafRef.current);
+          rafRef.current = null;
+        }
+      }
+      dispose() {
+        try {
+          window.removeEventListener("resize", this._resize);
+          document.removeEventListener("visibilitychange", this._onVisibility);
+          Mouse.dispose();
+          if (Common.renderer) {
+            const canvas = Common.renderer.domElement;
+            if (canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            Common.renderer.dispose();
+            Common.renderer.forceContextLoss();
+          }
+        } catch {
+          void 0;
+        }
+      }
+    }
+
+    const container = mountRef.current;
+    container.style.position = container.style.position || "relative";
+    container.style.overflow = container.style.overflow || "hidden";
+
+    const webgl = new WebGLManager({
+      $wrapper: container,
+      autoDemo,
+      autoSpeed,
+      autoIntensity,
+      takeoverDuration,
+      autoResumeDelay,
+      autoRampDuration,
+    });
+    webglRef.current = webgl;
+
+    const applyOptionsFromProps = () => {
+      if (!webglRef.current) return;
+      const sim = webglRef.current.output?.simulation;
+      if (!sim) return;
+      const prevRes = sim.options.resolution;
+      Object.assign(sim.options, {
+        mouse_force: mouseForce,
+        cursor_size: cursorSize,
+        isViscous,
+        viscous,
+        iterations_viscous: iterationsViscous,
+        iterations_poisson: iterationsPoisson,
+        dt,
+        BFECC,
+        resolution,
+        isBounce,
+      });
+      if (resolution !== prevRes) {
+        sim.resize();
+      }
+    };
+    applyOptionsFromProps();
+
+    webgl.start();
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        const isVisible = entry.isIntersecting && entry.intersectionRatio > 0;
+        isVisibleRef.current = isVisible;
+        if (!webglRef.current) return;
+        if (isVisible && !document.hidden) {
+          webglRef.current.start();
+        } else {
+          webglRef.current.pause();
+        }
+      },
+      { threshold: [0, 0.01, 0.1] }
+    );
+    io.observe(container);
+    intersectionObserverRef.current = io;
+
+    const ro = new ResizeObserver(() => {
+      if (!webglRef.current) return;
+      if (resizeRafRef.current) cancelAnimationFrame(resizeRafRef.current);
+      resizeRafRef.current = requestAnimationFrame(() => {
+        if (!webglRef.current) return;
+        webglRef.current.resize();
+      });
+    });
+    ro.observe(container);
+    resizeObserverRef.current = ro;
+
+    return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
+      if (resizeObserverRef.current) {
+        try {
+          resizeObserverRef.current.disconnect();
+        } catch {
+          void 0;
+        }
+      }
+      if (intersectionObserverRef.current) {
+        try {
+          intersectionObserverRef.current.disconnect();
+        } catch {
+          void 0;
+        }
+      }
+      if (webglRef.current) {
+        webglRef.current.dispose();
+      }
+      webglRef.current = null;
+    };
+  }, [
+    BFECC,
+    cursorSize,
+    dt,
+    isBounce,
+    isViscous,
+    iterationsPoisson,
+    iterationsViscous,
+    mouseForce,
+    resolution,
+    viscous,
+    colors,
+    autoDemo,
+    autoSpeed,
+    autoIntensity,
+    takeoverDuration,
+    autoResumeDelay,
+    autoRampDuration,
+  ]);
+
+  useEffect(() => {
+    const webgl = webglRef.current;
+    if (!webgl) return;
+    const sim = webgl.output?.simulation;
+    if (!sim) return;
+    const prevRes = sim.options.resolution;
+    Object.assign(sim.options, {
+      mouse_force: mouseForce,
+      cursor_size: cursorSize,
+      isViscous,
+      viscous,
+      iterations_viscous: iterationsViscous,
+      iterations_poisson: iterationsPoisson,
+      dt,
+      BFECC,
+      resolution,
+      isBounce,
+    });
+    if (webgl.autoDriver) {
+      webgl.autoDriver.enabled = autoDemo;
+      webgl.autoDriver.speed = autoSpeed;
+      webgl.autoDriver.resumeDelay = autoResumeDelay;
+      webgl.autoDriver.rampDurationMs = autoRampDuration * 1000;
+      if (webgl.autoDriver.mouse) {
+        webgl.autoDriver.mouse.autoIntensity = autoIntensity;
+        webgl.autoDriver.mouse.takeoverDuration = takeoverDuration;
+      }
+    }
+    if (resolution !== prevRes) {
+      sim.resize();
+    }
+  }, [
+    mouseForce,
+    cursorSize,
+    isViscous,
+    viscous,
+    iterationsViscous,
+    iterationsPoisson,
+    dt,
+    BFECC,
+    resolution,
+    isBounce,
+    autoDemo,
+    autoSpeed,
+    autoIntensity,
+    takeoverDuration,
+    autoResumeDelay,
+    autoRampDuration,
+  ]);
+
+  return <div ref={mountRef} className={`liquid-ether-container ${className}`} style={style} />;
 }
 </file>
 
@@ -20707,6 +22742,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import EvilEye from '@/components/common/EvilEye';
 
 export default function Header() {
   const pathname = usePathname();
@@ -20875,15 +22911,17 @@ export default function Header() {
   };
 
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
-  const wrapperSize = isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
+  const isCatteryPage = pathname === '/cattery';
+  const wrapperSize = isCatteryPage ? 'w-40 h-16 md:w-52 md:h-20' : isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
   const spinRingSize = isShopPage ? 'w-16 h-16 md:w-20 md:h-20' : 'w-20 h-20 md:w-28 md:h-28';
-  const logoSize = isShopPage ? 'w-14 h-14 md:w-18 md:h-18' : 'w-16 h-16 md:w-24 md:h-24';
+  const logoSize = isCatteryPage ? 'w-40 h-16 md:w-52 md:h-20' : isShopPage ? 'w-14 h-14 md:w-18 md:h-18' : 'w-16 h-16 md:w-24 md:h-24';
+
 
   const safeAvatarUrl = (avatarUrl && avatarUrl.trim() !== '') ? avatarUrl : 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
 
   return (
     <>
-      <header className="fixed top-0 w-full z-40 bg-white/70 backdrop-blur-md border-b border-pink-50">
+      <header className={`fixed top-0 w-full z-40 backdrop-blur-md border-b transition-colors duration-300 ${isCatteryPage ? 'bg-black border-stone-800' : 'bg-white/70 border-pink-50'}`}>
 
         <style dangerouslySetInnerHTML={{
           __html: `
@@ -20902,63 +22940,81 @@ export default function Header() {
 
           <button
             onClick={() => setIsMobileMenuOpen(true)}
-            className="md:hidden z-20 w-10 h-10 flex items-center justify-center text-pink-500 hover:bg-pink-50 rounded-full transition-colors"
+            className={`lg:hidden z-20 w-10 h-10 flex items-center justify-center rounded-full transition-colors ${isCatteryPage ? 'text-white hover:bg-white/10' : 'text-pink-500 hover:bg-pink-50'}`}
           >
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          <nav className="hidden md:flex gap-8 font-medium text-stone-600 w-1/3">
+          <nav className={`hidden lg:flex lg:gap-3 xl:gap-8 font-medium text-sm xl:text-base w-1/3 whitespace-nowrap transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600'}`}>
             <Link href="/" className={`pb-1 transition-colors ${pathname === '/' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Trang Chủ</Link>
             <Link href="/cattery" className={`pb-1 transition-colors ${pathname === '/cattery' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>KinVie Cattery</Link>
             <Link href="/petshop" className={`pb-1 transition-colors ${pathname === '/petshop' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Beam Petshop</Link>
             <Link href="/memorial" className={`pb-1 transition-colors ${pathname === '/memorial' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cây Ký Ức</Link>
           </nav>
 
-          <Link href="/" className="absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 mt-2 z-10">
+          <Link href="/" className={`absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 z-10 ${isCatteryPage ? '' : 'mt-2'}`}>
             <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
-              <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
-                <div className="absolute -top-4 md:-top-5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-10 md:h-10 text-pink-400 drop-shadow-sm">
-                  <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
-                    <g className="cat-body-group">
-                      <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round" />
-                      <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round" />
-                      <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
-                      <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round" />
-                      <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
-                      <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
-                      <circle cx="75" cy="35" r="14" className="stroke-none" />
-                      <polygon points="68,25 65,10 78,25" className="stroke-none" />
-                      <polygon points="82,25 85,10 72,25" className="stroke-none" />
-                    </g>
-                  </svg>
+              {!isCatteryPage && (
+                <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
+                  <div className="absolute -top-4 md:-top-5 left-1/2 -translate-x-1/2 w-8 h-8 md:w-10 md:h-10 text-pink-400 drop-shadow-sm">
+                    <svg viewBox="0 0 100 100" className="w-full h-full fill-current stroke-current overflow-visible">
+                      <g className="cat-body-group">
+                        <path className="cat-tail" d="M25,45 Q10,25 15,10" fill="none" strokeWidth="5" strokeLinecap="round" />
+                        <line className="cat-leg-b" x1="35" y1="50" x2="25" y2="75" strokeWidth="6" strokeLinecap="round" />
+                        <line className="cat-leg-b" x1="45" y1="50" x2="35" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
+                        <line className="cat-leg-f" x1="65" y1="50" x2="70" y2="75" strokeWidth="6" strokeLinecap="round" />
+                        <line className="cat-leg-f" x1="55" y1="50" x2="60" y2="75" strokeWidth="6" strokeLinecap="round" style={{ animationDelay: '0.1s', opacity: 0.6 }} />
+                        <ellipse cx="50" cy="45" rx="25" ry="15" className="stroke-none" />
+                        <circle cx="75" cy="35" r="14" className="stroke-none" />
+                        <polygon points="68,25 65,10 78,25" className="stroke-none" />
+                        <polygon points="82,25 85,10 72,25" className="stroke-none" />
+                      </g>
+                    </svg>
+                  </div>
+                  <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[8px] md:text-[10px] opacity-60">🐾</div>
+                  <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[8px] md:text-[10px] opacity-30">🐾</div>
                 </div>
-                <div className="absolute top-1/2 -left-3 -translate-y-1/2 -rotate-90 text-[8px] md:text-[10px] opacity-60">🐾</div>
-                <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 rotate-180 text-[8px] md:text-[10px] opacity-30">🐾</div>
-              </div>
-              <div className={`absolute rounded-full overflow-hidden shadow-md border-2 border-white bg-white z-10 transition-all duration-300 ${logoSize}`}>
-                <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
+              )}
+              <div className={`absolute overflow-hidden z-10 transition-all duration-300 ${logoSize} ${isCatteryPage ? '' : 'rounded-full shadow-md border-2 border-white bg-white'}`}>
+                {pathname === '/cattery' ? (
+                  <EvilEye
+                    cycleColors={true}
+                    cycleIntervalMs={20 * 1000}
+                    intensity={1.5}
+                    pupilSize={0.95}
+                    irisWidth={0.25}
+                    glowIntensity={0.35}
+                    scale={1.3}
+                    noiseScale={1}
+                    pupilFollow={1}
+                    flameSpeed={1.1}
+                    backgroundColor="#000000"
+                  />
+                ) : (
+                  <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
+                )}
               </div>
             </div>
-            {isShopPage && (
+            {isShopPage && !isCatteryPage && (
               <span className="font-serif italic font-bold text-[10px] md:text-sm text-pink-500 md:-mt-1 whitespace-nowrap bg-white/50 px-2 rounded-full">
-                {pathname === '/cattery' ? 'KinVie Cattery' : 'Beam Petshop'}
+                Beam Petshop
               </span>
             )}
           </Link>
 
-          <nav className="flex gap-1.5 sm:gap-3 md:gap-6 font-medium text-stone-600 items-center justify-end w-auto md:w-1/3 z-20 shrink-0">
-            <Link href="/blog" className={`hidden md:block pb-1 transition-colors ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
-            <Link href="/feed" className={`hidden md:block pb-1 transition-colors ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng đồng</Link>
+          <nav className={`flex gap-1.5 sm:gap-3 lg:gap-2 xl:gap-6 font-medium items-center justify-end w-auto lg:w-1/3 z-20 shrink-0 text-sm xl:text-base transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600'}`}>
+            <Link href="/blog" className={`hidden lg:block pb-1 transition-colors whitespace-nowrap ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
+            <Link href="/feed" className={`hidden lg:block pb-1 transition-colors whitespace-nowrap ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng đồng</Link>
 
             {isLoggedIn && isAdmin && !isLoadingAuth && (
-              <Link href="/dashboard" className="hidden md:flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
+              <Link href="/dashboard" className="hidden lg:flex items-center gap-1.5 text-sm font-bold text-rose-500 hover:text-white hover:bg-rose-500 bg-rose-50 px-3 py-1.5 rounded-full transition-colors border border-rose-100">
                 <span>⚙️</span> Quản lý
               </Link>
             )}
 
             {isLoggedIn && !isLoadingAuth && (
               <div className="relative">
-                <button onClick={() => setIsNotifOpen(p => !p)} className="relative flex items-center justify-center w-10 h-10 rounded-full hover:bg-stone-50 transition-colors">
+                <button onClick={() => setIsNotifOpen(p => !p)} className={`relative flex items-center justify-center w-10 h-10 rounded-full transition-colors ${isCatteryPage ? 'hover:bg-white/10' : 'hover:bg-stone-50'}`}>
                   <span className="text-xl md:text-2xl">🔔</span>
                   {unreadCount > 0 && (
                     <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[9px] md:text-[10px] font-black px-1.5 min-w-[18px] md:min-w-[20px] h-4 md:h-5 flex items-center justify-center rounded-full border-2 border-white shadow-sm">
@@ -21031,7 +23087,7 @@ export default function Header() {
       </header>
 
       {/* OVERLAY MENU ĐIỆN THOẠI */}
-      <div className={`md:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
+      <div className={`lg:hidden fixed inset-0 z-[100] transition-all duration-400 ${isMobileMenuOpen ? 'opacity-100 visible' : 'opacity-0 invisible'}`}>
         <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMobileMenuOpen(false)}></div>
 
         <div className={`absolute top-0 left-0 w-[85%] max-w-[360px] h-[100dvh] bg-white shadow-2xl transform transition-transform duration-500 ease-[cubic-bezier(0.25,1,0.5,1)] flex flex-col rounded-r-[2rem] ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
@@ -21113,7 +23169,7 @@ export default function Header() {
 import React from 'react';
 
 const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
-const TOP_PADDING = 150;
+const TOP_PADDING = 100;
 const MEMORIAL_TOP_EXTRA_GAP = 220;
 const VB_WIDTH = 450;         // 🎯 tăng từ 400 -> 450 để có chỗ cho thân cây to hơn + nhánh vươn xa hơn
 const TRUNK_CENTER = VB_WIDTH / 2;
@@ -21222,10 +23278,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                         <div
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
-                            w-16 sm:w-28 md:w-36 lg:w-44 xl:w-52
+                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52
                                 ${isLeft
-                                    ? 'right-0 sm:right-auto sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
-                                    : 'left-0 sm:left-auto sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
+                                    ? 'left-[calc(50%_+_90px)] sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
+                                    : 'right-[calc(50%_+_90px)] sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
                                 }`}
                             style={{
                                 top: `${topPercent}%`,
@@ -21297,10 +23353,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 left: `${(pt.x / VB_WIDTH) * 100}%`,
                                 top: `${(pt.y / totalHeight) * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isMemorialCap ? '22rem' : '9rem',   // 👈 16rem -> 22rem
+                                width: isMemorialCap ? '24rem' : '9rem',   // 👈 16rem -> 22rem
                             }}
                         >
-                            <div className={`relative ${isMemorialCap ? 'w-64 h-64 md:w-80 md:h-80' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                            <div className={`relative ${isMemorialCap ? 'w-72 h-72 md:w-96 md:h-96' : 'w-24 h-24 md:w-28 md:h-28'}`}>
                                 {isMemorialCap ? (
                                     <>
                                         {/* Hào quang phía sau */}
@@ -21309,13 +23365,12 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                         {/* Ảnh mèo - thu nhỏ vào trong để vòng hoa phủ được lên mép ảnh */}
                                         <button
                                             onClick={() => setSelected(pt.photo)}
-                                            className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
+                                            className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer bg-stone-900"
                                         >
-                                            <img
-                                                src={pt.photo.image_url}
-                                                alt={pet?.petname || 'Kỷ niệm'}
-                                                className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
-                                            />
+                                            <img src={pt.photo.image_url} alt="" aria-hidden="true"
+                                                className="absolute inset-0 w-full h-full object-cover grayscale blur-md scale-110 opacity-70 group-hover:grayscale-0 transition-all duration-500" />
+                                            <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'}
+                                                className="absolute inset-0 w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500" />
                                         </button>
 
                                         {/* Vòng hoa tưởng niệm */}
@@ -21401,41 +23456,46 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
 "use client";
 
 import React, { useRef, useEffect } from 'react';
+import { motion } from 'framer-motion';
 import { useDropdownStore } from '@/store/useDropdownStore';
 
 export interface SelectOption {
   value: string | number;
   label: string;
-  subLabel?: string; 
-  iconOrImage?: string; 
+  subLabel?: string;
+  iconOrImage?: string;
 }
 
 interface GlassSelectProps {
-  id: string; 
-  label?: string; 
+  id: string;
+  label?: string;
   options: SelectOption[];
   selectedValue: any;
   onChange: (value: any) => void;
-  themeColor?: 'cyan' | 'rose' | 'amber' | 'stone' | 'purple'; 
+  themeColor?: 'cyan' | 'rose' | 'amber' | 'stone' | 'purple' | 'pink';
   placeholder?: string;
+  allowClear?: boolean;
+  disabled?: boolean;
 }
 
-export default function GlassSelect({ 
-  id, label, options, selectedValue, onChange, 
-  themeColor = 'stone', placeholder = '-- Vui lòng chọn --'
+export default function GlassSelect({
+  id, label, options, selectedValue, onChange,
+  themeColor = 'stone', placeholder = '-- Vui lòng chọn --',
+  allowClear = true, disabled = false
 }: GlassSelectProps) {
-  
+
   const { activeDropdownId, setActiveDropdownId } = useDropdownStore();
   const isOpen = activeDropdownId === id;
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 🎯 Bộ từ điển màu sắc (Tự đổi theo trang)
   const themeMap = {
-    cyan: { text: 'text-cyan-600', border: 'border-cyan-200 focus:ring-cyan-400', hover: 'hover:bg-cyan-50 hover:border-cyan-200', activeBg: 'bg-cyan-500 text-white' },
-    rose: { text: 'text-rose-600', border: 'border-rose-200 focus:ring-rose-400', hover: 'hover:bg-rose-50 hover:border-rose-200', activeBg: 'bg-rose-500 text-white' },
-    amber: { text: 'text-amber-600', border: 'border-amber-200 focus:ring-amber-400', hover: 'hover:bg-amber-50 hover:border-amber-200', activeBg: 'bg-amber-500 text-white' },
-    stone: { text: 'text-stone-600', border: 'border-stone-200 focus:ring-stone-400', hover: 'hover:bg-stone-50 hover:border-stone-200', activeBg: 'bg-stone-800 text-white' },
-    purple: { text: 'text-purple-600', border: 'border-purple-200 focus:ring-purple-400', hover: 'hover:bg-purple-50 hover:border-purple-200', activeBg: 'bg-purple-500 text-white' },
+    cyan: { text: 'text-cyan-600', border: 'border-cyan-200 focus:ring-cyan-400', hover: 'hover:bg-cyan-50 hover:border-cyan-200', activeBg: 'bg-cyan-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    rose: { text: 'text-rose-600', border: 'border-rose-200 focus:ring-rose-400', hover: 'hover:bg-rose-50 hover:border-rose-200', activeBg: 'bg-rose-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    amber: { text: 'text-amber-600', border: 'border-amber-200 focus:ring-amber-400', hover: 'hover:bg-amber-50 hover:border-amber-200', activeBg: 'bg-amber-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    stone: { text: 'text-stone-600', border: 'border-stone-200 focus:ring-stone-400', hover: 'hover:bg-stone-50 hover:border-stone-200', activeBg: 'bg-stone-800', activeText: 'text-white', activeSubText: 'text-white/70' },
+    purple: { text: 'text-purple-600', border: 'border-purple-200 focus:ring-purple-400', hover: 'hover:bg-purple-50 hover:border-purple-200', activeBg: 'bg-purple-500', activeText: 'text-white', activeSubText: 'text-white/70' },
+    pink: { text: 'text-pink-600', border: 'border-pink-200 focus:ring-pink-400', hover: 'hover:bg-pink-50 hover:border-pink-200', activeBg: 'bg-pink-100 border border-pink-200', activeText: 'text-pink-700', activeSubText: 'text-pink-500' },
   };
 
   const colors = themeMap[themeColor];
@@ -21468,13 +23528,14 @@ export default function GlassSelect({
       {/* 🎯 NÚT BẤM KÍNH MỜ */}
       <button
         type="button"
-        onClick={() => setActiveDropdownId(isOpen ? null : id)}
-        className={`w-full flex items-center justify-between bg-white/80 backdrop-blur-xl border ${isOpen ? colors.border + ' ring-2' : 'border-stone-200'} p-3.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300`}
+        disabled={disabled}
+        onClick={() => !disabled && setActiveDropdownId(isOpen ? null : id)}
+        className={`w-full flex items-center justify-between bg-white/80 backdrop-blur-xl border ${isOpen ? colors.border + ' ring-2' : 'border-stone-200'} p-3.5 rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.02)] transition-all duration-300 ${disabled ? 'opacity-50 cursor-not-allowed bg-stone-100' : ''}`}
       >
         {selectedOption ? (
           <div className="flex items-center gap-3">
             {selectedOption.iconOrImage && (
-              selectedOption.iconOrImage.includes('http') || selectedOption.iconOrImage.includes('/') 
+              selectedOption.iconOrImage.includes('http') || selectedOption.iconOrImage.includes('/')
                 ? <img src={selectedOption.iconOrImage} alt="" className="w-8 h-8 rounded-full object-cover border border-stone-100" />
                 : <span className="text-xl">{selectedOption.iconOrImage}</span>
             )}
@@ -21486,27 +23547,32 @@ export default function GlassSelect({
         ) : (
           <span className="text-stone-400 font-bold text-sm">{placeholder}</span>
         )}
-        
+
         <svg className={`w-4 h-4 text-stone-400 transition-transform duration-300 ${isOpen ? 'rotate-180 ' + colors.text : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 9l-7 7-7-7" />
         </svg>
       </button>
 
       {/* 🎯 DANH SÁCH SỔ XUỐNG */}
-      <div 
+      <div
         className={`absolute top-[calc(100%+8px)] left-0 w-full z-50 transition-all duration-300 origin-top
           ${isOpen ? 'opacity-100 scale-100 translate-y-0 pointer-events-auto' : 'opacity-0 scale-95 -translate-y-2 pointer-events-none'}
         `}
       >
         <div className="bg-white/90 backdrop-blur-2xl border border-white p-2 rounded-[1.5rem] shadow-[0_20px_40px_rgba(0,0,0,0.1)] max-h-64 overflow-y-auto">
-          
-          <div onClick={() => handleSelect(null)} className="p-3 rounded-xl cursor-pointer text-stone-400 hover:bg-stone-100 text-sm font-bold mb-1">
-            -- Bỏ chọn --
-          </div>
 
-          {options.map((item) => (
-            <div
+          {allowClear && (
+            <div onClick={() => handleSelect(null)} className="p-3 rounded-xl cursor-pointer text-stone-400 hover:bg-stone-100 text-sm font-bold mb-1">
+              -- Bỏ chọn --
+            </div>
+          )}
+
+          {options.map((item, index) => (
+            <motion.div
               key={item.value}
+              initial={{ opacity: 0, scale: 0.9, y: -6 }}
+              animate={isOpen ? { opacity: 1, scale: 1, y: 0 } : {}}
+              transition={{ duration: 0.15, delay: index * 0.03 }}
               onClick={() => handleSelect(item.value)}
               className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all duration-200 border border-transparent 
                 ${selectedValue === item.value ? colors.activeBg : colors.hover + ' text-stone-700'}
@@ -21518,10 +23584,10 @@ export default function GlassSelect({
                   : <span className="text-xl">{item.iconOrImage}</span>
               )}
               <div>
-                <p className={`text-sm font-black leading-tight ${selectedValue === item.value ? 'text-white' : ''}`}>{item.label}</p>
-                {item.subLabel && <p className={`text-[11px] font-bold mt-0.5 ${selectedValue === item.value ? 'text-white/70' : 'text-stone-400'}`}>{item.subLabel}</p>}
+                <p className={`text-sm font-black leading-tight ${selectedValue === item.value ? colors.activeText : ''}`}>{item.label}</p>
+                {item.subLabel && <p className={`text-[11px] font-bold mt-0.5 ${selectedValue === item.value ? colors.activeSubText : 'text-stone-400'}`}>{item.subLabel}</p>}
               </div>
-            </div>
+            </motion.div>
           ))}
         </div>
       </div>
@@ -21737,6 +23803,7 @@ export default nextConfig;
     "gsap": "^3.15.0",
     "lucide-react": "^1.7.0",
     "next": "16.2.1",
+    "ogl": "^1.0.11",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "recharts": "^3.8.1",

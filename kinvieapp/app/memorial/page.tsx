@@ -34,11 +34,25 @@ export default function MemorialVinePage() {
             if (!dbUser) { setIsLoading(false); return; }
             setDbUserId(dbUser.userid);
 
+            // 👨‍👩‍👧‍👦 Đã set gia đình thì xem chung Cây Ký Ức, vì chung Boss rồi.
+            // Không join chung với users (requester_id/receiver_id cùng trỏ users.userid -> ambiguous),
+            // fetch rời family_connections rồi lấy ra id các thành viên accepted.
+            const { data: connRows } = await supabase
+                .from('family_connections')
+                .select('requester_id, receiver_id')
+                .eq('status', 'accepted')
+                .or(`requester_id.eq.${dbUser.userid},receiver_id.eq.${dbUser.userid}`);
+
+            const familyOwnerIds = (connRows || []).map(r =>
+                r.requester_id === dbUser.userid ? r.receiver_id : r.requester_id
+            );
+            const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
+
             const { data, error } = await supabase
                 .from('memorial_photos')
                 .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status))')
                 .eq('status', 'approved')
-                .eq('user_id', dbUser.userid)
+                .in('user_id', ownerIdsToFetch)
                 .order('taken_date', { ascending: true });
             if (error) console.error('Lỗi tải ảnh kỷ niệm:', error.message);
             if (data) setPhotos(data);
@@ -146,10 +160,19 @@ export default function MemorialVinePage() {
 
             <button
                 onClick={toggleMusic}
-                className={`fixed bottom-8 right-8 z-50 w-14 h-14 rounded-full bg-white shadow-xl border border-pink-100 flex items-center justify-center text-2xl hover:scale-110 transition-transform ${isPlaying ? 'animate-pulse ring-2 ring-pink-300' : ''}`}
+                className="fixed top-24 right-6 z-50 w-14 h-14 flex items-center justify-center text-3xl hover:scale-110 active:scale-95 transition-transform duration-300"
                 title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
             >
-                {isPlaying ? '🔊' : '🔈'}
+                <span
+                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-0 scale-50 rotate-180' : 'opacity-100 scale-100 rotate-0'}`}
+                >
+                    🎁
+                </span>
+                <span
+                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-100 scale-100 rotate-0 animate-pulse ring-2 ring-pink-300' : 'opacity-0 scale-50 -rotate-180'}`}
+                >
+                    🔊
+                </span>
             </button>
 
             <Footer />

@@ -22,6 +22,8 @@ export default function MyMemorialPhotosPage() {
   const [selectedPhoto, setSelectedPhoto] = useState<any>(null);
   const [editCaption, setEditCaption] = useState('');
   const [isSavingCaption, setIsSavingCaption] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchMyPhotos = async (userId: number) => {
     setIsLoading(true);
@@ -45,15 +47,13 @@ export default function MyMemorialPhotosPage() {
   }, []);
 
   const handleDelete = async (photo: any) => {
-    if (photo.status === 'approved') {
-      setToast({ message: 'Ảnh đã duyệt không thể tự xoá, liên hệ Boss nếu cần gỡ nhé!', type: 'error' });
-      return;
-    }
-    if (!window.confirm('Xoá ảnh này khỏi danh sách?')) return;
-
+    setIsDeleting(true);
     const { error } = await supabase.from('memorial_photos').delete().eq('id', photo.id);
+    setIsDeleting(false);
     if (error) { setToast({ message: 'Lỗi khi xoá: ' + error.message, type: 'error' }); return; }
     setPhotos(prev => prev.filter(p => p.id !== photo.id));
+    setDeleteTarget(null);
+    setSelectedPhoto(null);
     setToast({ message: 'Đã xoá ảnh.', type: 'success' });
   };
 
@@ -107,16 +107,24 @@ export default function MyMemorialPhotosPage() {
             ) : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
                 {photos.map((photo) => (
-                  <button
-                    key={photo.id}
-                    onClick={() => { setSelectedPhoto(photo); setEditCaption(photo.caption || ''); }}
-                    className="relative aspect-square rounded-xl overflow-hidden border border-stone-100"
-                  >
-                    <img src={photo.image_url} className="w-full h-full object-cover" alt="" />
-                    <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase border ${STATUS_STYLE[photo.status]}`}>
-                      {STATUS_LABEL[photo.status]}
-                    </span>
-                  </button>
+                  <div key={photo.id} className="relative group">
+                    <button
+                      onClick={() => { setSelectedPhoto(photo); setEditCaption(photo.caption || ''); }}
+                      className="relative aspect-square w-full rounded-xl overflow-hidden border border-stone-100 block"
+                    >
+                      <img src={photo.image_url} className="w-full h-full object-cover" alt="" />
+                      <span className={`absolute top-1 right-1 px-1.5 py-0.5 rounded-full text-[7px] font-black uppercase border ${STATUS_STYLE[photo.status]}`}>
+                        {STATUS_LABEL[photo.status]}
+                      </span>
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setDeleteTarget(photo); }}
+                      className="absolute bottom-1 left-1 w-6 h-6 rounded-full bg-black/60 backdrop-blur-sm text-white flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Xoá ảnh"
+                    >
+                      🗑️
+                    </button>
+                  </div>
                 ))}
               </div>
             )}
@@ -167,7 +175,7 @@ export default function MyMemorialPhotosPage() {
                 </button>
                 {selectedPhoto.status !== 'approved' && (
                   <button
-                    onClick={() => { handleDelete(selectedPhoto); setSelectedPhoto(null); }}
+                    onClick={() => setDeleteTarget(selectedPhoto)}
                     className="px-5 py-3 border border-rose-200 text-rose-500 rounded-xl font-black text-sm"
                   >
                     🗑️ Xoá
@@ -181,6 +189,38 @@ export default function MyMemorialPhotosPage() {
           </div>
         </div>
       )}
+      {deleteTarget && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => !isDeleting && setDeleteTarget(null)}
+        >
+          <div
+            className="bg-white rounded-[2rem] p-6 max-w-xs w-full text-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <span className="text-4xl block mb-3">🗑️</span>
+            <p className="font-black text-stone-700 mb-1">Xoá ảnh này?</p>
+            <p className="text-xs text-stone-400 font-bold mb-6">Ảnh sẽ bị xoá vĩnh viễn khỏi Dây Leo Ký Ức, không thể khôi phục lại.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setDeleteTarget(null)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-stone-100 rounded-xl font-black text-sm text-stone-600 disabled:opacity-50"
+              >
+                Hủy
+              </button>
+              <button
+                onClick={() => handleDelete(deleteTarget)}
+                disabled={isDeleting}
+                className="flex-1 py-3 bg-rose-500 text-white rounded-xl font-black text-sm disabled:opacity-50"
+              >
+                {isDeleting ? 'Đang xoá...' : 'Xoá ảnh'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <Footer />
     </div>

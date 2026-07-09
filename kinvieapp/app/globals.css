@@ -75,9 +75,11 @@ body {
 }
 
 /* 🎯 Ảnh/video mặc định không bao giờ được vượt quá chiều rộng khung chứa */
-img, svg, video {
-  max-width: 100%;
-  height: auto;
+@layer base {
+  img, svg, video {
+    max-width: 100%;
+    height: auto;
+  }
 }
 
 /* Smooth transitions for all interactive elements */
@@ -89,4 +91,17 @@ img, svg, video {
 /* Ép tất cả các nút bấm và thẻ a đều hiện hình bàn tay */
 button, a, [role="button"] {
   cursor: pointer !important;
+}
+
+.liquid-ether-container {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: 100%;
+  touch-action: pan-x;
+}
+
+.evil-eye-container {
+  width: 100%;
+  height: 100%;
 }
