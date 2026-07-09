@@ -139,6 +139,7 @@ public/images/banner.png
 public/images/logo.jpg
 public/images/memorial-bg-pattern.png
 public/images/vine-real.png
+public/images/vong-hoa.png
 README.md
 store/useCartStore.ts
 store/useCatStore.ts
@@ -21113,17 +21114,20 @@ import React from 'react';
 
 const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
 const TOP_PADDING = 150;
-const MEMORIAL_TOP_EXTRA_GAP = 150;
-const VB_WIDTH = 400;
+const MEMORIAL_TOP_EXTRA_GAP = 220;
+const VB_WIDTH = 450;         // 🎯 tăng từ 400 -> 450 để có chỗ cho thân cây to hơn + nhánh vươn xa hơn
 const TRUNK_CENTER = VB_WIDTH / 2;
 const TRUNK_AMPLITUDE = 22;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
 const TRUNK_PERIOD = 240;     // 1 chu kỳ lượn sóng dài bao nhiêu px theo chiều dọc
-const BRANCH_REACH = 95;      // nhánh rẽ ra xa thân bao nhiêu px để tới ảnh
+const BRANCH_REACH = 180;     // 🎯 tăng từ 95 -> 130, để ảnh tròn không bị đè bởi thân cây to hơn
 const SAMPLE_STEP = 20;       // độ mịn của đường cong thân cây
 // 🎯 Kích thước 1 tile ảnh leaf.svg khi lặp lại dọc thân cây
 // leaf.svg gốc có tỉ lệ 211.52 x 1131.2 (~1 : 5.35)
-const LEAF_TILE_WIDTH = 40;
-const LEAF_TILE_HEIGHT = LEAF_TILE_WIDTH * (1086 / 500);  // tỉ lệ ảnh vine-real.png mới (~2.17)
+const LEAF_TILE_WIDTH = 150;  // 🎯 tăng mạnh từ 70 -> 150 để dây leo to hẳn ra như yêu cầu
+const LEAF_TILE_HEIGHT = LEAF_TILE_WIDTH * (5658 / 1265);
+// 🎯 Khoảng cách an toàn giữa ảnh polaroid nền 2 bên và mép cột thân cây (tránh đè vào giữa)
+const SIDE_PHOTO_GAP = 30;
+const SIDE_PHOTO_OFFSET = VB_WIDTH / 2 + SIDE_PHOTO_GAP;
 
 function calculateAgeAtPhoto(birthdate?: string | null, takenDate?: string | null): string | null {
     if (!birthdate || !takenDate) return null;
@@ -21187,13 +21191,6 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     const topPoint = points[points.length - 1];
     const trunkTopY = topPoint?.isMemorialCap ? topPoint.y : 0;
 
-    let trunkPath = '';
-    for (let y = totalHeight; y >= trunkTopY; y -= SAMPLE_STEP) {
-        const x = trunkXAt(y);
-        trunkPath += trunkPath === '' ? `M ${x},${y}` : ` L ${x},${y}`;
-    }
-    trunkPath += ` L ${trunkXAt(trunkTopY)},${trunkTopY}`;
-
     return (
         <div className="relative w-full" style={{ height: totalHeight }}>
 
@@ -21212,33 +21209,30 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                 {photos.map((p, i) => {
                     const pet = p.memorial_photo_pets?.[0]?.pets;
                     const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && p.is_last_photo === true;
-                    if (isMemorialCap) return null; // 🎯 Ảnh tưởng niệm không cần ảnh nền polaroid phía sau, tránh đè lên ảnh tròn chính khi ở giữa màn hình mobile
+                    if (isMemorialCap) return null;
 
                     const isLeft = i % 2 === 0;
-                    // 🎯 Đồng bộ gapOffset với node ảnh tròn chính (vì node isMemorialCap đã bị return null ở trên,
-                    // nên mọi item còn lại ở đây đều là các item "phía dưới" node tưởng niệm nếu hasMemorialCap = true)
                     const gapOffset = hasMemorialCap ? extraGap : 0;
-                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + gapOffset;
+                    // ✅ y khớp đúng với ảnh tròn (có TOP_PADDING)
+                    const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + TOP_PADDING + gapOffset;
                     const topPercent = (y / totalHeight) * 100;
                     const rotate = (isLeft ? -1 : 1) * (5 + (i % 3) * 3);
 
                     return (
                         <div
                             key={`bg-${p.id}`}
-                            className={`absolute w-28 md:w-40 bg-white p-2.5 pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5 ${isLeft
-                                ? 'right-[8%] md:right-auto md:left-[25%]'
-                                : 'left-[8%] md:left-auto md:right-[25%]'
+                            className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
+                            w-16 sm:w-28 md:w-36 lg:w-44 xl:w-52
+                                ${isLeft
+                                    ? 'right-0 sm:right-auto sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
+                                    : 'left-0 sm:left-auto sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
                                 }`}
                             style={{
                                 top: `${topPercent}%`,
                                 transform: `translateY(-50%) rotate(${rotate}deg)`,
                             }}
                         >
-                            <img
-                                src={p.image_url}
-                                alt=""
-                                className="w-full aspect-[4/5] object-cover"
-                            />
+                            <img src={p.image_url} alt="" className="w-full aspect-[4/5] object-cover" />
                         </div>
                     );
                 })}
@@ -21250,52 +21244,28 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
 
             {/* 🎯 Thân cây + nhánh + lá, đặt trong khung căn giữa như cột nội dung */}
             <div className="relative w-full mx-auto h-full" style={{ maxWidth: VB_WIDTH }}>
+
+                {/* 🎯 Thân dây leo = chính ảnh vine-real.png, lặp lại dọc theo chiều cao (repeat-y),
+                    KHÔNG vẽ theo path SVG nữa. Dừng đúng tại trunkTopY nếu ảnh trên cùng là ảnh tưởng niệm */}
+                <div
+                    className="absolute left-1/2 -translate-x-1/2 z-[1] pointer-events-none select-none"
+                    style={{
+                        top: trunkTopY,
+                        width: LEAF_TILE_WIDTH,
+                        height: totalHeight - trunkTopY,
+                        backgroundImage: "url('/images/vine-real.png')",
+                        backgroundRepeat: 'repeat-y',
+                        backgroundPosition: 'top center',
+                        backgroundSize: `${LEAF_TILE_WIDTH}px ${LEAF_TILE_HEIGHT}px`,
+                    }}
+                />
+
                 <svg
-                    className="absolute inset-0 w-full h-full z-[1]"
+                    className="absolute inset-0 w-full h-full z-[2]"
                     viewBox={`0 0 ${VB_WIDTH} ${totalHeight}`}
                     preserveAspectRatio="none"
                     fill="none"
                 >
-                    <defs>
-                        <linearGradient id="trunkGradient" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="#a3a06a" />
-                            <stop offset="100%" stopColor="#6b6b3f" />
-                        </linearGradient>
-
-                        {/* 🎯 Khuôn hình lượn sóng của thân cây — lấy chính đường trunkPath làm mặt nạ */}
-                        <mask id="trunkMask" maskUnits="userSpaceOnUse">
-                            <path d={trunkPath} stroke="white" strokeWidth="18" strokeLinecap="round" fill="none" />
-                        </mask>
-
-                        {/* 🎯 Pattern lặp lại ảnh lá dọc theo trục Y để phủ hết chiều cao thân cây */}
-                        <pattern
-                            id="leafPattern"
-                            patternUnits="userSpaceOnUse"
-                            x="0"
-                            y="0"
-                            width={VB_WIDTH}
-                            height={LEAF_TILE_HEIGHT}
-                        >
-                            <image
-                                href="/images/vine-real.png"
-                                x={TRUNK_CENTER - LEAF_TILE_WIDTH / 2}
-                                y="0"
-                                width={LEAF_TILE_WIDTH}
-                                height={LEAF_TILE_HEIGHT}
-                                preserveAspectRatio="xMidYMid slice"
-                            />
-                        </pattern>
-                    </defs>
-
-                    {/* Bóng đổ phía sau cho có khối (giữ nguyên) */}
-                    <path d={trunkPath} stroke="#345527" strokeWidth="24" strokeLinecap="round" opacity="0.2" />
-
-                    {/* 🎯 Thân cây = hình chữ nhật phủ ảnh leaf.svg, chỉ hiện phần nằm trong khuôn lượn sóng */}
-                    <rect x="0" y="0" width={VB_WIDTH} height={totalHeight} fill="url(#leafPattern)" mask="url(#trunkMask)" />
-
-                    {/* Viền sáng nhẹ phía trên cho có ánh sáng (giữ nguyên) */}
-                    <path d={trunkPath} stroke="#ffffff" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
-
                     {/* Nhánh rẽ từ thân ra từng ảnh + lá + tua cuốn */}
                     {points.map((pt, i) => {
                         if (pt.isMemorialCap) return null;
@@ -21327,61 +21297,19 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                 left: `${(pt.x / VB_WIDTH) * 100}%`,
                                 top: `${(pt.y / totalHeight) * 100}%`,
                                 transform: 'translate(-50%, -50%)',
-                                width: isMemorialCap ? '16rem' : '9rem',
+                                width: isMemorialCap ? '22rem' : '9rem',   // 👈 16rem -> 22rem
                             }}
                         >
-                            <div className={`relative ${isMemorialCap ? 'w-48 h-48 md:w-60 md:h-60' : 'w-24 h-24 md:w-28 md:h-28'}`}>
+                            <div className={`relative ${isMemorialCap ? 'w-64 h-64 md:w-80 md:h-80' : 'w-24 h-24 md:w-28 md:h-28'}`}>
                                 {isMemorialCap ? (
                                     <>
                                         {/* Hào quang phía sau */}
                                         <div className="absolute -inset-3 rounded-full bg-amber-100/50 blur-lg vine-glow" />
 
-                                        {/* Vòng hoa tưởng niệm */}
-                                        <div className="absolute -inset-4 z-20 pointer-events-none">
-                                            <svg
-                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%_+_2rem)] h-[calc(100%_+_2rem)] z-20 pointer-events-none"
-                                                viewBox="0 0 100 100"
-                                                fill="none"
-                                            >
-                                                {Array.from({ length: 20 }).map((_, i) => {
-                                                    const angle = (i / 20) * Math.PI * 2;
-                                                    const cx = 50 + 42 * Math.cos(angle);
-                                                    const cy = 50 + 42 * Math.sin(angle);
-                                                    const rot = (angle * 180) / Math.PI + 90;
-                                                    return (
-                                                        <ellipse
-                                                            key={`leaf-${i}`}
-                                                            cx={cx}
-                                                            cy={cy}
-                                                            rx="5"
-                                                            ry="2.5"
-                                                            fill={i % 2 === 0 ? '#8bb56f' : '#a3c785'}
-                                                            transform={`rotate(${rot} ${cx} ${cy})`}
-                                                        />
-                                                    );
-                                                })}
-                                                {[0, 1, 2, 3].map((k) => {
-                                                    const angle = (k / 4) * Math.PI * 2 + Math.PI / 8;
-                                                    const cx = 50 + 42 * Math.cos(angle);
-                                                    const cy = 50 + 42 * Math.sin(angle);
-                                                    return (
-                                                        <g key={`flower-${k}`}>
-                                                            {Array.from({ length: 5 }).map((_, p) => {
-                                                                const pa = (p / 5) * Math.PI * 2;
-                                                                const px = cx + 3 * Math.cos(pa);
-                                                                const py = cy + 3 * Math.sin(pa);
-                                                                return <circle key={p} cx={px} cy={py} r="2.4" fill="#f2a65a" />;
-                                                            })}
-                                                            <circle cx={cx} cy={cy} r="2.2" fill="#d9782f" />
-                                                        </g>
-                                                    );
-                                                })}
-                                            </svg>
-                                        </div>
-
+                                        {/* Ảnh mèo - thu nhỏ vào trong để vòng hoa phủ được lên mép ảnh */}
                                         <button
                                             onClick={() => setSelected(pt.photo)}
-                                            className="group relative z-10 w-full h-full rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
+                                            className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer"
                                         >
                                             <img
                                                 src={pt.photo.image_url}
@@ -21389,6 +21317,15 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                                                 className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500"
                                             />
                                         </button>
+
+                                        {/* Vòng hoa tưởng niệm */}
+                                        <div className="absolute -inset-4 z-20 pointer-events-none">
+                                            <img
+                                                src="/images/vong-hoa.png"
+                                                alt=""
+                                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%_+_2rem)] h-[calc(100%_+_2rem)] object-contain"
+                                            />
+                                        </div>
                                     </>
                                 ) : (
                                     <>
