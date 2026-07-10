@@ -129,10 +129,12 @@ export default function HeroBanner() {
       try {
         const { lat, lon } = selectedCity;
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&timezone=Asia%2FHo_Chi_Minh`);
+        if (!res.ok) throw new Error(`Weather API lỗi: ${res.status}`);
         const data = await res.json();
         const current = data.current_weather;
 
         if (isCancelled) return;
+        if (!current) throw new Error('Weather API không trả về current_weather');
 
         const code = current.weathercode;
         if (code === 0) setWeatherCondition('clear');
@@ -236,10 +238,9 @@ export default function HeroBanner() {
       <style dangerouslySetInnerHTML={{
         __html: `
         /* Import Font Dancing Script cho Logo và Lora cho Slogan hỗ trợ tiếng Việt chuẩn */
-        @import url('https://fonts.googleapis.com/css2?family=Dancing+Script:wght@700&family=Lora:ital,wght@0,500;1,500&display=swap');
         
-        .font-cursive { font-family: 'Dancing Script', cursive; }
-        .font-slogan { font-family: 'Lora', serif; }
+        .font-cursive { font-family: var(--font-dancing-script), cursive; }
+        .font-slogan { font-family: var(--font-lora), serif; }
 
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
@@ -420,12 +421,12 @@ export default function HeroBanner() {
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M15 19l-7-7 7-7"></path></svg>
         </button>
 
-        <button
+        {/* <button
           onClick={() => scrollSlide('right')}
           className="hidden md:flex absolute right-8 top-1/2 -translate-y-1/2 z-50 w-14 h-14 bg-black/20 hover:bg-black/40 backdrop-blur-md border border-white/20 text-white rounded-full items-center justify-center shadow-lg transition-all"
         >
           <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 5l7 7-7 7"></path></svg>
-        </button>
+        </button> */}
 
         {isLoading ? (
           <div className="absolute inset-0 flex items-center justify-center flex-col gap-4 bg-slate-900/50 backdrop-blur-sm z-50">

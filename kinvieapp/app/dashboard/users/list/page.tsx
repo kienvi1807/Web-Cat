@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/lib/supabase'; 
-import GlassSelect from '@/components/ui/GlassSelect'; 
+import GlassSelect from '@/components/ui/GlassSelect';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const getRoleColor = (role: string, rank: string) => {
   if (role === 'Boss') return 'bg-stone-900 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]';
@@ -18,6 +20,9 @@ const getRoleColor = (role: string, rank: string) => {
     default: return 'bg-white text-stone-500 border-stone-200';
   }
 };
+
+const setThemeColor = useLayoutStore(state => state.setThemeColor);
+useEffect(() => { setThemeColor('aqua'); }, [setThemeColor]);
 
 export default function AccountListPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -153,10 +158,7 @@ export default function AccountListPage() {
 
   return (
     <div className="space-y-10 animate-fade-in max-w-[1400px] mx-auto pb-24 px-4 relative">
-      
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-cyan-400/10 mix-blend-multiply filter blur-[120px] animate-blob pointer-events-none z-0"></div>
-      <div className="fixed bottom-[-10%] right-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/10 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-2000 pointer-events-none z-0"></div>
-
+      <BackgroundGlow />
       <div className="text-center mb-12 relative z-10">
         <h1 className="text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-800 via-cyan-800 to-stone-800 tracking-tight drop-shadow-sm flex items-center justify-center gap-4">
           Hệ thống Tài khoản <span className="animate-pulse text-cyan-500">🥷</span>

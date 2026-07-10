@@ -1,5 +1,6 @@
 "use client";
 import React from 'react';
+import Image from 'next/image';
 
 const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
 const TOP_PADDING = 100;
@@ -102,17 +103,11 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                         <div
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
-                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52
-                                ${isLeft
-                                    ? 'left-[calc(50%_+_90px)] sm:left-[calc(50%_+_200px)] md:left-[calc(50%_+_260px)] lg:left-[calc(50%_+_320px)] xl:left-[calc(50%_+_400px)]'
-                                    : 'right-[calc(50%_+_90px)] sm:right-[calc(50%_+_200px)] md:right-[calc(50%_+_260px)] lg:right-[calc(50%_+_320px)] xl:right-[calc(50%_+_400px)]'
-                                }`}
-                            style={{
-                                top: `${topPercent}%`,
-                                transform: `translateY(-50%) rotate(${rotate}deg)`,
-                            }}
+                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
+                                ${isLeft ? '...' : '...'}`}
+                            style={{ top: `${topPercent}%`, transform: `translateY(-50%) rotate(${rotate}deg)` }}
                         >
-                            <img src={p.image_url} alt="" className="w-full aspect-[4/5] object-cover" />
+                            <Image src={p.image_url} alt="" fill sizes="208px" className="object-cover" />
                         </div>
                     );
                 })}
@@ -190,10 +185,10 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                                             onClick={() => setSelected(pt.photo)}
                                             className="group absolute inset-[20%] z-10 rounded-full overflow-hidden border-4 border-white shadow-xl cursor-pointer bg-stone-900"
                                         >
-                                            <img src={pt.photo.image_url} alt="" aria-hidden="true"
-                                                className="absolute inset-0 w-full h-full object-cover grayscale blur-md scale-110 opacity-70 group-hover:grayscale-0 transition-all duration-500" />
-                                            <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'}
-                                                className="absolute inset-0 w-full h-full object-contain grayscale group-hover:grayscale-0 transition-all duration-500" />
+                                            <Image src={pt.photo.image_url} alt="" aria-hidden="true" fill sizes="(max-width: 768px) 288px, 384px"
+                                                className="object-cover grayscale blur-md scale-110 opacity-70 group-hover:grayscale-0 transition-all duration-500" />
+                                            <Image src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} fill sizes="(max-width: 768px) 288px, 384px"
+                                                className="object-contain grayscale group-hover:grayscale-0 transition-all duration-500" />
                                         </button>
 
                                         {/* Vòng hoa tưởng niệm */}
@@ -212,7 +207,7 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                                             onClick={() => setSelected(pt.photo)}
                                             className="relative z-10 w-full h-full rounded-full overflow-hidden border-4 border-white shadow-lg ring-2 ring-emerald-200 cursor-pointer hover:scale-105 transition-transform"
                                         >
-                                            <img src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} className="w-full h-full object-cover" />
+                                            <Image src={pt.photo.image_url} alt={pet?.petname || 'Kỷ niệm'} fill sizes="(max-width: 768px) 96px, 112px" className="object-cover" />
                                         </button>
                                     </>
                                 )}
@@ -245,7 +240,7 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                         className="bg-white rounded-[2rem] overflow-hidden max-w-sm w-full max-h-[85vh] overflow-y-auto"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <img src={selected.image_url} className="w-full max-h-[60vh] object-contain bg-stone-50" alt="" />
+                        <img src={selected.image_url} className="w-full max-h-[60vh] object-contain bg-stone-50" alt="" loading="lazy" />
                         <div className="p-5 text-center">
                             {selected.memorial_photo_pets?.[0]?.pets?.petname && (
                                 <p className="font-black text-emerald-700">{selected.memorial_photo_pets[0].pets.petname}</p>

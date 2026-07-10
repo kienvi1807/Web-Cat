@@ -3,7 +3,9 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -57,7 +59,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     checkAuth();
   }, [router]);
 
-  if (!isAuthorized) return <div className="min-h-screen bg-stone-900 flex items-center justify-center font-bold text-pink-500 text-xl animate-pulse">Đang xác thực quyền lực... 👑</div>;
+  if (!isAuthorized) return <LoadingSpinner fullScreen text="Đang xác thực quyền lực... 👑" />;
 
   const handleLogout = async () => {
     if (window.confirm("Thoát khỏi trang quản trị?")) {
@@ -89,8 +91,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         {/* LOGO */}
         <div className="h-20 flex items-center px-6 border-b border-stone-800/80 bg-black/20 backdrop-blur-sm whitespace-nowrap">
           <Link href="/" className="text-xl font-serif font-black text-white tracking-wide flex items-center gap-4">
-            {/* Chân chó luôn hiện */}
-            <span className="text-pink-500 text-3xl drop-shadow-[0_0_12px_rgba(236,72,153,0.8)] group-hover:animate-spin-slow transition-all shrink-0">🐾</span>
+            {/* Logo luôn hiện */}
+            <div className="relative w-9 h-9 rounded-full overflow-hidden border-2 border-pink-500 shadow-[0_0_12px_rgba(236,72,153,0.8)] shrink-0">
+              <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="36px" />
+            </div>
             {/* Chữ KINVIE ẩn đi khi thu nhỏ, hiện ra khi hover */}
             <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 delay-100">KINVIE<span className="text-pink-500">.</span></span>
           </Link>

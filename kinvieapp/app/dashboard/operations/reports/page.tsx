@@ -7,11 +7,16 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const PIE_COLORS = ['#f59e0b', '#f97316', '#ef4444', '#8b5cf6', '#10b981', '#3b82f6'];
 
 type SortField = 'fullname' | 'phone' | 'loginCount' | 'orderCount' | 'totalSpent';
 type SortDir = 'asc' | 'desc';
+
+const setThemeColor = useLayoutStore(state => state.setThemeColor);
+useEffect(() => { setThemeColor('sunset'); }, [setThemeColor]);
 
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -296,9 +301,7 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24 relative overflow-hidden selection:bg-amber-200">
-      <div className="fixed top-[-10%] left-[-10%] w-[40%] h-[40%] rounded-full bg-amber-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[50%] h-[50%] rounded-full bg-orange-400/15 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      
+      <BackgroundGlow />      
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in-up">
         
         {/* HEADER SECTION */}

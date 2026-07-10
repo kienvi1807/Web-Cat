@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import Link from 'next/link';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { Suspense } from 'react';
+import Image from 'next/image';
 
 // ==========================================
 // COMPONENT 1: THẺ BÀI VIẾT (POST CARD)
@@ -219,7 +220,7 @@ function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
       <div className="flex flex-col p-5 pb-3">
         <div className="flex items-center justify-between mb-2">
           <div className="flex items-center gap-3">
-            <img src={authorAvatar} alt="avatar" className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
+            <Image src={authorAvatar} alt="avatar" width={48} height={48} className="w-12 h-12 rounded-full object-cover border-2 border-pink-100" />
             <div>
               <h4 className="font-bold text-stone-800">{authorName}</h4>
               <span className="text-xs text-stone-400">{new Date(post.created_at).toLocaleDateString('vi-VN')}</span>
@@ -237,7 +238,7 @@ function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
             <span className="text-xs text-stone-400">Cùng với:</span>
             {taggedPets.map((pet: any) => (
               <Link href={`/pet/${pet.petid}`} key={pet.petid} className="inline-flex items-center gap-1.5 px-2.5 py-1 bg-pink-50 text-pink-600 rounded-full text-xs font-bold border border-pink-100 hover:bg-pink-100 transition">
-                <img src={pet.imageurl || 'https://ui-avatars.com/api/?name=Cat'} className="w-4 h-4 rounded-full object-cover" alt="pet" />
+                <Image src={pet.imageurl || 'https://ui-avatars.com/api/?name=Cat'} width={16} height={16} className="w-4 h-4 rounded-full object-cover" alt="pet" />
                 {pet.petname}
               </Link>
             ))}
@@ -320,7 +321,7 @@ function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
 
                   {/* BÌNH LUẬN CHA */}
                   <div className="flex gap-3">
-                    <img src={cmt.users?.avatarurl || 'https://ui-avatars.com/api/?name=U&background=f3f4f6'} className="w-8 h-8 rounded-full border border-stone-200 shrink-0" alt="avt" />
+                    <Image src={cmt.users?.avatarurl || 'https://ui-avatars.com/api/?name=U&background=f3f4f6'} width={32} height={32} className="w-8 h-8 rounded-full border border-stone-200 shrink-0" alt="avt" />
                     <div>
                       <div className="bg-white px-4 py-2.5 rounded-2xl rounded-tl-none shadow-sm border border-stone-100 w-max max-w-full">
                         <p className="text-xs font-bold text-stone-800 mb-0.5">{commenterName}</p>
@@ -355,7 +356,7 @@ function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
                       {/* Dùng displayedReplies thay vì replies */}
                       {displayedReplies.map(reply => (
                         <div key={reply.id} className="flex gap-2 items-start">
-                          <img src={reply.users?.avatarurl || 'https://ui-avatars.com/api/?name=R&background=f3f4f6'} className="w-6 h-6 rounded-full border border-stone-200 shrink-0" alt="avt" />
+                          <Image src={reply.users?.avatarurl || 'https://ui-avatars.com/api/?name=R&background=f3f4f6'} width={24} height={24} className="w-6 h-6 rounded-full border border-stone-200 shrink-0" alt="avt" />
                           <div>
                             <div className="bg-stone-100/80 px-3 py-2 rounded-2xl rounded-tl-none border border-stone-100 w-max max-w-full">
                               <p className="text-[11px] font-bold text-stone-800 mb-0.5">{reply.users?.cattery_name || reply.users?.fullname || 'Khách'}</p>
@@ -397,7 +398,7 @@ function PostCard({ post, currentUser, onDelete, isTarget, autoOpenComments }: {
                 </div>
               )}
               <form onSubmit={handleSendComment} className={`flex items-center gap-3 bg-white p-2 border border-stone-200 shadow-sm ${replyingTo ? 'rounded-b-2xl' : 'rounded-full'}`}>
-                {!replyingTo && <img src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} className="w-8 h-8 rounded-full border border-pink-100" alt="me" />}
+                {!replyingTo && <Image src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} width={32} height={32} className="w-8 h-8 rounded-full border border-pink-100" alt="me" />}
                 <input
                   type="text"
                   value={newComment}
@@ -428,6 +429,10 @@ function FeedContent() {
   const shouldOpenComments = searchParams.get('openComments') === '1';
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const PAGE_SIZE = 10;
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [myPets, setMyPets] = useState<any[]>([]); // 🎯 MỚI: Chứa danh sách mèo của người dùng
   const [selectedPets, setSelectedPets] = useState<number[]>([]); // 🎯 MỚI: Mèo được chọn để tag
 
@@ -462,12 +467,41 @@ function FeedContent() {
           users(cattery_name, fullname, avatarurl),
           post_pets(pets(petid, petname, imageurl))
         `)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false })
+        .range(0, PAGE_SIZE - 1);
 
-      if (data) setPosts(data);
+      if (data) setPosts(data), setHasMore(data.length === PAGE_SIZE);
     };
     initData();
   }, []);
+
+  const loadMorePosts = async () => {
+    if (isLoadingMore || !hasMore) return;
+    setIsLoadingMore(true);
+    const nextPage = page + 1;
+    const from = nextPage * PAGE_SIZE;
+    const { data } = await supabase
+      .from('posts')
+      .select(`*, users(cattery_name, fullname, avatarurl), post_pets(pets(petid, petname, imageurl))`)
+      .order('created_at', { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+
+    if (data) {
+      setPosts(prev => [...prev, ...data]);
+      setPage(nextPage);
+      setHasMore(data.length === PAGE_SIZE);
+    }
+    setIsLoadingMore(false);
+  };
+
+  const observerTarget = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const observer = new IntersectionObserver((entries) => {
+      if (entries[0].isIntersecting) loadMorePosts();
+    }, { threshold: 1 });
+    if (observerTarget.current) observer.observe(observerTarget.current);
+    return () => observer.disconnect();
+  }, [page, hasMore, isLoadingMore]);
 
   const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
@@ -563,7 +597,7 @@ function FeedContent() {
       <main className="container mx-auto px-4 max-w-2xl relative">
         <div className="mb-8 mt-4">
           <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white border border-pink-100 text-pink-500 text-xs font-black uppercase tracking-widest mb-3 shadow-sm">
-            <img src="images/logo.jpg" alt="KinVie Logo" className="w-8 h-8 rounded-full object-cover border border-pink-100 shadow-sm" />
+            <Image src="/images/logo.jpg" alt="KinVie Logo" width={32} height={32} className="w-8 h-8 rounded-full object-cover border border-pink-100 shadow-sm" />
             Cộng đồng KinVie
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-rose-400 to-pink-500 tracking-tight drop-shadow-sm pb-1">
@@ -575,7 +609,7 @@ function FeedContent() {
         <div className="bg-white rounded-full shadow-sm border border-stone-200 p-2 pl-3 mb-8 flex items-center gap-3">
           {currentUser ? (
             <>
-              <img src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} className="w-10 h-10 rounded-full object-cover" alt="avt" />
+              <Image src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} width={40} height={40} className="w-10 h-10 rounded-full object-cover" alt="avt" />
               <button onClick={() => setIsModalOpen(true)} className="flex-1 bg-stone-100 hover:bg-stone-200 rounded-full py-2.5 px-4 text-left text-stone-500 text-sm font-medium">
                 Sen ơi, Boss nhà bạn hôm nay thế nào?
               </button>
@@ -601,7 +635,7 @@ function FeedContent() {
 
               <form onSubmit={handleCreatePost} className="p-4 max-h-[80vh] overflow-y-auto custom-scrollbar">
                 <div className="flex items-center gap-3 mb-4">
-                  <img src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} className="w-10 h-10 rounded-full object-cover" alt="avt" />
+                  <Image src={currentUser.avatarurl || 'https://ui-avatars.com/api/?name=Me'} width={40} height={40} className="w-10 h-10 rounded-full object-cover" alt="avt" />
                   <span className="font-bold text-stone-800">{currentUser.cattery_name || currentUser.fullname}</span>
                 </div>
 
@@ -641,7 +675,7 @@ function FeedContent() {
                             className={`flex flex-col items-center gap-1.5 shrink-0 w-16 transition-all ${isSelected ? 'opacity-100 scale-105' : 'opacity-60 hover:opacity-100'}`}
                           >
                             <div className={`w-14 h-14 rounded-full p-1 border-2 ${isSelected ? 'border-pink-500 bg-pink-50' : 'border-transparent'}`}>
-                              <img src={pet.imageurl || 'https://ui-avatars.com/api/?name=Cat'} className="w-full h-full rounded-full object-cover" alt="pet" />
+                              <Image src={pet.imageurl || 'https://ui-avatars.com/api/?name=Cat'} width={56} height={56} className="w-full h-full rounded-full object-cover" alt="pet" />
                             </div>
                             <span className={`text-[10px] whitespace-nowrap overflow-hidden text-ellipsis w-full text-center ${isSelected ? 'font-bold text-pink-600' : 'text-stone-500'}`}>{pet.petname}</span>
                           </button>
@@ -671,6 +705,7 @@ function FeedContent() {
               autoOpenComments={shouldOpenComments && targetPostId === post.id}
             />
           ))}
+          <div ref={observerTarget} className="h-10" />
         </div>
       </main>
     </div>

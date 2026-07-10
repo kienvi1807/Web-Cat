@@ -208,7 +208,7 @@ export default function Header() {
 
   return (
     <>
-      <header className={`fixed top-0 w-full z-40 backdrop-blur-md border-b transition-colors duration-300 ${isCatteryPage ? 'bg-black border-stone-800' : 'bg-white/70 border-pink-50'}`}>
+      <header className={`fixed top-0 w-full z-40 backdrop-blur-md border-b transition-colors duration-300 ${isCatteryPage ? 'bg-black border-stone-800' : 'bg-white/70 dark:bg-stone-900/80 border-pink-50 dark:border-stone-800'}`}>
 
         <style dangerouslySetInnerHTML={{
           __html: `
@@ -232,7 +232,7 @@ export default function Header() {
             <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M4 6h16M4 12h16M4 18h16" /></svg>
           </button>
 
-          <nav className={`hidden lg:flex lg:gap-3 xl:gap-8 font-medium text-sm xl:text-base w-1/3 whitespace-nowrap transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600'}`}>
+          <nav className={`hidden lg:flex lg:gap-3 xl:gap-8 font-medium text-sm xl:text-base w-1/3 whitespace-nowrap transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600 dark:text-stone-300'}`}>
             <Link href="/" className={`pb-1 transition-colors ${pathname === '/' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Trang Chủ</Link>
             <Link href="/cattery" className={`pb-1 transition-colors ${pathname === '/cattery' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>KinVie Cattery</Link>
             <Link href="/petshop" className={`pb-1 transition-colors ${pathname === '/petshop' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Beam Petshop</Link>
@@ -304,7 +304,7 @@ export default function Header() {
             )}
           </Link>
 
-          <nav className={`flex gap-1.5 sm:gap-3 lg:gap-2 xl:gap-6 font-medium items-center justify-end w-auto lg:w-1/3 z-20 shrink-0 text-sm xl:text-base transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600'}`}>
+          <nav className={`flex gap-1.5 sm:gap-3 lg:gap-2 xl:gap-6 font-medium items-center justify-end w-auto lg:w-1/3 z-20 shrink-0 text-sm xl:text-base transition-colors duration-300 ${isCatteryPage ? 'text-white' : 'text-stone-600 dark:text-stone-300'}`}>
             <Link href="/blog" className={`hidden lg:block pb-1 transition-colors whitespace-nowrap ${pathname === '/blog' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default mr-2' : 'hover:text-pink-400 mr-2'}`}>Blog</Link>
             <Link href="/feed" className={`hidden lg:block pb-1 transition-colors whitespace-nowrap ${pathname === '/feed' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cộng đồng</Link>
 
@@ -369,11 +369,13 @@ export default function Header() {
             {isLoadingAuth ? (
               <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-stone-200 animate-pulse border-2 border-white shadow-sm"></div>
             ) : isLoggedIn ? (
-              <Link href="/profile" className="w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
-                <img
+              <Link href="/profile" className="relative w-8 h-8 md:w-10 md:h-10 rounded-full overflow-hidden border-2 border-pink-100 flex items-center justify-center bg-stone-100 hover:border-pink-300 transition-all shadow-sm">
+                <Image
                   src={safeAvatarUrl}
                   alt="Avatar"
-                  className="w-full h-full object-cover"
+                  fill
+                  sizes="40px"
+                  className="object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
                   }}

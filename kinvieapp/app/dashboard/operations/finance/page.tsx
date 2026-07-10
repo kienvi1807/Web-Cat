@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 // Danh mục chi phí chuẩn
 const EXPENSE_CATEGORIES = [
@@ -12,6 +14,9 @@ const EXPENSE_CATEGORIES = [
   '📢 Marketing & Quảng cáo', 
   '⚙️ Khác'
 ];
+
+const setThemeColor = useLayoutStore(state => state.setThemeColor);
+useEffect(() => { setThemeColor('emerald'); }, [setThemeColor]);
 
 export default function FinancePage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -133,10 +138,7 @@ export default function FinancePage() {
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-24 relative overflow-hidden">
       {/* HIỆU ỨNG NỀN */}
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-emerald-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-emerald-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-emerald-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
-
+      <BackgroundGlow />
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
         
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">

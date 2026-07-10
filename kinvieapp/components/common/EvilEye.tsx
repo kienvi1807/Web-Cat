@@ -18,6 +18,7 @@ interface EvilEyeProps {
     flameSpeed?: number;
     backgroundColor?: string;
     className?: string;
+    pupilOpen?: boolean;
 }
 
 function hexToVec3(hex: string): [number, number, number] {
@@ -111,6 +112,7 @@ uniform float uNoiseScale;
 uniform vec2 uMouse;
 uniform float uPupilFollow;
 uniform float uFlameSpeed;
+uniform float uPupilAspectX;
 uniform vec3 uEyeColor;
 uniform vec3 uBgColor;
 
@@ -151,7 +153,7 @@ void main() {
   // Pupil with cursor tracking
   vec2 pupilOffset = uMouse * uPupilFollow * 0.12;
   vec2 pupilUv = uv - pupilOffset;
-  float pupil = 1.0 - length(pupilUv * vec2(9.0, 2.3));
+  float pupil = 1.0 - length(pupilUv * vec2(uPupilAspectX, 2.3));
   pupil *= uPupilSize;
   pupil = clamp(pupil, 0.0, 1.0);
   pupil /= 0.35;
@@ -193,6 +195,7 @@ export default function EvilEye({
     flameSpeed = 1.0,
     backgroundColor = "#000000",
     className = "",
+    pupilOpen = false,
 }: EvilEyeProps) {
     const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -202,6 +205,10 @@ export default function EvilEye({
     );
     // Màu đích cần tiến tới — đổi mỗi 5 phút nếu cycleColors=true
     const targetColorRef = useRef<[number, number, number]>(currentColorRef.current);
+
+    // 🆕 Độ "dẹt" của pupil: 9.0 = khe dọc như mắt mèo, ~2.3 = tròn (bằng trục kia)
+    const pupilAspectRef = useRef<number>(9.0);
+    const targetPupilAspectRef = useRef<number>(9.0);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -288,6 +295,7 @@ export default function EvilEye({
                 uMouse: { value: [0, 0] },
                 uPupilFollow: { value: pupilFollow },
                 uFlameSpeed: { value: flameSpeed },
+                uPupilAspectX: { value: pupilAspectRef.current },
                 uEyeColor: { value: currentColorRef.current },
                 uBgColor: { value: hexToVec3(backgroundColor) },
             },
@@ -312,6 +320,8 @@ export default function EvilEye({
             cur[1] += (tgt[1] - cur[1]) * 0.01;
             cur[2] += (tgt[2] - cur[2]) * 0.01;
             program.uniforms.uEyeColor.value = cur;
+            pupilAspectRef.current += (targetPupilAspectRef.current - pupilAspectRef.current) * 0.08;
+            program.uniforms.uPupilAspectX.value = pupilAspectRef.current;
 
             renderer.render({ scene: mesh });
         }
@@ -343,6 +353,10 @@ export default function EvilEye({
         const id = setInterval(tick, 5000); // kiểm tra mỗi 5s, đủ nhẹ và chính xác
         return () => clearInterval(id);
     }, [cycleColors, cycleIntervalMs, eyeColor]);
+
+    useEffect(() => {
+        targetPupilAspectRef.current = pupilOpen ? 2.3 : 9.0;
+    }, [pupilOpen]);
 
     return <div ref={containerRef} className={`evil-eye-container ${className}`} />;
 }

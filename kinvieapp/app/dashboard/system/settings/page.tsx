@@ -5,11 +5,12 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import BannerManager from '@/components/dashboard/BannerManager';
 
 export default function SystemSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  
+
   // State lưu trữ toàn bộ cấu hình
   const [settings, setSettings] = useState({
     theme_mode: 'light',
@@ -17,6 +18,7 @@ export default function SystemSettingsPage() {
     zalo: '',
     email: '',
     facebook_url: '',
+    facebook_cattery_url: '',
     tiktok_url: '',
     instagram_url: ''
   });
@@ -45,15 +47,22 @@ export default function SystemSettingsPage() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('system_settings')
         .update({
           ...settings,
           updated_at: new Date().toISOString()
         })
-        .eq('id', 1);
+        .eq('id', 1)
+        .select(); // 🎯 thêm .select() để biết chính xác có dòng nào được update không
 
       if (error) throw error;
+
+      if (!data || data.length === 0) {
+        alert("⚠️ Không tìm thấy dòng cấu hình id=1 trong bảng system_settings. Cần insert dòng đầu tiên trước (xem hướng dẫn SQL).");
+        return;
+      }
+
       alert("✅ Đã lưu cấu hình hệ thống thành công!");
     } catch (err) {
       console.error(err);
@@ -71,7 +80,7 @@ export default function SystemSettingsPage() {
       <BackgroundGlow />
 
       <div className="max-w-5xl mx-auto px-6 pt-12 relative z-10 animate-fade-in-up">
-        
+
         {/* HEADER SECTION */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
           <div>
@@ -85,7 +94,7 @@ export default function SystemSettingsPage() {
           </div>
 
           {/* NÚT LƯU TRÊN HEADER */}
-          <button 
+          <button
             onClick={handleSave}
             disabled={isSaving || isLoading}
             className="cursor-pointer px-10 py-4 bg-slate-800 text-white rounded-2xl font-black text-sm shadow-[0_8px_20px_rgba(30,41,59,0.3)] hover:bg-slate-900 hover:shadow-[0_8px_25px_rgba(30,41,59,0.4)] hover:-translate-y-1 transition-all disabled:opacity-50 flex items-center gap-2"
@@ -102,7 +111,7 @@ export default function SystemSettingsPage() {
           <div className="py-40 text-center"><div className="w-12 h-12 border-4 border-slate-200 border-t-slate-800 rounded-full animate-spin mx-auto mb-4"></div><p className="font-black text-slate-600 animate-pulse uppercase">Đang tải cấu hình...</p></div>
         ) : (
           <div className="space-y-8">
-            
+
             {/* 🎯 SECTION 1: CHẾ ĐỘ HIỂN THỊ (THEME) */}
             <div className="bg-white/70 backdrop-blur-2xl border border-white shadow-sm rounded-[2.5rem] p-8 md:p-10 transition-all hover:shadow-md">
               <div className="flex items-center gap-4 mb-8 border-b border-stone-100 pb-6">
@@ -112,16 +121,16 @@ export default function SystemSettingsPage() {
                   <p className="text-sm font-bold text-stone-500 mt-1">Cài đặt giao diện mặc định cho khách hàng khi truy cập website.</p>
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between bg-stone-50 border border-stone-200 p-6 rounded-3xl">
                 <div>
                   <h4 className="font-black text-stone-800">Giao diện Sáng / Tối</h4>
                   <p className="text-xs font-bold text-stone-400 mt-1">Hiện tại đang ở chế độ: <span className="uppercase text-slate-600">{settings.theme_mode}</span></p>
                 </div>
-                
+
                 {/* Công tắc Toggle UI/UX chuẩn Apple */}
-                <button 
-                  onClick={() => setSettings({...settings, theme_mode: settings.theme_mode === 'light' ? 'dark' : 'light'})}
+                <button
+                  onClick={() => setSettings({ ...settings, theme_mode: settings.theme_mode === 'light' ? 'dark' : 'light' })}
                   className={`cursor-pointer relative w-20 h-10 rounded-full transition-colors duration-300 ${settings.theme_mode === 'dark' ? 'bg-slate-800' : 'bg-stone-300'}`}
                 >
                   <div className={`absolute top-1 left-1 w-8 h-8 rounded-full bg-white shadow-md flex items-center justify-center transition-transform duration-300 ${settings.theme_mode === 'dark' ? 'translate-x-10' : 'translate-x-0'}`}>
@@ -178,13 +187,21 @@ export default function SystemSettingsPage() {
 
               <div className="space-y-5">
                 <div>
-                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-2">Facebook Fanpage</label>
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-2">Facebook Fanpage - KinVie Cattery (Mèo)</label>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl">🐾</span>
+                    <input type="text" name="facebook_cattery_url" value={settings.facebook_cattery_url} onChange={handleChange} placeholder="https://facebook.com/kinviecattery" className="w-full bg-white/50 border border-stone-200 rounded-2xl pl-12 pr-5 py-4 text-sm font-bold focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[10px] font-black text-blue-500 uppercase tracking-widest block mb-2">Facebook Fanpage - Beam Petshop (Đồ ăn)</label>
                   <div className="relative">
                     <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xl">📘</span>
                     <input type="text" name="facebook_url" value={settings.facebook_url} onChange={handleChange} placeholder="https://facebook.com/..." className="w-full bg-white/50 border border-stone-200 rounded-2xl pl-12 pr-5 py-4 text-sm font-bold focus:border-blue-400 focus:ring-2 focus:ring-blue-100 outline-none transition-all" />
                   </div>
                 </div>
-                
+
                 <div>
                   <label className="text-[10px] font-black text-stone-800 uppercase tracking-widest block mb-2">TikTok Channel</label>
                   <div className="relative">
@@ -203,11 +220,30 @@ export default function SystemSettingsPage() {
               </div>
             </div>
 
+            {/* 🎯 SECTION 4: ẢNH BANNER TRANG CHỦ */}
+            <div className="bg-white/70 backdrop-blur-2xl border border-white shadow-sm rounded-[2.5rem] p-8 md:p-10 transition-all hover:shadow-md">
+              <div className="flex items-center gap-4 mb-8 border-b border-stone-100 pb-6">
+                <div className="w-12 h-12 bg-rose-50 text-rose-500 rounded-2xl flex items-center justify-center text-2xl">🖼️</div>
+                <div>
+                  <h2 className="text-xl font-black text-stone-800">Ảnh Banner Trang Chủ</h2>
+                  <p className="text-sm font-bold text-stone-500 mt-1">Quản lý ảnh carousel cho 4 khu vực ở trang chủ.</p>
+                </div>
+              </div>
+
+              <div className="space-y-6">
+                <BannerManager groupId={1} title="Khu vực KinVie Cattery" colorClass="pink" />
+                <BannerManager groupId={2} title="Khu vực Beam Petshop" colorClass="orange" />
+                <BannerManager groupId={3} title="Khu vực Cộng Đồng KinVie" colorClass="blue" />
+                <BannerManager groupId={4} title="Khu vực Kho Báu Ký Ức" colorClass="emerald" />
+              </div>
+            </div>
+
           </div>
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .animate-fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
       `}} />

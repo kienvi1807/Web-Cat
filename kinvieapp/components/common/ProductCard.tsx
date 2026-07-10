@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getAffiliatePlatform, AFFILIATE_PLATFORM_META } from '@/lib/utils';
+import Image from 'next/image';
 
 export default function ProductCard({ product }: { product: any }) {
   const router = useRouter();
@@ -140,11 +141,13 @@ export default function ProductCard({ product }: { product: any }) {
         className="group bg-white rounded-[2rem] overflow-hidden cursor-pointer border border-orange-50 relative transition-all duration-500 hover:-translate-y-2 hover:shadow-[0_20px_50px_-12px_rgba(249,115,22,0.25)] hover:border-orange-200 flex flex-col h-full"
       >
         <div className="relative aspect-square overflow-hidden bg-stone-50 shrink-0 p-4 flex items-center justify-center">
-          <img
+          <Image
             src={imageUrl}
             alt={product.name}
-            className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
-            onError={(e) => { (e.target as HTMLImageElement).src = 'https://placehold.co/400x400/ffedd5/ea580c?text=Anh+Loi'; }}
+            fill
+            sizes="(max-width: 768px) 50vw, 25vw"
+            className="object-contain group-hover:scale-110 transition-transform duration-700 ease-out mix-blend-multiply"
+            onError={(e) => { (e.target as HTMLImageElement).src = 'https://...' }}
           />
           {discount > 0 && (
             <div className="absolute top-4 left-4 bg-rose-500 px-3 py-1.5 rounded-full text-[11px] font-black text-white shadow-md uppercase tracking-wider animate-pulse z-10">
@@ -235,8 +238,8 @@ export default function ProductCard({ product }: { product: any }) {
 
             {/* Thông tin SP thu gọn */}
             <div className="flex gap-4 border-b border-stone-100 pb-6 mb-6">
-              <div className="w-24 h-24 bg-stone-50 rounded-2xl border border-stone-100 p-2 shrink-0">
-                <img src={imageUrl} className="w-full h-full object-contain mix-blend-multiply" alt={product.name} />
+              <div className="relative w-24 h-24 bg-stone-50 rounded-2xl border border-stone-100 p-2 shrink-0">
+                <Image src={imageUrl} fill sizes="96px" className="object-contain mix-blend-multiply" alt={product.name} />
               </div>
               <div className="flex-1 flex flex-col justify-center">
                 <h4 className="font-black text-stone-800 line-clamp-2 leading-tight mb-2">{product.name}</h4>

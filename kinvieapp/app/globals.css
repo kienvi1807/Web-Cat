@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 
 :root {
   --background: #fffbfc;
@@ -108,4 +109,8 @@ button, a, [role="button"] {
 .evil-eye-container {
   width: 100%;
   height: 100%;
+}
+
+body.tab-hidden * {
+  animation-play-state: paused !important;
 }

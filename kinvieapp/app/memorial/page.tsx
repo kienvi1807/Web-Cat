@@ -116,48 +116,50 @@ export default function MemorialVinePage() {
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ filter: 'saturate(1.3)' }}
-                    className="absolute bottom-0 left-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                    className="absolute bottom-0 left-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleX(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute bottom-0 right-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                    className="absolute bottom-0 right-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleY(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute top-0 left-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                    className="absolute top-0 left-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleX(-1) scaleY(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute top-0 right-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                    className="absolute top-0 right-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
 
                 <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">
                     <div className="text-center mb-16">
                         <h1 className="text-3xl md:text-4xl font-serif italic font-black text-pink-500 mb-3">🌿 Dây Leo Ký Ức</h1>
                         <p className="text-sm text-stone-500 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
-                        <div className="flex items-center justify-center gap-3 flex-wrap">
-                            <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
-                                💌 Gửi ảnh kỷ niệm của Sen
-                            </Link>
-                            <Link href="/profile/memorial" className="px-6 py-3 bg-white border border-pink-200 text-pink-500 rounded-2xl font-black text-sm hover:bg-pink-50 transition-all">
-                                📷 Ảnh tôi đã gửi
-                            </Link>
-                        </div>
+                        {dbUserId && (
+                            <div className="flex items-center justify-center gap-3 flex-wrap">
+                                <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
+                                    💌 Gửi ảnh kỷ niệm của Sen
+                                </Link>
+                                <Link href="/profile/memorial" className="px-6 py-3 bg-white border border-pink-200 text-pink-500 rounded-2xl font-black text-sm hover:bg-pink-50 transition-all">
+                                    📷 Ảnh tôi đã gửi
+                                </Link>
+                            </div>
+                        )}
                     </div>
 
                     {isLoading ? (
                         <p className="text-center text-stone-400 font-bold py-20 animate-pulse">Đang tải ký ức...</p>
                     ) : checkedAuth && !dbUserId ? (
-                        <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                        <div className="bg-white/60 rounded-[2rem] p-8 md:p-16 text-center border border-pink-100">
                             <span className="text-5xl block mb-4">🔒</span>
                             <p className="font-black text-stone-500 mb-4">Sen đăng nhập để xem dây leo ký ức của riêng mình nhé!</p>
                             <Link href="/login" className="inline-block px-6 py-3 bg-pink-500 text-white rounded-full font-bold text-sm">Đăng nhập</Link>
                         </div>
                     ) : photos.length === 0 ? (
-                        <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                        <div className="bg-white/60 rounded-[2rem] p-8 md:p-16 text-center border border-pink-100">
                             <span className="text-5xl block mb-4">🌱</span>
                             <p className="font-black text-stone-500">Sen chưa có ảnh kỷ niệm nào được duyệt cả.</p>
                         </div>
@@ -191,7 +193,7 @@ export default function MemorialVinePage() {
                             )}
 
                             {filteredPhotos.length === 0 ? (
-                                <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                                <div className="bg-white/60 rounded-[2rem] p-8 md:p-16 text-center border border-pink-100">
                                     <span className="text-5xl block mb-4">🌱</span>
                                     <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào của Boss này cả.</p>
                                 </div>
@@ -203,22 +205,24 @@ export default function MemorialVinePage() {
                 </main>
             </div>
 
-            <button
-                onClick={toggleMusic}
-                className="fixed top-24 right-6 z-50 w-14 h-14 flex items-center justify-center text-3xl hover:scale-110 active:scale-95 transition-transform duration-300"
-                title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
-            >
-                <span
-                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-0 scale-50 rotate-180' : 'opacity-100 scale-100 rotate-0'}`}
+            {dbUserId && (
+                <button
+                    onClick={toggleMusic}
+                    className="fixed top-24 right-6 z-50 w-14 h-14 flex items-center justify-center text-3xl hover:scale-110 active:scale-95 transition-transform duration-300"
+                    title={isPlaying ? 'Tắt nhạc' : 'Bật nhạc "Hoá ra..." - Grey D'}
                 >
-                    🎁
-                </span>
-                <span
-                    className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-100 scale-100 rotate-0 animate-pulse ring-2 ring-pink-300' : 'opacity-0 scale-50 -rotate-180'}`}
-                >
-                    🔊
-                </span>
-            </button>
+                    <span
+                        className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-0 scale-50 rotate-180' : 'opacity-100 scale-100 rotate-0'}`}
+                    >
+                        🎁
+                    </span>
+                    <span
+                        className={`absolute inset-0 flex items-center justify-center rounded-full bg-white shadow-xl border border-pink-100 transition-all duration-500 ${isPlaying ? 'opacity-100 scale-100 rotate-0 animate-pulse ring-2 ring-pink-300' : 'opacity-0 scale-50 -rotate-180'}`}
+                    >
+                        🔊
+                    </span>
+                </button>
+            )}
 
             <Footer />
         </div>

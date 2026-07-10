@@ -138,11 +138,11 @@ export default function ProductDetailedAdmin() {
     <div className="min-h-screen bg-[#fffafa] pb-20 relative overflow-hidden selection:bg-rose-200">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
 
-      <div className="fixed top-[-10%] left-[-10%] w-[600px] h-[600px] bg-rose-400/15 rounded-full blur-[140px] pointer-events-none -z-10 animate-pulse"></div>
-      <div className="fixed bottom-[-10%] right-[-5%] w-[800px] h-[800px] bg-pink-500/10 rounded-full blur-[160px] pointer-events-none -z-10 animate-pulse animation-delay-2000"></div>
-      <div className="fixed top-[20%] right-[10%] w-[400px] h-[400px] bg-violet-400/10 rounded-full blur-[120px] pointer-events-none -z-10 animate-blob"></div>
+      <div className="fixed top-[-10%] left-[-10%] w-[600px] h-[600px] bg-rose-400/15 rounded-full blur-[80px] pointer-events-none -z-10 animate-pulse"></div>
+      <div className="fixed bottom-[-10%] right-[-5%] w-[800px] h-[800px] bg-pink-500/10 rounded-full blur-[90px] pointer-events-none -z-10 animate-pulse animation-delay-2000"></div>
+      <div className="fixed top-[20%] right-[10%] w-[400px] h-[400px] bg-violet-400/10 rounded-full blur-[70px] pointer-events-none -z-10 animate-blob"></div>
 
-      <div className="fixed inset-0 bg-white/20 backdrop-blur-[2px] pointer-events-none -z-5"></div>
+      <div className="pointer-events-none -z-5"></div>
 
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-[1440px] mx-auto px-6 pt-10 relative z-10">
         

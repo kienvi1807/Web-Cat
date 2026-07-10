@@ -5,6 +5,8 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { getAvatarColor } from '@/lib/utils';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const ROLE_OPTIONS = [
   { id: 1, name: 'Quản trị viên (Trùm Cuối 👑)' },
@@ -15,6 +17,9 @@ const ROLE_OPTIONS = [
   { id: 6, name: 'Khách hàng (Vàng)' },
   { id: 7, name: 'Khách VIP (Bạch Kim)' }
 ];
+
+const setThemeColor = useLayoutStore(state => state.setThemeColor);
+useEffect(() => { setThemeColor('purple'); }, [setThemeColor]);
 
 export default function EmployeeProfilePage() {
   const router = useRouter();
@@ -100,9 +105,7 @@ export default function EmployeeProfilePage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24 relative overflow-hidden selection:bg-purple-200">
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-purple-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-fuchsia-400/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      
+      <BackgroundGlow />      
       <div className="max-w-[1200px] mx-auto px-6 pt-12 relative z-10 animate-fade-in-up">
         
         {/* HEADER SECTION */}

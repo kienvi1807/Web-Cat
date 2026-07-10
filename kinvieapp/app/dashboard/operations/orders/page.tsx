@@ -3,6 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import BackgroundGlow from '@/components/layout/BackgroundGlow';
+import { useLayoutStore } from '@/store/useLayoutStore';
 
 const ORDER_STATUSES = ['Tất cả', 'Chờ xác nhận', 'Đã đặt hàng', 'Đã thanh toán', 'Đang vận chuyển', 'Đã giao hàng', 'Đã hủy'];
 
@@ -14,6 +16,9 @@ const getAvatarColor = (name: string) => {
   const charCode = (name || 'A').charCodeAt(0);
   return colors[charCode % colors.length];
 };
+
+const setThemeColor = useLayoutStore(state => state.setThemeColor);
+useEffect(() => { setThemeColor('blue'); }, [setThemeColor]);
 
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -208,10 +213,7 @@ export default function OrderManagementPage() {
   return (
     <div className="min-h-screen bg-stone-50 font-sans text-stone-900 pb-24 relative overflow-hidden">
       {/* HIỆU ỨNG NỀN */}
-      <div className="fixed top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full bg-blue-400/20 mix-blend-multiply filter blur-[120px] animate-blob z-0"></div>
-      <div className="fixed top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full bg-blue-500/20 mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0"></div>
-      <div className="fixed bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full bg-blue-300/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0"></div>
-
+      <BackgroundGlow />
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
 
         {/* HEADER SECTION */}

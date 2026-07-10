@@ -84,7 +84,7 @@ export default function AddPatePage() {
   };
 
   return (
-    <div className="animate-fade-in min-h-screen bg-[#F8F9FA] pb-24 px-6 pt-12 relative selection:bg-emerald-200">
+    <div className="animate-fade-in-slow min-h-screen bg-[#F8F9FA] pb-24 px-6 pt-12 relative selection:bg-emerald-200">
       <div className="fixed top-[-10%] right-[-5%] w-[500px] h-[500px] bg-emerald-400/20 blur-[150px] pointer-events-none z-0"></div>
 
       <div className="max-w-[800px] mx-auto relative z-10">
@@ -155,7 +155,6 @@ export default function AddPatePage() {
           </div>
         </div>
       </div>
-      <style dangerouslySetInnerHTML={{__html: `.animate-fade-in { animation: fadeIn 0.4s ease-out forwards; } @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }`}} />
     </div>
   );
 }
