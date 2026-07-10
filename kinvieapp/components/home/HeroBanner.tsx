@@ -2,7 +2,12 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import Image from 'next/image';
-import LiquidEther from '@/components/home/LiquidEther';
+// import dynamic from 'next/dynamic';
+
+// const LiquidEther = dynamic(() => import('@/components/home/LiquidEther'), {
+//   ssr: false,
+//   loading: () => <div className="absolute inset-0 bg-stone-900" />, // nền tạm trong lúc chờ tải, tránh giật layout
+// });
 
 // Danh sách thành phố cho phép khách chọn để xem đúng thời tiết của họ.
 // Mặc định luôn là Hải Phòng (theo yêu cầu).
@@ -34,6 +39,35 @@ export default function HeroBanner() {
 
   // Ref để điều khiển cuộn ngang bằng nút bấm trên PC
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  const slide1Ref = useRef<HTMLDivElement>(null);
+  const slide2Ref = useRef<HTMLDivElement>(null);
+  const [activeSlide, setActiveSlide] = useState(1);
+
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            if (entry.target === slide1Ref.current) setActiveSlide(1);
+            if (entry.target === slide2Ref.current) setActiveSlide(2);
+          }
+        });
+      },
+      { threshold: 0.5 }
+    );
+    if (slide1Ref.current) observer.observe(slide1Ref.current);
+    if (slide2Ref.current) observer.observe(slide2Ref.current);
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      document.body.classList.toggle('tab-hidden', document.hidden);
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, []);
 
   // Đọc lựa chọn thành phố đã lưu của khách (nếu có) khi component mount ở client
   useEffect(() => {
@@ -285,12 +319,16 @@ export default function HeroBanner() {
           0% { opacity: 0; transform: translateY(-6px); }
           100% { opacity: 1; transform: translateY(0); }
         }
+
+        .slide-paused, .slide-paused * {
+          animation-play-state: paused !important;
+        }
       `}} />
 
       {/* =======================================
           SLIDE 1: BANNER NỀN ẢNH + NGÔI SAO
           ======================================= */}
-      <div className="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-[#fdf3f5]">
+      <div ref={slide1Ref} className={`w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center overflow-hidden bg-[#fdf3f5] ${activeSlide !== 1 ? 'slide-paused' : ''}`}>
 
         <div className="absolute inset-0 w-full h-full animate-subtle-float origin-center z-0">
           {/* Ảnh dành cho MÀN HÌNH ĐIỆN THOẠI (banner_2.png dọc) */}
@@ -373,7 +411,7 @@ export default function HeroBanner() {
       {/* =======================================
           SLIDE 2: DIORAMA THỜI TIẾT (KHÔNG MÈO)
           ======================================= */}
-      <div className={`w-full h-full flex-shrink-0 snap-center relative overflow-hidden transition-colors duration-[3000ms] bg-gradient-to-br ${getSkyGradient()}`}>
+      <div ref={slide2Ref} className={`w-full h-full flex-shrink-0 snap-center relative overflow-hidden transition-colors duration-[3000ms] bg-gradient-to-br ${getSkyGradient()} ${activeSlide !== 2 ? 'slide-paused' : ''}`}>
 
         <button
           onClick={() => scrollSlide('left')}
@@ -564,12 +602,12 @@ export default function HeroBanner() {
                 </div>
               </div>
 
-              <div className="md:hidden flex justify-center mt-6 relative z-30">
+              {/* <div className="md:hidden flex justify-center mt-6 relative z-30">
                 <div className="inline-flex items-center gap-3 bg-white/10 backdrop-blur-md px-6 py-3 rounded-full text-white font-bold uppercase tracking-widest text-xs border border-white/20 shadow-sm">
                   <span>Vuốt sang trái xem thêm</span>
                   <span className="text-lg animate-bounce-horizontal">👉</span>
                 </div>
-              </div>
+              </div> */}
 
             </div>
           </>
@@ -579,7 +617,7 @@ export default function HeroBanner() {
       {/* =======================================
           SLIDE 3: LIQUID ETHER (KHÔNG GIAN TƯƠNG TÁC)
           ======================================= */}
-      <div className="w-full h-full flex-shrink-0 snap-center relative overflow-hidden bg-stone-900">
+      {/* <div className="w-full h-full flex-shrink-0 snap-center relative overflow-hidden bg-stone-900">
         <div className="absolute inset-0 z-0">
           <LiquidEther
             colors={['#fb923c', '#10b981', '#f472b6', '#22d3ee']}
@@ -607,7 +645,7 @@ export default function HeroBanner() {
             Hòa mình vào thế giới <span className="text-transparent bg-clip-text bg-gradient-to-r from-pink-400 via-cyan-300 to-emerald-300 not-italic font-bold">mèo cưng</span> qua dòng chảy sắc màu huyền ảo.
           </p>
         </div>
-      </div>
+      </div> */}
 
     </section>
   );

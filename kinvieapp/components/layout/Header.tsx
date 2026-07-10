@@ -1,12 +1,14 @@
 
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import EvilEye from '@/components/common/EvilEye';
+import dynamic from 'next/dynamic';
+
+const EvilEye = dynamic(() => import('@/components/common/EvilEye'), { ssr: false });
 
 export default function Header() {
   const pathname = usePathname();
@@ -21,6 +23,8 @@ export default function Header() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [isNotifOpen, setIsNotifOpen] = useState(false);
+  const [isEyeTriggered, setIsEyeTriggered] = useState(false);
+  const eyeTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // 🌟 LƯU LẠI USER ID ĐỂ DÙNG CHO VIỆC ĐẾM GIỎ HÀNG
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -174,6 +178,25 @@ export default function Header() {
     if (notif.link) router.push(notif.link);
   };
 
+  const handleLogoClick = (e: React.MouseEvent) => {
+    if (!isCatteryPage) return; // Ngoài trang cattery thì để mắc định chuyển về trang chủ bình thường
+
+    e.preventDefault(); // Chặn Link điều hướng
+    if (eyeTimeoutRef.current) clearTimeout(eyeTimeoutRef.current);
+
+    setIsEyeTriggered(true);
+    eyeTimeoutRef.current = setTimeout(() => {
+      setIsEyeTriggered(false);
+    }, 5000); // 5 giây rồi tự tắt
+  };
+
+  // Dọn dẹp timeout khi Header unmount, tránh leak
+  useEffect(() => {
+    return () => {
+      if (eyeTimeoutRef.current) clearTimeout(eyeTimeoutRef.current);
+    };
+  }, []);
+
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
   const isCatteryPage = pathname === '/cattery';
   const wrapperSize = isCatteryPage ? 'w-40 h-16 md:w-52 md:h-20' : isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
@@ -216,7 +239,11 @@ export default function Header() {
             <Link href="/memorial" className={`pb-1 transition-colors ${pathname === '/memorial' ? 'text-pink-500 font-bold border-b-2 border-pink-500 cursor-default' : 'hover:text-pink-400'}`}>Cây Ký Ức</Link>
           </nav>
 
-          <Link href="/" className={`absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 z-10 ${isCatteryPage ? '' : 'mt-2'}`}>
+          <Link
+            href="/"
+            onClick={handleLogoClick}
+            className={`absolute left-1/2 transform -translate-x-1/2 flex flex-col items-center justify-center top-1/2 -translate-y-1/2 z-10 ${isCatteryPage ? '' : 'mt-2'}`}
+          >
             <div className={`relative flex items-center justify-center transition-all duration-300 ${wrapperSize}`}>
               {!isCatteryPage && (
                 <div className={`absolute border-2 border-pink-200 border-dashed rounded-full animate-[spin_8s_linear_infinite] z-20 transition-all duration-300 ${spinRingSize}`}>
@@ -253,12 +280,23 @@ export default function Header() {
                     pupilFollow={1}
                     flameSpeed={1.1}
                     backgroundColor="#000000"
+                    pupilOpen={isEyeTriggered}
                   />
                 ) : (
                   <Image src="/images/logo.jpg" alt="KinVie Logo" fill className="object-cover" sizes="(max-width: 768px) 100vw, 33vw" priority />
                 )}
               </div>
             </div>
+            {isCatteryPage && (
+              <div
+                className={`absolute top-full mt-3 left-1/2 -translate-x-1/2 w-64 md:w-72 z-30 transition-all duration-500 ${isEyeTriggered ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 -translate-y-2 scale-95 pointer-events-none'}`}
+              >
+                <div className="relative bg-white text-stone-700 text-xs md:text-sm font-black text-center px-4 py-3 rounded-2xl shadow-xl border border-pink-100">
+                  👁️ Tính làm gì người ta à? Ngắm mèo ở dưới đi!
+                  <div className="absolute -top-2 left-1/2 -translate-x-1/2 w-4 h-4 bg-white border-t border-l border-pink-100 rotate-45" />
+                </div>
+              </div>
+            )}
             {isShopPage && !isCatteryPage && (
               <span className="font-serif italic font-bold text-[10px] md:text-sm text-pink-500 md:-mt-1 whitespace-nowrap bg-white/50 px-2 rounded-full">
                 Beam Petshop

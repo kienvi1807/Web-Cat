@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
-import confetti from 'canvas-confetti';
 import dynamic from 'next/dynamic';
 
 const SplashCursor = dynamic(() => import('@/components/common/SplashCursor'), { ssr: false });
@@ -80,7 +79,9 @@ export default function Footer() {
   };
 
   // Hàm kích hoạt pháo hoa
-  const fireConfetti = () => {
+  const fireConfetti = async () => {
+    const confetti = (await import('canvas-confetti')).default;
+
     const end = Date.now() + 1.5 * 1000;
     const colors = ['#ec4899', '#f43f5e', '#ffffff', '#fbcfe8'];
 
