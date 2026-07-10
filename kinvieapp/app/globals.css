@@ -1,4 +1,3 @@
-
 @import "tailwindcss";
 
 :root {
@@ -82,8 +81,13 @@ body {
   }
 }
 
-/* Smooth transitions for all interactive elements */
-* {
+/* Smooth transitions for all interactive elements
+   🎯 FIX PERFORMANCE: trước đây áp cho MỌI phần tử (kể cả từng <path> trong
+   svg hoa văn, vệt gió, node dây leo...) -> trình duyệt phải theo dõi hàng
+   trăm phần tử để sẵn sàng transition dù chúng chẳng bao giờ transition.
+   Loại trừ toàn bộ svg và con của nó ra khỏi rule này (icon/hoa văn dùng CSS
+   animation riêng hoặc đứng yên, không cần transition-property). */
+*:not(svg, svg *) {
   transition-property: color, background-color, border-color, box-shadow, transform, opacity;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -98,7 +102,7 @@ button, a, [role="button"] {
   overflow: hidden;
   width: 100%;
   height: 100%;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 
 .evil-eye-container {

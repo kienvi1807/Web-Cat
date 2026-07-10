@@ -3,10 +3,11 @@ import React from 'react';
 
 const SEGMENT_HEIGHT = 210;  // khoảng cách dọc giữa 2 ảnh liên tiếp
 const TOP_PADDING = 100;
+const BOTTOM_PADDING = 150;
 const MEMORIAL_TOP_EXTRA_GAP = 220;
 const VB_WIDTH = 450;         // 🎯 tăng từ 400 -> 450 để có chỗ cho thân cây to hơn + nhánh vươn xa hơn
 const TRUNK_CENTER = VB_WIDTH / 2;
-const TRUNK_AMPLITUDE = 22;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
+const TRUNK_AMPLITUDE = 0;   // thân cây lượn sóng nhẹ qua lại bao nhiêu px
 const TRUNK_PERIOD = 240;     // 1 chu kỳ lượn sóng dài bao nhiêu px theo chiều dọc
 const BRANCH_REACH = 180;     // 🎯 tăng từ 95 -> 130, để ảnh tròn không bị đè bởi thân cây to hơn
 const SAMPLE_STEP = 20;       // độ mịn của đường cong thân cây
@@ -39,7 +40,7 @@ function trunkXAt(y: number) {
     return TRUNK_CENTER + TRUNK_AMPLITUDE * Math.sin((y / TRUNK_PERIOD) * Math.PI * 2);
 }
 
-export default function VineTimeline({ photos }: { photos: any[] }) {
+export default function VineTimeline({ photos, showMemorialCap = true }: { photos: any[]; showMemorialCap?: boolean }) {
     const n = photos.length;
     if (n === 0) return null;
 
@@ -48,10 +49,10 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     // Kiểm tra ảnh cuối cùng (top) có phải ảnh tưởng niệm không, để dành thêm khoảng cách
     const lastPhoto = photos[n - 1];
     const lastPet = lastPhoto?.memorial_photo_pets?.[0]?.pets;
-    const hasMemorialCap = lastPet?.status === 'Đã lên thiên đường mèo' && lastPhoto?.is_last_photo === true;
+    const hasMemorialCap = showMemorialCap && lastPet?.status === 'Đã lên thiên đường mèo' && lastPhoto?.is_last_photo === true;
     const extraGap = hasMemorialCap ? MEMORIAL_TOP_EXTRA_GAP : 0;
 
-    const totalHeight = n * SEGMENT_HEIGHT + TOP_PADDING + extraGap;
+    const totalHeight = n * SEGMENT_HEIGHT + TOP_PADDING + extraGap + BOTTOM_PADDING;
 
     // Ảnh cũ nhất ở gốc (dưới cùng), mới nhất ở ngọn (trên cùng), so le trái phải
     const points = photos.map((photo, i) => {
@@ -63,7 +64,7 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
         const isLeft = i % 2 === 0;
         const trunkX = trunkXAt(y);
         const pet = photo.memorial_photo_pets?.[0]?.pets;
-        const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && photo.is_last_photo === true;
+        const isMemorialCap = showMemorialCap && pet?.status === 'Đã lên thiên đường mèo' && photo.is_last_photo === true;
         return {
             photo,
             y,
@@ -83,21 +84,11 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
     return (
         <div className="relative w-full" style={{ height: totalHeight }}>
 
-            <div
-                className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full -z-10 pointer-events-none select-none"
-                style={{
-                    backgroundImage: "url('/images/memorial-bg-pattern.png')",
-                    backgroundRepeat: 'repeat-y',
-                    backgroundPosition: 'top center',
-                    backgroundSize: '100% 900px', // 👈 chỉnh 900px cho khớp tỉ lệ ảnh gốc
-                }}
-            />
-
             {/* 🎯 Ảnh nền — full khung ảnh khách up kiểu polaroid, phủ lớp mờ nhẹ để tách với phần chính */}
             <div className="absolute top-0 left-1/2 w-screen -translate-x-1/2 h-full overflow-hidden pointer-events-none select-none z-0">
                 {photos.map((p, i) => {
                     const pet = p.memorial_photo_pets?.[0]?.pets;
-                    const isMemorialCap = pet?.status === 'Đã lên thiên đường mèo' && p.is_last_photo === true;
+                    const isMemorialCap = showMemorialCap && pet?.status === 'Đã lên thiên đường mèo' && p.is_last_photo === true;
                     if (isMemorialCap) return null;
 
                     const isLeft = i % 2 === 0;
@@ -126,9 +117,8 @@ export default function VineTimeline({ photos }: { photos: any[] }) {
                     );
                 })}
 
-                {/* Lớp phủ trắng bán trong suốt — làm nền lùi ra sau, KHÔNG blur từng ảnh */}
-                <div className="absolute inset-0 bg-[#FFF8FA]/25" />
-                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA]/70 via-transparent to-[#FFF8FA]/70" />
+                {/* 🌫️ Lớp phủ mờ nhẹ lên ảnh nền polaroid — làm chúng lùi ra sau, không chọi màu với nội dung chính */}
+                <div className="absolute inset-0 bg-gradient-to-b from-[#FFF8FA]/60 via-[#FFF8FA]/20 to-[#FFF8FA]/60" />
             </div>
 
             {/* 🎯 Thân cây + nhánh + lá, đặt trong khung căn giữa như cột nội dung */}

@@ -50,7 +50,7 @@ export default function MemorialVinePage() {
 
             const { data, error } = await supabase
                 .from('memorial_photos')
-                .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status))')
+                .select('*, memorial_photo_pets(pets(petid, petname, birthdate, status, imageurl))')
                 .eq('status', 'approved')
                 .in('user_id', ownerIdsToFetch)
                 .order('taken_date', { ascending: true });
@@ -63,13 +63,13 @@ export default function MemorialVinePage() {
 
     // 🎯 Danh sách pet duy nhất, gom từ toàn bộ ảnh đã tải
     const petOptions = useMemo(() => {
-        const map = new Map<number, string>();
+        const map = new Map<number, { petname: string; imageurl?: string }>();
         photos.forEach(photo => {
             (photo.memorial_photo_pets || []).forEach((mp: any) => {
-                if (mp.pets?.petid) map.set(mp.pets.petid, mp.pets.petname);
+                if (mp.pets?.petid) map.set(mp.pets.petid, { petname: mp.pets.petname, imageurl: mp.pets.imageurl });
             });
         });
-        return Array.from(map.entries()).map(([petid, petname]) => ({ petid, petname }));
+        return Array.from(map.entries()).map(([petid, info]) => ({ petid, ...info }));
     }, [photos]);
 
     // 🎯 Ảnh đã lọc theo pet đang chọn
@@ -96,67 +96,112 @@ export default function MemorialVinePage() {
             <Header />
             <audio ref={audioRef} src="/audio/hoa-ra.mp3" loop />
 
-            <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">
-                <div className="text-center mb-16">
-                    <h1 className="text-3xl md:text-4xl font-serif italic font-black text-pink-500 mb-3">🌿 Dây Leo Ký Ức</h1>
-                    <p className="text-sm text-stone-500 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
-                    <div className="flex items-center justify-center gap-3 flex-wrap">
-                        <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
-                            💌 Gửi ảnh kỷ niệm của Sen
-                        </Link>
-                        <Link href="/profile/memorial" className="px-6 py-3 bg-white border border-pink-200 text-pink-500 rounded-2xl font-black text-sm hover:bg-pink-50 transition-all">
-                            📷 Ảnh tôi đã gửi
-                        </Link>
-                    </div>
-                </div>
+            <div className="relative z-0 overflow-hidden">
 
-                {isLoading ? (
-                    <p className="text-center text-stone-400 font-bold py-20 animate-pulse">Đang tải ký ức...</p>
-                ) : checkedAuth && !dbUserId ? (
-                    <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
-                        <span className="text-5xl block mb-4">🔒</span>
-                        <p className="font-black text-stone-500 mb-4">Sen đăng nhập để xem dây leo ký ức của riêng mình nhé!</p>
-                        <Link href="/login" className="inline-block px-6 py-3 bg-pink-500 text-white rounded-full font-bold text-sm">Đăng nhập</Link>
+                {/* 🎨 LỚP 1 (đáy): nền hoa văn */}
+                <div
+                    className="absolute inset-0 -z-30 pointer-events-none select-none"
+                    style={{
+                        backgroundImage: "url('/images/memorial-bg-pattern.png')",
+                        backgroundRepeat: 'repeat-y',
+                        backgroundPosition: 'top center',
+                        backgroundSize: '100% 900px',
+                    }}
+                />
+
+                {/* 🌫️ LỚP 2 (giữa): phủ mờ dịu hoa văn lại, tránh lộ viền lặp/gắt */}
+                <div className="absolute inset-0 -z-20 pointer-events-none bg-gradient-to-b from-[#FFF8FA]/60 via-[#FFF8FA]/35 to-[#FFF8FA]/60" />
+
+                {/* 🌿 LỚP 3: 4 vine góc — nổi trên cùng, đè lên lớp mờ */}
+                <img
+                    src="/images/vine-corner.png" alt="" aria-hidden="true"
+                    style={{ filter: 'saturate(1.3)' }}
+                    className="absolute bottom-0 left-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                />
+                <img
+                    src="/images/vine-corner.png" alt="" aria-hidden="true"
+                    style={{ transform: 'scaleX(-1)', filter: 'saturate(1.3)' }}
+                    className="absolute bottom-0 right-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                />
+                <img
+                    src="/images/vine-corner.png" alt="" aria-hidden="true"
+                    style={{ transform: 'scaleY(-1)', filter: 'saturate(1.3)' }}
+                    className="absolute top-0 left-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                />
+                <img
+                    src="/images/vine-corner.png" alt="" aria-hidden="true"
+                    style={{ transform: 'scaleX(-1) scaleY(-1)', filter: 'saturate(1.3)' }}
+                    className="absolute top-0 right-0 w-48 md:w-72 z-20 pointer-events-none select-none"
+                />
+
+                <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">
+                    <div className="text-center mb-16">
+                        <h1 className="text-3xl md:text-4xl font-serif italic font-black text-pink-500 mb-3">🌿 Dây Leo Ký Ức</h1>
+                        <p className="text-sm text-stone-500 font-medium max-w-lg mx-auto mb-6">Nơi lưu giữ những khoảnh khắc đáng nhớ của các Boss, được các Sen trân trọng chia sẻ.</p>
+                        <div className="flex items-center justify-center gap-3 flex-wrap">
+                            <Link href="/memorial/upload" className="px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-2xl font-black text-sm shadow-md hover:from-pink-600 hover:to-rose-600 transition-all">
+                                💌 Gửi ảnh kỷ niệm của Sen
+                            </Link>
+                            <Link href="/profile/memorial" className="px-6 py-3 bg-white border border-pink-200 text-pink-500 rounded-2xl font-black text-sm hover:bg-pink-50 transition-all">
+                                📷 Ảnh tôi đã gửi
+                            </Link>
+                        </div>
                     </div>
-                ) : photos.length === 0 ? (
-                    <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
-                        <span className="text-5xl block mb-4">🌱</span>
-                        <p className="font-black text-stone-500">Sen chưa có ảnh kỷ niệm nào được duyệt cả.</p>
-                    </div>
-                ) : (
-                    <>
-                        {/* 🎯 Bộ lọc: xem chung tất cả pet, hoặc riêng từng pet */}
-                        {petOptions.length > 0 && (
-                            <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
-                                <button
-                                    onClick={() => setSelectedPetId('all')}
-                                    className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === 'all' ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
-                                >
-                                    🌿 Tất cả Boss
-                                </button>
-                                {petOptions.map(pet => (
+
+                    {isLoading ? (
+                        <p className="text-center text-stone-400 font-bold py-20 animate-pulse">Đang tải ký ức...</p>
+                    ) : checkedAuth && !dbUserId ? (
+                        <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                            <span className="text-5xl block mb-4">🔒</span>
+                            <p className="font-black text-stone-500 mb-4">Sen đăng nhập để xem dây leo ký ức của riêng mình nhé!</p>
+                            <Link href="/login" className="inline-block px-6 py-3 bg-pink-500 text-white rounded-full font-bold text-sm">Đăng nhập</Link>
+                        </div>
+                    ) : photos.length === 0 ? (
+                        <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                            <span className="text-5xl block mb-4">🌱</span>
+                            <p className="font-black text-stone-500">Sen chưa có ảnh kỷ niệm nào được duyệt cả.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* 🎯 Bộ lọc: xem chung tất cả pet, hoặc riêng từng pet */}
+                            {petOptions.length > 0 && (
+                                <div className="flex items-center justify-center gap-2 flex-wrap mb-10">
                                     <button
-                                        key={pet.petid}
-                                        onClick={() => setSelectedPetId(pet.petid)}
-                                        className={`px-4 py-2 rounded-full text-xs font-black transition-all ${selectedPetId === pet.petid ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                        onClick={() => setSelectedPetId('all')}
+                                        className={`flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95 ${selectedPetId === 'all' ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
                                     >
-                                        🐾 {pet.petname}
+                                        <span className="w-7 h-7 rounded-full bg-pink-100 flex items-center justify-center text-xs">🌿</span>
+                                        Tất cả Boss
                                     </button>
-                                ))}
-                            </div>
-                        )}
+                                    {petOptions.map(pet => (
+                                        <button
+                                            key={pet.petid}
+                                            onClick={() => setSelectedPetId(pet.petid)}
+                                            className={`flex items-center gap-2 pl-2 pr-4 py-1.5 rounded-full text-xs font-black transition-all duration-300 hover:scale-105 hover:shadow-md active:scale-95 ${selectedPetId === pet.petid ? 'bg-pink-500 text-white' : 'bg-white border border-pink-200 text-pink-500'}`}
+                                        >
+                                            {pet.imageurl ? (
+                                                <img src={pet.imageurl} alt={pet.petname} className="w-7 h-7 rounded-full object-cover border border-white/70" />
+                                            ) : (
+                                                <span className="w-7 h-7 rounded-full bg-pink-100 flex items-center justify-center text-xs">🐾</span>
+                                            )}
+                                            {pet.petname}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
 
-                        {filteredPhotos.length === 0 ? (
-                            <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
-                                <span className="text-5xl block mb-4">🌱</span>
-                                <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào của Boss này cả.</p>
-                            </div>
-                        ) : (
-                            <VineTimeline photos={filteredPhotos} />
-                        )}
-                    </>
-                )}
-            </main>
+                            {filteredPhotos.length === 0 ? (
+                                <div className="bg-white/60 rounded-[2rem] p-16 text-center border border-pink-100">
+                                    <span className="text-5xl block mb-4">🌱</span>
+                                    <p className="font-black text-stone-500">Chưa có ảnh kỷ niệm nào của Boss này cả.</p>
+                                </div>
+                            ) : (
+                                <VineTimeline photos={filteredPhotos} showMemorialCap={selectedPetId !== 'all'} />
+                            )}
+                        </>
+                    )}
+                </main>
+            </div>
 
             <button
                 onClick={toggleMusic}

@@ -14,7 +14,10 @@ export default function BackgroundGlow() {
     blue: { b1: 'bg-blue-400/20', b2: 'bg-blue-500/20', b3: 'bg-blue-300/20' },
     emerald: { b1: 'bg-emerald-400/20', b2: 'bg-emerald-500/20', b3: 'bg-emerald-300/20' },
     purple: { b1: 'bg-purple-400/20', b2: 'bg-fuchsia-400/20', b3: 'bg-blue-300/20' },
-    amber: { b1: 'bg-amber-400/20', b2: 'bg-amber-400/20', b3: 'bg-amber-300/20' }
+    amber: { b1: 'bg-amber-400/20', b2: 'bg-amber-400/20', b3: 'bg-amber-300/20' },
+    rose: { b1: 'bg-rose-400/20', b2: 'bg-rose-500/20', b3: 'bg-rose-300/20' },
+    sunset: { b1: 'bg-amber-400/20', b2: 'bg-orange-400/15', b3: 'bg-orange-300/15' },
+    aqua: { b1: 'bg-cyan-400/10', b2: 'bg-blue-400/10', b3: 'bg-blue-300/10' },
   };
 
   const current = colors[themeColor] || colors.red;
@@ -22,11 +25,11 @@ export default function BackgroundGlow() {
   return (
     <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
       {/* Blob 1 */}
-      <div className={`absolute top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full ${current.b1} mix-blend-multiply filter blur-[120px] animate-blob z-0`}></div>
+      <div className={`absolute top-[-15%] left-[-10%] w-[50%] h-[50%] rounded-full ${current.b1} mix-blend-multiply filter blur-[70px] animate-blob z-0`} style={{ animationIterationCount: 6, animationFillMode: 'forwards' }}></div>
       {/* Blob 2 */}
-      <div className={`absolute top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full ${current.b2} mix-blend-multiply filter blur-[120px] animate-blob animation-delay-2000 z-0`}></div>
+      <div className={`absolute top-[20%] right-[-10%] w-[40%] h-[40%] rounded-full ${current.b2} mix-blend-multiply filter blur-[70px] animate-blob animation-delay-2000 z-0`} style={{ animationIterationCount: 6, animationFillMode: 'forwards' }}></div>
       {/* Blob 3 */}
-      <div className={`absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full ${current.b3} mix-blend-multiply filter blur-[150px] animate-blob animation-delay-4000 z-0`}></div>
+      <div className={`absolute bottom-[-20%] left-[20%] w-[60%] h-[60%] rounded-full ${current.b3} mix-blend-multiply filter blur-[90px] animate-blob animation-delay-4000 z-0`} style={{ animationIterationCount: 6, animationFillMode: 'forwards' }}></div>
     </div>
   );
 }

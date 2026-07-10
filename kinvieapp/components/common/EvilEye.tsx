@@ -29,7 +29,7 @@ function hexToVec3(hex: string): [number, number, number] {
     ];
 }
 
-const BRAND_COLOR_CYCLE = ["#FF6F37", "#3B82F6", "#22C55E", "#eb589f"];
+const BRAND_COLOR_CYCLE = ["#CC5500", "#4169E1", "#006400", "#FF69B4"];
 
 function getCycledColor(intervalMs: number): string {
     const idx = Math.floor(Date.now() / intervalMs) % BRAND_COLOR_CYCLE.length;

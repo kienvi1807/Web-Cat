@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 
 interface LayoutState {
-  themeColor: 'red' | 'orange' | 'teal' | 'pink' | 'blue' | 'emerald' | 'purple' | 'amber';
-  setThemeColor: (color: 'red' | 'orange' | 'teal' | 'pink' | 'blue' | 'emerald' | 'purple' | 'amber') => void;
+  themeColor: 'red' | 'orange' | 'teal' | 'pink' | 'blue' | 'emerald' | 'purple' | 'amber' | 'rose' | 'sunset' | 'aqua';
+  setThemeColor: (color: 'red' | 'orange' | 'teal' | 'pink' | 'blue' | 'emerald' | 'purple' | 'amber' | 'rose' | 'sunset' | 'aqua') => void;
 }
 
 export const useLayoutStore = create<LayoutState>((set) => ({

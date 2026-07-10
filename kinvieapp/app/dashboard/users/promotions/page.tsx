@@ -19,9 +19,6 @@ export default function PromotionsComingSoonPage() {
       <BackgroundGlow />
 
       {/* Hiệu ứng 2 cục sương mù phía sau thẻ */}
-      <div className="fixed top-[20%] left-[20%] w-[30%] h-[30%] rounded-full bg-fuchsia-400/20 mix-blend-multiply filter blur-[120px] animate-blob pointer-events-none z-0"></div>
-      <div className="fixed bottom-[20%] right-[20%] w-[30%] h-[30%] rounded-full bg-purple-400/20 mix-blend-multiply filter blur-[150px] animate-blob animation-delay-2000 pointer-events-none z-0"></div>
-
       <div className="relative z-10 w-full max-w-2xl px-4 animate-fade-in-up mt-10">
         
         {/* KHỐI KÍNH MỜ CHÍNH */}
