@@ -163,8 +163,8 @@ export default function EditPetPage() {
           setExistingImageUrl(petData.imageurl || '');
           setImagePreviewUrl(petData.imageurl || '');
 
-          if (petData.sire_id) setFatherId(petData.sire_id.toString());
-          if (petData.dam_id) setMotherId(petData.dam_id.toString());
+          if (petData.father_id) setFatherId(`${petData.father_source || 'pet'}_${petData.father_id}`);
+          if (petData.mother_id) setMotherId(`${petData.mother_source || 'pet'}_${petData.mother_id}`);
         } else {
           router.push('/profile');
         }

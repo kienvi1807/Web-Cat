@@ -6,6 +6,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import Link from 'next/link';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function ProfilePage() {
   const router = useRouter();
@@ -40,6 +41,8 @@ export default function ProfilePage() {
     myPosts: [] as any[]
   });
 
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
+
   // --- STATE QUẢN LÝ GIA ĐÌNH (kiểu kết bạn theo từng cặp, không bắc cầu) ---
   const [familyMembers, setFamilyMembers] = useState<any[]>([]); // Đã đồng ý (accepted)
   const [incomingFamilyRequests, setIncomingFamilyRequests] = useState<any[]>([]); // Người khác gửi cho mình
@@ -61,7 +64,10 @@ export default function ProfilePage() {
   };
 
   const fetchUserData = async (showLoading = true) => {
-    if (showLoading) setIsLoading(true);
+    if (showLoading) {
+      setIsLoading(true);
+      showGlobalLoading('Đang tải hồ sơ của Sen...');
+    }
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) { router.push('/login'); return; }
 
@@ -148,6 +154,7 @@ export default function ProfilePage() {
       });
     }
     setIsLoading(false);
+    hideGlobalLoading();
   };
 
   useEffect(() => {
@@ -358,7 +365,7 @@ export default function ProfilePage() {
     } catch (err) { alert("Lỗi lưu bài!"); } finally { setIsSavingPost(false); }
   };
 
-  if (isLoading) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><div className="text-4xl animate-bounce">🐾</div></div>;
+  if (isLoading) return null;
 
   const getRankStyle = (rank: string) => {
     if (rank === 'Kim Cương') return 'bg-gradient-to-r from-cyan-400 to-blue-500 text-white shadow-cyan-200';

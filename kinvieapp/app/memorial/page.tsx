@@ -116,22 +116,22 @@ export default function MemorialVinePage() {
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ filter: 'saturate(1.3)' }}
-                    className="absolute bottom-0 left-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
+                    className="absolute bottom-0 left-0 hidden sm:block sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleX(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute bottom-0 right-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
+                    className="absolute bottom-0 right-0 hidden sm:block sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleY(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute top-0 left-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
+                    className="absolute top-0 left-0 hidden sm:block sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
                 <img
                     src="/images/vine-corner.png" alt="" aria-hidden="true"
                     style={{ transform: 'scaleX(-1) scaleY(-1)', filter: 'saturate(1.3)' }}
-                    className="absolute top-0 right-0 w-20 sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
+                    className="absolute top-0 right-0 hidden sm:block sm:w-32 md:w-48 lg:w-72 z-0 pointer-events-none select-none"
                 />
 
                 <main className="pt-32 pb-24 container mx-auto px-4 max-w-4xl relative z-10">

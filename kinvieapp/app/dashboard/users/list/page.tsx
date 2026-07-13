@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 import GlassSelect from '@/components/ui/GlassSelect';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
@@ -10,8 +10,8 @@ const getRoleColor = (role: string, rank: string) => {
   if (role === 'Boss') return 'bg-stone-900 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]';
   if (role === 'Staff') return 'bg-cyan-50 text-cyan-600 border-cyan-200';
   if (role === 'Breeder') return 'bg-amber-50 text-amber-600 border-amber-200';
-  
-  switch(rank) {
+
+  switch (rank) {
     case 'Kim Cương': return 'bg-gradient-to-r from-cyan-100 to-blue-100 text-cyan-700 border-cyan-300 shadow-sm';
     case 'Lục Bảo': return 'bg-emerald-50 text-emerald-600 border-emerald-200';
     case 'Bạch Kim': return 'bg-slate-100 text-slate-700 border-slate-300';
@@ -20,9 +20,6 @@ const getRoleColor = (role: string, rank: string) => {
     default: return 'bg-white text-stone-500 border-stone-200';
   }
 };
-
-const setThemeColor = useLayoutStore(state => state.setThemeColor);
-useEffect(() => { setThemeColor('aqua'); }, [setThemeColor]);
 
 export default function AccountListPage() {
   const [users, setUsers] = useState<any[]>([]);
@@ -37,6 +34,9 @@ export default function AccountListPage() {
   const [editingUser, setEditingUser] = useState<any | null>(null);
   const [editForm, setEditForm] = useState({ fullname: '', phone: '', age: '' });
   const [isSaving, setIsSaving] = useState(false);
+
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => { setThemeColor('aqua'); }, [setThemeColor]);
 
   useEffect(() => {
     fetchUsersAndRoles();
@@ -88,7 +88,7 @@ export default function AccountListPage() {
 
     try {
       const { error } = await supabase.from('users').delete().eq('userid', userId);
-      
+
       // Nếu Supabase trả về lỗi (Ví dụ: dính khóa ngoại)
       if (error) {
         console.error("LỖI SUPABASE:", error);
@@ -167,11 +167,11 @@ export default function AccountListPage() {
       </div>
 
       <div className="relative z-10 flex flex-col gap-8">
-        
+
         {/* THANH LỌC */}
         <div className="bg-white/60 backdrop-blur-2xl p-4 md:p-6 rounded-[2rem] border border-cyan-100 shadow-[0_8px_30px_rgba(34,211,238,0.05)] flex flex-col lg:flex-row gap-4 items-center relative z-20">
           <div className="relative flex-1 w-full">
-            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Tìm ID, Tên, Email hoặc SĐT..." className="w-full bg-white/80 border border-stone-200 rounded-2xl px-12 py-3.5 text-sm font-bold focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 outline-none transition-all shadow-inner"/>
+            <input type="text" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Tìm ID, Tên, Email hoặc SĐT..." className="w-full bg-white/80 border border-stone-200 rounded-2xl px-12 py-3.5 text-sm font-bold focus:ring-2 focus:ring-cyan-400 focus:border-cyan-400 outline-none transition-all shadow-inner" />
             <span className="absolute left-5 top-1/2 -translate-y-1/2 text-xl opacity-40">🔍</span>
           </div>
           <div className="w-full lg:w-48"><GlassSelect id="role-filter" options={roleOptions} selectedValue={filterRole} onChange={(val) => { setFilterRole(val); setFilterRank('All'); }} themeColor="cyan" /></div>
@@ -192,14 +192,14 @@ export default function AccountListPage() {
               {processedUsers.map((user) => {
                 const role = user.type_users?.role || 'Unknown';
                 const rank = user.type_users?.rank_name || 'Unknown';
-                
+
                 return (
-                  <div 
-                    key={user.userid} 
+                  <div
+                    key={user.userid}
                     className="group relative bg-white/70 backdrop-blur-xl rounded-[1.5rem] p-4 md:p-5 border border-white shadow-[0_4px_20px_rgba(0,0,0,0.02)] hover:shadow-[0_10px_30px_rgba(34,211,238,0.1)] hover:border-cyan-200 transition-all duration-300 flex flex-col md:flex-row items-start md:items-center gap-5 md:gap-8 overflow-hidden"
                   >
                     <div className="absolute inset-0 bg-gradient-to-r from-cyan-50/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 z-0 pointer-events-none"></div>
-                    
+
                     {/* 1. KHỐI AVATAR */}
                     <div className="relative z-10 shrink-0">
                       <div className="absolute -inset-1 bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full blur opacity-0 group-hover:opacity-40 transition duration-500"></div>
@@ -219,7 +219,7 @@ export default function AccountListPage() {
                           {role === 'Breeder' && user.cattery_name && <span className="border border-amber-200 bg-amber-50 px-2 py-1 rounded-xl text-[10px] font-bold text-amber-700">🐾 {user.cattery_name}</span>}
                         </div>
                       </div>
-                      
+
                       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-stone-500">
                         <span className="font-bold text-stone-400">ID: KV-{user.userid}</span>
                         <span>🎂 {user.age ? `${user.age} tuổi` : 'Chưa rõ tuổi'}</span>
@@ -261,9 +261,9 @@ export default function AccountListPage() {
               <button onClick={() => setEditingUser(null)} className="text-stone-400 hover:text-rose-500 transition-colors cursor-pointer"><svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg></button>
             </div>
             <div className="space-y-5">
-              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Họ và Tên</label><input type="text" value={editForm.fullname} onChange={(e) => setEditForm({...editForm, fullname: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
-              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Số Điện Thoại</label><input type="text" value={editForm.phone} onChange={(e) => setEditForm({...editForm, phone: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
-              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Tuổi (Tùy chọn)</label><input type="number" value={editForm.age} onChange={(e) => setEditForm({...editForm, age: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
+              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Họ và Tên</label><input type="text" value={editForm.fullname} onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
+              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Số Điện Thoại</label><input type="text" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
+              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Tuổi (Tùy chọn)</label><input type="number" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
             </div>
             <div className="mt-10 flex gap-4">
               <button onClick={() => setEditingUser(null)} className="flex-1 py-4 rounded-2xl font-black text-stone-500 bg-stone-100 hover:bg-stone-200 cursor-pointer">HỦY</button>

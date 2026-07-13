@@ -5,43 +5,50 @@ import { supabase } from '@/lib/supabase'
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    // 🎯 THÊM biến typeId vào đây để hứng từ Frontend gửi lên
-    const { phone, fullName, email, passwordHash, provider, providerId, avatarUrl, typeId } = body
+    // 🎯 ĐÃ BỎ typeId khỏi danh sách nhận từ Frontend.
+    // KHÔNG BAO GIỜ tin dữ liệu quyền hạn (role/type_id) gửi lên từ client,
+    // vì client có thể tự chỉnh sửa request (Postman/curl) để tự phong Admin.
+    const { phone, fullName, email, passwordHash, provider, providerId, avatarUrl } = body
+
+    // Validate tối thiểu đầu vào
+    if (!phone || !fullName) {
+      return NextResponse.json({ error: 'Thiếu phone hoặc fullName' }, { status: 400 })
+    }
 
     // BƯỚC 1: Tạo một "Hộ gia đình" mặc định cho khách hàng mới
-    // Dù họ đang độc thân, cứ tạo sẵn 1 cái Family để sau này dễ gộp
     const { data: familyData, error: familyError } = await supabase
       .from('families')
-      .insert([{ familyname: `Nhà của ${fullName}` }]) // Tự động đặt tên: "Nhà của Kiên"
+      .insert([{ familyname: `Nhà của ${fullName}` }])
       .select('familyid')
       .single()
 
     if (familyError) throw familyError
 
     // BƯỚC 2: Lưu thông tin Người dùng vào bảng Users
+    // 🎯 type_id LUÔN LUÔN được server hard-code = 4 (Customer).
+    // Việc nâng quyền lên Admin/Boss (type_id = 1) chỉ được thực hiện
+    // thủ công trong Supabase Studio bởi người quản trị hệ thống,
+    // KHÔNG BAO GIỜ qua API công khai này.
     const { data: userData, error: userError } = await supabase
       .from('users')
       .insert([{
-        phone: phone, 
-        fullname: fullName, 
-        email: email, 
-        passwordhash: passwordHash, 
-        provider: provider || 'Local', 
+        phone: phone,
+        fullname: fullName,
+        email: email,
+        passwordhash: passwordHash,
+        provider: provider || 'Local',
         providerid: providerId,
         avatarurl: avatarUrl,
-        familyid: familyData.familyid, 
-        // 🎯 Lắp cột type_id vào. Nếu frontend truyền xuống thì lấy, không truyền thì chốt số 4 (Customer Đồng)
-        type_id: typeId || 4 
+        familyid: familyData.familyid,
+        type_id: 4, // Customer mặc định — không nhận từ client
       }])
       .select()
 
     if (userError) throw userError
 
-    // Trả về dữ liệu thành công cho Frontend
     return NextResponse.json(userData, { status: 201 })
 
   } catch (error: any) {
-    // Trả về lỗi
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 }

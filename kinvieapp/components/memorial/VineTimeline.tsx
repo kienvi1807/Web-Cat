@@ -94,7 +94,6 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
 
                     const isLeft = i % 2 === 0;
                     const gapOffset = hasMemorialCap ? extraGap : 0;
-                    // ✅ y khớp đúng với ảnh tròn (có TOP_PADDING)
                     const y = (n - 1 - i) * SEGMENT_HEIGHT + SEGMENT_HEIGHT / 2 + TOP_PADDING + gapOffset;
                     const topPercent = (y / totalHeight) * 100;
                     const rotate = (isLeft ? -1 : 1) * (5 + (i % 3) * 3);
@@ -104,7 +103,9 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
                                 w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
-                                ${isLeft ? '...' : '...'}`}
+                                ${isLeft
+                                    ? 'left-[calc(50%+7rem)] sm:left-[calc(50%+8rem)] md:left-[calc(50%+9.5rem)] lg:left-[calc(50%+11rem)] xl:left-[calc(50%+12.5rem)]'
+                                    : 'right-[calc(50%+7rem)] sm:right-[calc(50%+8rem)] md:right-[calc(50%+9.5rem)] lg:right-[calc(50%+11rem)] xl:right-[calc(50%+12.5rem)]'}`}
                             style={{ top: `${topPercent}%`, transform: `translateY(-50%) rotate(${rotate}deg)` }}
                         >
                             <Image src={p.image_url} alt="" fill sizes="208px" className="object-cover" />

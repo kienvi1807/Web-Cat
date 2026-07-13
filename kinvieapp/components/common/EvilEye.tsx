@@ -275,7 +275,8 @@ export default function EvilEye({
                 ];
             }
         }
-        window.addEventListener("resize", resize);
+        const resizeObserver = new ResizeObserver(() => resize());
+        resizeObserver.observe(container);
         resize();
 
         const geometry = new Triangle(gl);
@@ -329,7 +330,7 @@ export default function EvilEye({
 
         return () => {
             cancelAnimationFrame(animationFrameId);
-            window.removeEventListener("resize", resize);
+            resizeObserver.disconnect();
             window.removeEventListener("mousemove", onMouseMove);
             window.removeEventListener("touchstart", onTouchMove);
             window.removeEventListener("touchmove", onTouchMove);

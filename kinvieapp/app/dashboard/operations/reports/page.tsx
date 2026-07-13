@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { 
+import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
   PieChart, Pie, Cell
 } from 'recharts';
@@ -15,15 +15,12 @@ const PIE_COLORS = ['#f59e0b', '#f97316', '#ef4444', '#8b5cf6', '#10b981', '#3b8
 type SortField = 'fullname' | 'phone' | 'loginCount' | 'orderCount' | 'totalSpent';
 type SortDir = 'asc' | 'desc';
 
-const setThemeColor = useLayoutStore(state => state.setThemeColor);
-useEffect(() => { setThemeColor('sunset'); }, [setThemeColor]);
-
 export default function ReportsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   // 🎯 TAB ĐANG CHỌN
   const [activeTab, setActiveTab] = useState<'overview' | 'customers'>('overview');
-  
+
   const [rawData, setRawData] = useState({ orders: [] as any[], expenses: [] as any[], users: [] as any[], products: [] as any[], logins: [] as any[] });
 
   // 🎯 LỌC TỔNG QUAN
@@ -52,6 +49,9 @@ export default function ReportsPage() {
   const [sortField, setSortField] = useState<SortField>('totalSpent');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
 
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => { setThemeColor('sunset'); }, [setThemeColor]);
+
   useEffect(() => {
     fetchData();
   }, []);
@@ -64,7 +64,7 @@ export default function ReportsPage() {
 
   const fetchData = async () => {
     setIsLoading(true);
-    
+
     // Kéo toàn bộ data (select '*') để không bỏ sót bất kỳ tên cột nào
     const { data: orders } = await supabase.from('orders').select('*').in('orderstatus', ['Đã thanh toán', 'Đã giao hàng']);
     const { data: expenses } = await supabase.from('expenses').select('*');
@@ -72,27 +72,27 @@ export default function ReportsPage() {
     const { data: products } = await supabase.from('products').select('*');
     const { data: logins } = await supabase.from('login_logs').select('*');
 
-    setRawData({ 
-      orders: orders || [], 
+    setRawData({
+      orders: orders || [],
       expenses: expenses || [],
       users: users || [],
       products: products || [],
       logins: logins || []
     });
-    
+
     setIsLoading(false);
   };
 
   const isDateInRange = (dateStr: string | null | undefined, filterType: string, customStart: string, customEnd: string) => {
     if (!dateStr) return false;
     if (filterType === 'all') return true;
-    
+
     // Đảm bảo parse Date chuẩn
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return false; // Bỏ qua nếu data bị lỗi không phải ngày tháng
 
     const now = new Date();
-    
+
     if (filterType === 'this_month') return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     if (filterType === 'last_month') {
       const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
@@ -126,7 +126,7 @@ export default function ReportsPage() {
       const oDate = o.orderdate || o.orderDate || o.created_at || o.createdat || o.createdAt;
       return isDateInRange(oDate, dateFilter, startDate, endDate);
     });
-    
+
     validOrders.forEach(o => {
       tongThu += Number(o.totalamount || 0);
       if (pieType === 'revenue') {
@@ -177,11 +177,11 @@ export default function ReportsPage() {
     // 🎯 4. BIỂU ĐỒ CỘT DÒNG TIỀN
     const now = new Date();
     const barDataMap: Record<string, { name: string, Thu: number, Chi: number, timestamp: number }> = {};
-    
+
     if (barFilter === 'custom' && barStartDate && barEndDate) {
       let start = new Date(barStartDate);
       let end = new Date(barEndDate);
-      let current = new Date(start.getFullYear(), start.getMonth(), 1); 
+      let current = new Date(start.getFullYear(), start.getMonth(), 1);
       while (current <= end) {
         const monthKey = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, '0')}`;
         barDataMap[monthKey] = { name: `T${current.getMonth() + 1}/${String(current.getFullYear()).slice(2)}`, Thu: 0, Chi: 0, timestamp: current.getTime() };
@@ -301,21 +301,21 @@ export default function ReportsPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA] pb-24 relative overflow-hidden selection:bg-amber-200">
-      <BackgroundGlow />      
+      <BackgroundGlow />
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in-up">
-        
+
         {/* HEADER SECTION */}
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end gap-6">
           <div>
-            <Link 
-              href="/dashboard/operations" 
+            <Link
+              href="/dashboard/operations"
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-orange-600 hover:bg-white hover:text-orange-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgb(249,115,22,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận Hành
             </Link>
-            
+
             <h1 className="text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-r from-stone-900 via-orange-800 to-amber-700 tracking-tight drop-shadow-sm flex items-center gap-3">
-              Báo cáo & Phân tích 
+              Báo cáo & Phân tích
               <svg className="w-10 h-10 text-orange-600 drop-shadow-md" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path></svg>
             </h1>
             <p className="font-bold text-stone-500 mt-2">Phân tích cơ cấu chi tiêu, sản phẩm bán chạy và xu hướng</p>
@@ -345,7 +345,7 @@ export default function ReportsPage() {
           </div>
         ) : activeTab === 'overview' ? (
           <div className="space-y-8">
-            
+
             {/* 🎯 PHẦN 1: PIE CHART & METRICS TỔNG QUAN */}
             <div className="bg-white/60 backdrop-blur-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] p-8">
               <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6 border-b border-stone-200/50 pb-6">
@@ -353,15 +353,15 @@ export default function ReportsPage() {
                   <h2 className="text-2xl font-black text-stone-800">Tổng quan Giao dịch</h2>
                   <p className="text-stone-500 font-medium text-sm mt-1">Cơ cấu thu chi và tốc độ tăng trưởng khách hàng.</p>
                 </div>
-                
+
                 <div className="flex flex-wrap items-center gap-3">
                   <div className="bg-stone-100/80 p-1 rounded-2xl flex border border-stone-200">
                     <button onClick={() => setPieType('expense')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-black transition-all ${pieType === 'expense' ? 'bg-white text-rose-500 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>📉 Chi Phí</button>
                     <button onClick={() => setPieType('revenue')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-black transition-all ${pieType === 'revenue' ? 'bg-white text-emerald-500 shadow-sm' : 'text-stone-500 hover:text-stone-700'}`}>📈 Doanh Thu</button>
                   </div>
-                  
+
                   <div className="flex items-center gap-2">
-                    <select 
+                    <select
                       value={dateFilter} onChange={e => setDateFilter(e.target.value as any)}
                       className="cursor-pointer bg-white border border-stone-200 rounded-2xl px-5 py-2.5 font-bold text-sm text-stone-700 outline-none hover:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all appearance-none pr-10 relative"
                       style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23f97316%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem top 50%', backgroundSize: '0.65rem auto' }}
@@ -407,7 +407,7 @@ export default function ReportsPage() {
                     <p className="text-[10px] font-black text-emerald-600/70 uppercase tracking-widest mb-1 flex items-center gap-2"><span className="text-emerald-500">📈</span> Tổng Doanh Thu</p>
                     <h3 className="text-4xl font-black text-stone-800">{summary.totalThu.toLocaleString()} <span className="text-xl text-stone-400">đ</span></h3>
                   </div>
-                  
+
                   <div className="bg-rose-50/50 border border-rose-100 p-6 rounded-[2rem] hover:shadow-md transition-shadow">
                     <p className="text-[10px] font-black text-rose-600/70 uppercase tracking-widest mb-1 flex items-center gap-2"><span className="text-rose-500">📉</span> Tổng Chi Phí</p>
                     <h3 className="text-4xl font-black text-stone-800">{summary.totalChi.toLocaleString()} <span className="text-xl text-stone-400">đ</span></h3>
@@ -484,15 +484,15 @@ export default function ReportsPage() {
 
             {/* 🎯 PHẦN 3: BAR CHART (XU HƯỚNG DÒNG TIỀN) */}
             <div className="bg-white/60 backdrop-blur-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] p-8">
-              
+
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 border-b border-stone-200/50 pb-6">
                 <div>
                   <h2 className="text-2xl font-black text-stone-800">Xu hướng Dòng Tiền</h2>
                   <p className="text-stone-500 font-medium text-sm mt-1">Biểu đồ so sánh cột Doanh thu và Chi phí.</p>
                 </div>
-                
+
                 <div className="flex items-center gap-2">
-                  <select 
+                  <select
                     value={barFilter} onChange={e => setBarFilter(e.target.value as any)}
                     className="cursor-pointer bg-white border border-stone-200 rounded-2xl px-5 py-2.5 font-bold text-sm text-stone-700 outline-none hover:border-orange-300 focus:ring-2 focus:ring-orange-100 transition-all appearance-none pr-10 relative"
                     style={{ backgroundImage: `url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23f97316%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 1rem top 50%', backgroundSize: '0.65rem auto' }}
@@ -534,7 +534,7 @@ export default function ReportsPage() {
           // 🎯 TAB "HOẠT ĐỘNG KHÁCH HÀNG"
           // ============================================================
           <div className="bg-white/60 backdrop-blur-2xl border border-white shadow-[0_8px_30px_rgb(0,0,0,0.04)] rounded-[2.5rem] p-8">
-            
+
             <div className="flex flex-col xl:flex-row justify-between items-start xl:items-center mb-8 gap-6 border-b border-stone-200/50 pb-6">
               <div>
                 <h2 className="text-2xl font-black text-stone-800">Hoạt động Khách hàng</h2>
@@ -616,7 +616,8 @@ export default function ReportsPage() {
         )}
       </div>
 
-      <style dangerouslySetInnerHTML={{__html: `
+      <style dangerouslySetInnerHTML={{
+        __html: `
         .animate-fade-in-up { animation: fadeInUp 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         .animate-blob { animation: blob 10s infinite alternate; }

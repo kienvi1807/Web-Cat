@@ -8,19 +8,16 @@ import { useLayoutStore } from '@/store/useLayoutStore';
 
 // Danh mục chi phí chuẩn
 const EXPENSE_CATEGORIES = [
-  '📦 Nhập hàng (Hạt, Pate, Cát...)', 
-  '🏥 Y tế & Tiêm phòng', 
-  '💡 Vận hành (Điện, Nước, Mặt bằng)', 
-  '📢 Marketing & Quảng cáo', 
+  '📦 Nhập hàng (Hạt, Pate, Cát...)',
+  '🏥 Y tế & Tiêm phòng',
+  '💡 Vận hành (Điện, Nước, Mặt bằng)',
+  '📢 Marketing & Quảng cáo',
   '⚙️ Khác'
 ];
 
-const setThemeColor = useLayoutStore(state => state.setThemeColor);
-useEffect(() => { setThemeColor('emerald'); }, [setThemeColor]);
-
 export default function FinancePage() {
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [totalRevenue, setTotalRevenue] = useState(0);
   const [totalExpense, setTotalExpense] = useState(0);
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -34,6 +31,10 @@ export default function FinancePage() {
   const [editingExpenseId, setEditingExpenseId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState({ title: '', amount: '', category: '' });
   const [isUpdating, setIsUpdating] = useState(false);
+
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => { setThemeColor('emerald'); }, [setThemeColor]);
+
 
   useEffect(() => {
     fetchFinancialData();
@@ -57,7 +58,7 @@ export default function FinancePage() {
           revenueSum += Number(order.totalamount || 0);
           formattedTransactions.push({
             id: order.orderid,
-            type: 'IN', 
+            type: 'IN',
             title: `Đơn hàng: ${order.customer_name}`,
             amount: Number(order.totalamount || 0),
             date: order.orderdate || new Date().toISOString(),
@@ -72,7 +73,7 @@ export default function FinancePage() {
           expenseSum += Number(exp.amount || 0);
           formattedTransactions.push({
             id: exp.id,
-            type: 'OUT', 
+            type: 'OUT',
             title: exp.title,
             amount: Number(exp.amount || 0),
             date: exp.expense_date,
@@ -101,7 +102,7 @@ export default function FinancePage() {
     if (!error) {
       setIsExpenseModalOpen(false);
       setNewExpense({ title: '', amount: '', category: EXPENSE_CATEGORIES[0] });
-      fetchFinancialData(); 
+      fetchFinancialData();
     } else alert("Lỗi: " + error.message);
   };
 
@@ -113,7 +114,7 @@ export default function FinancePage() {
       .from('expenses')
       .update({ title: editForm.title, amount: Number(editForm.amount), category: editForm.category })
       .eq('id', editingExpenseId);
-    
+
     setIsUpdating(false);
     if (!error) {
       setEditingExpenseId(null);
@@ -140,11 +141,11 @@ export default function FinancePage() {
       {/* HIỆU ỨNG NỀN */}
       <BackgroundGlow />
       <div className="max-w-[1400px] mx-auto px-6 pt-12 relative z-10 animate-fade-in">
-        
+
         <div className="flex flex-col md:flex-row justify-between items-start md:items-end mb-10 gap-6">
           <div>
-            <Link 
-              href="/dashboard/operations" 
+            <Link
+              href="/dashboard/operations"
               className="cursor-pointer group inline-flex items-center gap-2 bg-white/60 backdrop-blur-md border border-white text-emerald-600 hover:bg-white hover:text-emerald-700 px-5 py-2.5 rounded-full font-black text-sm mb-6 transition-all duration-300 hover:shadow-[0_8px_30px_rgba(16,185,129,0.15)] hover:-translate-y-0.5 active:scale-95 w-fit"
             >
               <span className="transition-transform duration-300 group-hover:-translate-x-1">←</span> Quay lại Kinh doanh & Vận hành
@@ -154,9 +155,9 @@ export default function FinancePage() {
             </h1>
             <p className="font-medium text-stone-500 mt-2">Theo dõi dòng tiền từ Beam Petshop & KinVie Cattery</p>
           </div>
-          
-          <button 
-            onClick={() => setIsExpenseModalOpen(true)} 
+
+          <button
+            onClick={() => setIsExpenseModalOpen(true)}
             className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-3.5 rounded-2xl font-bold shadow-[0_8px_20px_rgba(16,185,129,0.25)] hover:shadow-[0_8px_25px_rgba(16,185,129,0.4)] hover:-translate-y-0.5 transition-all flex items-center gap-2 cursor-pointer"
           >
             Thêm chi phí 💸
@@ -192,7 +193,7 @@ export default function FinancePage() {
           <h2 className="text-xl font-black text-stone-800 mb-8 flex items-center gap-2">📊 Lịch sử Dòng Tiền (Cashflow)</h2>
 
           {isLoading ? (
-             <div className="flex justify-center py-10 opacity-50"><div className="w-8 h-8 border-4 border-stone-300 border-t-stone-800 rounded-full animate-spin"></div></div>
+            <div className="flex justify-center py-10 opacity-50"><div className="w-8 h-8 border-4 border-stone-300 border-t-stone-800 rounded-full animate-spin"></div></div>
           ) : transactions.length === 0 ? (
             <p className="text-center text-stone-400 font-bold py-10">Chưa có giao dịch thu/chi nào được ghi nhận.</p>
           ) : (
@@ -203,9 +204,9 @@ export default function FinancePage() {
 
                 return (
                   <div key={idx} className={`bg-white border rounded-2xl transition-all duration-300 overflow-hidden ${isEditing ? 'border-rose-300 shadow-md ring-4 ring-rose-50' : 'border-stone-100 hover:shadow-md'}`}>
-                    
+
                     {/* 🎯 HEADER CỦA DÒNG (Click để mở nếu là Chi phí) */}
-                    <div 
+                    <div
                       onClick={() => {
                         if (!isIncome) {
                           setEditingExpenseId(isEditing ? null : t.id);
@@ -220,7 +221,7 @@ export default function FinancePage() {
                         </div>
                         <div>
                           <h3 className="font-bold text-stone-800 text-base flex items-center gap-2">
-                            {t.title} 
+                            {t.title}
                             {!isIncome && <span className="text-stone-300 group-hover:text-rose-400 transition-colors opacity-0 group-hover:opacity-100">✏️</span>}
                           </h3>
                           <div className="flex items-center gap-2 text-xs font-medium text-stone-500 mt-1">
@@ -235,7 +236,7 @@ export default function FinancePage() {
                           {isIncome ? '+' : '-'}{t.amount.toLocaleString()}đ
                         </p>
                         {!isIncome && (
-                           <span className={`text-stone-300 transition-transform duration-300 ${isEditing ? 'rotate-180 text-rose-500' : ''}`}>▼</span>
+                          <span className={`text-stone-300 transition-transform duration-300 ${isEditing ? 'rotate-180 text-rose-500' : ''}`}>▼</span>
                         )}
                       </div>
                     </div>
@@ -246,15 +247,15 @@ export default function FinancePage() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
                           <div>
                             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-1 block">Tên khoản chi</label>
-                            <input type="text" value={editForm.title} onChange={e => setEditForm({...editForm, title: e.target.value})} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-bold text-sm outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400" />
+                            <input type="text" value={editForm.title} onChange={e => setEditForm({ ...editForm, title: e.target.value })} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-bold text-sm outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400" />
                           </div>
                           <div>
                             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-1 block">Số tiền (VNĐ)</label>
-                            <input type="number" value={editForm.amount} onChange={e => setEditForm({...editForm, amount: e.target.value})} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-black text-rose-600 text-sm outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400" />
+                            <input type="number" value={editForm.amount} onChange={e => setEditForm({ ...editForm, amount: e.target.value })} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-black text-rose-600 text-sm outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400" />
                           </div>
                           <div>
                             <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-1 mb-1 block">Danh mục</label>
-                            <select value={editForm.category} onChange={e => setEditForm({...editForm, category: e.target.value})} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-bold text-sm text-stone-700 outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 cursor-pointer">
+                            <select value={editForm.category} onChange={e => setEditForm({ ...editForm, category: e.target.value })} className="w-full bg-white border border-stone-200 rounded-xl px-4 py-2.5 font-bold text-sm text-stone-700 outline-none focus:ring-2 focus:ring-rose-400 focus:border-rose-400 cursor-pointer">
                               {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                             </select>
                           </div>
@@ -292,15 +293,15 @@ export default function FinancePage() {
               <div className="space-y-5 mb-8">
                 <div>
                   <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-2 mb-1 block">Tên khoản chi</label>
-                  <input type="text" value={newExpense.title} onChange={e => setNewExpense({...newExpense, title: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-3.5 font-bold text-sm text-stone-800 outline-none focus:ring-2 focus:ring-rose-400/20 focus:border-rose-400" />
+                  <input type="text" value={newExpense.title} onChange={e => setNewExpense({ ...newExpense, title: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-3.5 font-bold text-sm text-stone-800 outline-none focus:ring-2 focus:ring-rose-400/20 focus:border-rose-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-2 mb-1 block">Số tiền (VNĐ)</label>
-                  <input type="number" value={newExpense.amount} onChange={e => setNewExpense({...newExpense, amount: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-3.5 font-black text-lg text-rose-600 outline-none focus:ring-2 focus:ring-rose-400/20 focus:border-rose-400" />
+                  <input type="number" value={newExpense.amount} onChange={e => setNewExpense({ ...newExpense, amount: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-3.5 font-black text-lg text-rose-600 outline-none focus:ring-2 focus:ring-rose-400/20 focus:border-rose-400" />
                 </div>
                 <div>
                   <label className="text-[10px] font-black text-stone-400 uppercase tracking-widest ml-2 mb-1 block">Danh mục</label>
-                  <select value={newExpense.category} onChange={e => setNewExpense({...newExpense, category: e.target.value})} className="w-full bg-stone-50 border border-stone-200 text-stone-700 rounded-2xl px-5 py-3.5 font-bold text-sm outline-none focus:ring-2 focus:ring-rose-400/20 cursor-pointer">
+                  <select value={newExpense.category} onChange={e => setNewExpense({ ...newExpense, category: e.target.value })} className="w-full bg-stone-50 border border-stone-200 text-stone-700 rounded-2xl px-5 py-3.5 font-bold text-sm outline-none focus:ring-2 focus:ring-rose-400/20 cursor-pointer">
                     {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
                   </select>
                 </div>

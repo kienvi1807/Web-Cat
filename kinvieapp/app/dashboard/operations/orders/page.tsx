@@ -17,9 +17,6 @@ const getAvatarColor = (name: string) => {
   return colors[charCode % colors.length];
 };
 
-const setThemeColor = useLayoutStore(state => state.setThemeColor);
-useEffect(() => { setThemeColor('blue'); }, [setThemeColor]);
-
 export default function OrderManagementPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -34,6 +31,9 @@ export default function OrderManagementPage() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false);
   const [activeOrder, setActiveOrder] = useState<any>(null);
   const [newStatus, setNewStatus] = useState('');
+
+  const setThemeColor = useLayoutStore(state => state.setThemeColor);
+  useEffect(() => { setThemeColor('blue'); }, [setThemeColor]);
 
   useEffect(() => {
     fetchOrders();

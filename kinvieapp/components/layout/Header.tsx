@@ -199,12 +199,14 @@ export default function Header() {
 
   const isShopPage = pathname === '/cattery' || pathname === '/petshop';
   const isCatteryPage = pathname === '/cattery';
-  const wrapperSize = isCatteryPage ? 'w-40 h-16 md:w-52 md:h-20' : isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
+  const wrapperSize = isCatteryPage ? 'w-52 h-20 md:w-52 md:h-20' : isShopPage ? 'w-20 h-20 md:w-24 md:h-24' : 'w-24 h-24 md:w-32 md:h-32';
   const spinRingSize = isShopPage ? 'w-16 h-16 md:w-20 md:h-20' : 'w-20 h-20 md:w-28 md:h-28';
-  const logoSize = isCatteryPage ? 'w-40 h-16 md:w-52 md:h-20' : isShopPage ? 'w-14 h-14 md:w-18 md:h-18' : 'w-16 h-16 md:w-24 md:h-24';
+  const logoSize = isCatteryPage ? 'w-52 h-20 md:w-52 md:h-20' : isShopPage ? 'w-14 h-14 md:w-18 md:h-18' : 'w-16 h-16 md:w-24 md:h-24';
 
 
   const safeAvatarUrl = (avatarUrl && avatarUrl.trim() !== '') ? avatarUrl : 'https://ui-avatars.com/api/?name=Sen&background=fce7f3&color=db2777';
+
+  const eyeScale = isCatteryPage && typeof window !== 'undefined' && window.innerWidth < 768 ? 0.9 : 1.3;
 
   return (
     <>
@@ -275,7 +277,7 @@ export default function Header() {
                     pupilSize={0.95}
                     irisWidth={0.25}
                     glowIntensity={0.35}
-                    scale={1.3}
+                    scale={eyeScale}
                     noiseScale={1}
                     pupilFollow={1}
                     flameSpeed={1.1}
