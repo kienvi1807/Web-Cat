@@ -1,7 +1,5 @@
 // lib/utils.ts
 
-export const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
-
 export const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
   { id: 'Trắng', name: 'Trắng tuyền (White)' },

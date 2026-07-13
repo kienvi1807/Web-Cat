@@ -14,7 +14,7 @@ export default function ProductCard({ product }: { product: any }) {
   // 🌟 STATE CHO QUICK ADD MODAL
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState('Mặc định'); // Demo phân loại
+  const [selectedVariant] = useState('Mặc định');
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -131,9 +131,6 @@ export default function ProductCard({ product }: { product: any }) {
   const discount = product.discount_percent || 0;
   const finalPrice = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
 
-  // Dữ liệu giả cho các loại vị (Nếu sếp có cột phân loại trong DB thì gọi ra đây)
-  const demoVariants = ['Vị Mặc định', 'Vị Cá Hồi', 'Vị Bò Cà Rốt'];
-
   return (
     <>
       <div
@@ -245,22 +242,6 @@ export default function ProductCard({ product }: { product: any }) {
                 <h4 className="font-black text-stone-800 line-clamp-2 leading-tight mb-2">{product.name}</h4>
                 <p className="text-xl font-black text-orange-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}</p>
                 <p className="text-[11px] text-stone-400 font-bold uppercase mt-1">Kho: {product.stock}</p>
-              </div>
-            </div>
-
-            {/* Phần chọn Phân Loại (Hiển thị kiểu Demo) */}
-            <div className="mb-6">
-              <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">Chọn Phân Loại</p>
-              <div className="flex flex-wrap gap-2">
-                {demoVariants.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setSelectedVariant(v)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${selectedVariant === v ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-200' : 'bg-white text-stone-600 border-stone-200 hover:border-orange-300'}`}
-                  >
-                    {v}
-                  </button>
-                ))}
               </div>
             </div>
 

@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [cartItems, setCartItems] = useState<any[]>([]);
-  
+
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
@@ -25,14 +27,16 @@ export default function CheckoutPage() {
   }, [router]);
 
   const fetchCartAndUser = async () => {
+    showGlobalLoading('Đang xử lý đơn hàng...');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      hideGlobalLoading();
       router.push('/login');
       return;
     }
 
     const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
-    
+
     if (dbUser) {
       setUserId(dbUser.userid);
       // Tự động điền thông tin sẵn nếu có
@@ -54,6 +58,7 @@ export default function CheckoutPage() {
       }
     }
     setIsLoading(false);
+    hideGlobalLoading();
   };
 
   const subTotal = cartItems.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
@@ -124,7 +129,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
@@ -142,15 +147,15 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Họ và Tên người nhận</label>
-                  <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Tên của Sen..." />
+                  <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Tên của Sen..." />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Số điện thoại</label>
-                  <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Để Shipper gọi..." />
+                  <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Để Shipper gọi..." />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Địa chỉ giao hàng</label>
-                  <textarea value={customerInfo.address} onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all resize-none" placeholder="VD: Gần Aeon Mall Lê Chân, Hải Phòng..." />
+                  <textarea value={customerInfo.address} onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all resize-none" placeholder="VD: Gần Aeon Mall Lê Chân, Hải Phòng..." />
                 </div>
               </div>
             </div>
@@ -174,7 +179,7 @@ export default function CheckoutPage() {
           <div className="lg:w-1/3">
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 sticky top-24">
               <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2"><span>🧾</span> Tóm tắt đơn hàng</h3>
-              
+
               <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                 {cartItems.map(item => (
                   <div key={item.id} className="flex justify-between items-start gap-4">

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import Toast from '@/components/ui/Toast';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -14,6 +15,7 @@ export default function UploadMemorialPhotoPage() {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [dbUserId, setDbUserId] = useState<number | null>(null);
   const [isEligible, setIsEligible] = useState(true);
   const [maxPhotos, setMaxPhotos] = useState(0);
@@ -36,11 +38,12 @@ export default function UploadMemorialPhotoPage() {
 
   useEffect(() => {
     const init = async () => {
+      showGlobalLoading('Đang tải...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (!user) { hideGlobalLoading(); router.push('/login'); return; }
 
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
-      if (!dbUser) { setIsLoading(false); return; }
+      if (!dbUser) { setIsLoading(false); hideGlobalLoading(); return; }
       setDbUserId(dbUser.userid);
 
       const { data: typeInfo } = await supabase.from('type_users').select('is_memorial_eligible, max_memorial_photos').eq('id', dbUser.type_id).maybeSingle();
@@ -86,6 +89,7 @@ export default function UploadMemorialPhotoPage() {
       }
 
       setIsLoading(false);
+      hideGlobalLoading();
     };
     init();
   }, [router]);

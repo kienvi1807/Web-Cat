@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import BreedSearchSelect from '@/components/common/BreedSearchSelect';
 
 const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -19,73 +20,6 @@ const SIMPLE_COLORS = [
   { id: 'Màu pha khác', name: 'Màu pha khác' }
 ];
 
-const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
-  'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
-];
-
-// 🎯 Dropdown chọn giống mèo có ô tìm kiếm, style đồng bộ pink-rounded với phần còn lại của trang
-function BreedSearchSelect({ value, onChange, breeds, disabled = false }: { value: string; onChange: (v: string) => void; breeds: string[]; disabled?: boolean }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filtered = breeds.filter(b => b.toLowerCase().includes(search.trim().toLowerCase()));
-
-  return (
-    <div className="relative w-full" ref={wrapRef}>
-      <div
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full border px-2.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-between
-          ${disabled ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
-            : isOpen ? 'bg-white border-pink-300 ring-2 ring-pink-100 cursor-pointer'
-              : 'bg-white border-stone-200 hover:border-pink-300 cursor-pointer'}`}
-      >
-        <span className="truncate">{value}</span>
-        <span className={`text-[9px] ml-1 transition-transform ${disabled ? 'text-stone-300' : isOpen ? 'rotate-180 text-pink-400' : 'text-stone-400'}`}>▼</span>
-      </div>
-
-      {isOpen && (
-        <div className="absolute top-[calc(100%+6px)] left-0 w-56 bg-white border border-pink-200 rounded-xl shadow-xl z-50 p-2">
-          <input
-            autoFocus
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 Tìm giống mèo..."
-            className="w-full mb-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium focus:outline-none focus:border-pink-400"
-          />
-          <div className="max-h-40 overflow-y-auto">
-            {filtered.length > 0 ? filtered.map(b => (
-              <div
-                key={b}
-                onClick={() => { onChange(b); setIsOpen(false); setSearch(''); }}
-                className={`px-2.5 py-2 rounded-lg cursor-pointer text-xs font-bold transition-colors
-                  ${b === value ? 'bg-pink-100 text-pink-600' : 'text-stone-600 hover:bg-pink-50 hover:text-pink-600'}`}
-              >
-                {b}
-              </div>
-            )) : (
-              <p className="text-center text-[11px] text-stone-400 py-2">Không tìm thấy giống nào</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function AddPetPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +29,7 @@ export default function AddPetPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
 
   // 🎯 KÉO DANH SÁCH BỐ MẸ (ĐÃ PHÂN QUYỀN & CÓ ẢNH)
@@ -179,6 +114,8 @@ export default function AddPetPage() {
       if (colors) setDbBaseColors(colors);
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+      const { data: breeds } = await supabase.from('cat_breeds').select('*').order('sort_order');
+      if (breeds) setDbBreeds(breeds);
 
       setIsPageLoading(false);
     };
@@ -407,42 +344,46 @@ export default function AddPetPage() {
                       className="w-full mb-1.5 px-3 py-2 rounded-xl border border-stone-200 text-sm font-medium focus:outline-none focus:border-pink-400"
                     />
 
-                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx']
-                      .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase())).length > 0 && (
-                        <>
-                          <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
-                          {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx']
-                            .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase()))
-                            .map(b => (
-                              <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                            ))}
-                        </>
-                      )}
+                    {(() => {
+                      const q = breedSearch.trim().toLowerCase();
+                      const grouped = dbBreeds.reduce((acc: any, b: any) => {
+                        const cat = b.category || 'Khác';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(b.name);
+                        return acc;
+                      }, {});
+                      const anyMatch = dbBreeds.some((b: any) => b.name.toLowerCase().includes(q));
 
-                    {['Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                      .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase())).length > 0 && (
+                      return (
                         <>
-                          <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
-                          {['Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                            .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase()))
-                            .map(b => (
-                              <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                            ))}
+                          {Object.entries(grouped).map(([cat, names]: any) => {
+                            const filtered = names.filter((b: string) => b.toLowerCase().includes(q));
+                            if (filtered.length === 0) return null;
+                            return (
+                              <div key={cat}>
+                                <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100 first:border-t-0 first:mt-0">
+                                  {cat === 'Ta / Lai' ? '🐈' : '🌟'} {cat}
+                                </div>
+                                {filtered.map((b: string) => (
+                                  <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                          {!anyMatch && (
+                            <p className="text-center text-xs text-stone-400 py-3">Không tìm thấy giống nào</p>
+                          )}
                         </>
-                      )}
-
-                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                      .every(b => !b.toLowerCase().includes(breedSearch.trim().toLowerCase())) && (
-                        <p className="text-center text-xs text-stone-400 py-3">Không tìm thấy giống nào</p>
-                      )}
+                      );
+                    })()}
                   </div>
                 )}
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                    <BreedSearchSelect value={mix1} onChange={setMix1} breeds={ALL_BREEDS} disabled={isBreedLocked} />
+                    <BreedSearchSelect value={mix1} onChange={setMix1} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                     <span className="text-pink-400 font-black text-xs">X</span>
-                    <BreedSearchSelect value={mix2} onChange={setMix2} breeds={ALL_BREEDS} disabled={isBreedLocked} />
+                    <BreedSearchSelect value={mix2} onChange={setMix2} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                   </div>
                 )}
               </div>

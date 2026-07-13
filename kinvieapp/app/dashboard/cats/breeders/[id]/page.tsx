@@ -4,7 +4,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function BreederCatDetailPage() {
@@ -16,6 +17,7 @@ export default function BreederCatDetailPage() {
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -27,6 +29,7 @@ export default function BreederCatDetailPage() {
   const [gender, setGender] = useState<boolean>(true);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<string[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -58,12 +61,16 @@ export default function BreederCatDetailPage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tải hồ sơ kiểm duyệt...');
 
       const { data: colors } = await supabase.from('ems_base_colors').select('*');
       if (colors) setDbBaseColors(colors);
 
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      const { data: breeds } = await supabase.from('cat_breeds').select('name').order('sort_order');
+      if (breeds) setDbBreeds(breeds.map(b => b.name));
 
       const { data: breeders } = await supabase.from('users').select('*').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -101,6 +108,7 @@ export default function BreederCatDetailPage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -325,12 +333,7 @@ export default function BreederCatDetailPage() {
     );
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-orange-500 animate-pulse">
-      <span className="text-6xl mb-4">⚖️</span>
-      <h2 className="text-2xl font-black font-sans">Đang tải hồ sơ kiểm duyệt...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
@@ -427,7 +430,7 @@ export default function BreederCatDetailPage() {
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giống mèo</label>
                   <select value={catData.breed} onChange={(e) => setCatData({ ...catData, breed: e.target.value })} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all shadow-sm appearance-none">
-                    {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    {dbBreeds.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
                 <div>

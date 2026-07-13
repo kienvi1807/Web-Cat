@@ -26,6 +26,9 @@ export default function ProfilePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 5;
 
+  const [draggedPetId, setDraggedPetId] = useState<number | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
   // State chứa dữ liệu thật từ Database
   const [userData, setUserData] = useState({
     userid: null,
@@ -69,7 +72,7 @@ export default function ProfilePage() {
       showGlobalLoading('Đang tải hồ sơ của Sen...');
     }
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/login'); return; }
+    if (!session) { hideGlobalLoading(); router.push('/login'); return; }
 
     const { data: dbUser } = await supabase
       .from('users')
@@ -130,7 +133,7 @@ export default function ProfilePage() {
       // 🐱 GỘP BOSS: mèo của mình + mèo của các thành viên gia đình đã accepted
       const familyOwnerIds = acceptedFamily.map(f => f.userid).filter(Boolean);
       const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
-      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch);
+      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch).order('display_order', { ascending: true });
       const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
 
       const { data: userOrders } = await supabase
@@ -317,6 +320,43 @@ export default function ProfilePage() {
     }
   };
 
+  // 🎯 KÉO THẢ: khi thả 1 con mèo vào vị trí con khác -> đổi chỗ tạm trên UI
+  const handleDropPet = (targetPetId: number) => {
+    if (draggedPetId === null || draggedPetId === targetPetId) return;
+
+    setUserData(prev => {
+      const list = [...prev.pets];
+      const fromIndex = list.findIndex(p => p.petid === draggedPetId);
+      const toIndex = list.findIndex(p => p.petid === targetPetId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+
+      // Lưu thứ tự mới xuống DB (không chờ UI, chạy ngầm)
+      saveNewPetOrder(list);
+
+      return { ...prev, pets: list };
+    });
+
+    setDraggedPetId(null);
+  };
+
+  // 🎯 Lưu thứ tự mới xuống Supabase (mỗi con 1 số display_order tăng dần)
+  const saveNewPetOrder = async (orderedPets: any[]) => {
+    setIsSavingOrder(true);
+    try {
+      await Promise.all(
+        orderedPets.map((pet, index) =>
+          supabase.from('pets').update({ display_order: index }).eq('petid', pet.petid)
+        )
+      );
+    } catch (err) {
+      console.error('Lỗi lưu thứ tự Boss:', err);
+    }
+    setIsSavingOrder(false);
+  };
+
   // ==========================================
   // 🎯 LOGIC XỬ LÝ POSTS (GIỮ NGUYÊN NHƯ FILE CŨ)
   // ==========================================
@@ -475,10 +515,20 @@ export default function ProfilePage() {
 
             {/* Khối 2: Boss nhà mình */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
-              <h3 className="text-xl font-black mb-8 flex items-center gap-3">🐱 Boss nhà mình</h3>
+              <h3 className="text-xl font-black mb-8 flex items-center gap-3">
+                🐱 Boss nhà mình
+                {isSavingOrder && <span className="text-[11px] font-bold text-pink-400 animate-pulse">Đang lưu...</span>}
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {userData.pets.map(pet => (
-                  <div key={pet.petid} className="relative group">
+                  <div
+                    key={pet.petid}
+                    draggable
+                    onDragStart={() => setDraggedPetId(pet.petid)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDropPet(pet.petid)}
+                    className={`relative group cursor-move transition-opacity ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'}`}
+                  >
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">

@@ -7,7 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion vào
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
-import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 
 // Cấu hình animation Stagger cho Dropdown
 const listVariants = {
@@ -25,12 +26,13 @@ export default function CatDetailPage() {
   const catId = params.id;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null); 
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); 
-  
+  const [isUploading, setIsUploading] = useState(false);
+
   const [catData, setCatData] = useState<any>({
     name: '', breed: 'Maine Coon', color: '', price: 0, status: '', dob: '', images: [], medical_history: [], notes: '', father_id: null, mother_id: null
   });
@@ -40,6 +42,7 @@ export default function CatDetailPage() {
 
   // STATE MÀU SẮC
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<string[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -62,6 +65,10 @@ export default function CatDetailPage() {
   const [isFatherBreederOpen, setIsFatherBreederOpen] = useState(false);
   const [isMotherBreederOpen, setIsMotherBreederOpen] = useState(false);
 
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [buyerResults, setBuyerResults] = useState<any[]>([]);
+  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
+
   const setThemeColor = useLayoutStore((state: any) => state.setThemeColor);
   useEffect(() => {
     setThemeColor('red'); // 👈 Set lại tone đỏ
@@ -69,10 +76,10 @@ export default function CatDetailPage() {
 
   const getAvatarUrl = (path: string) => {
     if (!path) return 'https://ui-avatars.com/api/?name=Trại&background=E2E8F0&color=64748B&bold=true';
-    
+
     // Nếu database đã lưu sẵn link http đầy đủ thì trả về luôn
     if (path.startsWith('http')) return path;
-    
+
     // Nếu chỉ lưu path (VD: avatars/abc.jpg), dùng supabase để tạo link public
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
     return data.publicUrl;
@@ -87,12 +94,16 @@ export default function CatDetailPage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
-      
+      showGlobalLoading('Đang mở hồ sơ mật...');
+
       const { data: colors } = await supabase.from('ems_base_colors').select('*');
       if (colors) setDbBaseColors(colors);
-      
+
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      const { data: breeds } = await supabase.from('cat_breeds').select('name').order('sort_order');
+      if (breeds) setDbBreeds(breeds.map(b => b.name));
 
       const { data: breeders } = await supabase.from('users').select('userid, fullname, email, phone, avatarurl, cattery_name').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -104,8 +115,12 @@ export default function CatDetailPage() {
         const { data, error } = await supabase.from('cats').select('*').eq('id', catId).single();
         if (data) {
           let loadedImages = data.images || [];
-          while (loadedImages.length < 5) loadedImages.push(''); 
+          while (loadedImages.length < 5) loadedImages.push('');
           setCatData({ ...data, images: loadedImages, medical_history: data.medical_history || [], notes: data.notes || '' });
+          if (data.buyer_id) {
+            const { data: buyerData } = await supabase.from('users').select('userid, fullname, phone, email').eq('userid', data.buyer_id).maybeSingle();
+            if (buyerData) setSelectedBuyer(buyerData);
+          }
           if (loadedImages[0]) setMainImage(loadedImages[0]);
           setGender(data.gender !== false);
 
@@ -130,6 +145,7 @@ export default function CatDetailPage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -158,12 +174,12 @@ export default function CatDetailPage() {
       alert("Lỗi tải ảnh lên: " + uploadError.message);
     }
     setIsUploading(false);
-    setUploadingSlot(null); 
-    if (fileInputRef.current) fileInputRef.current.value = ''; 
+    setUploadingSlot(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(catData.breed); 
+  const isPurebred = purebredList.includes(catData.breed);
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
   const handleUpdateCat = async () => {
@@ -175,7 +191,8 @@ export default function CatDetailPage() {
       name: catData.name, breed: catData.breed, gender: gender, color: finalColor,
       price: catData.price, status: catData.status, dob: catData.dob, images: cleanImages,
       medical_history: catData.medical_history, notes: catData.notes,
-      father_id: catData.father_id || null, mother_id: catData.mother_id || null
+      father_id: catData.father_id || null, mother_id: catData.mother_id || null,
+      buyer_id: selectedBuyer?.userid || null
     }).eq('id', catId);
 
     setIsSaving(false);
@@ -185,6 +202,17 @@ export default function CatDetailPage() {
     } else {
       alert("Có lỗi xảy ra: " + error.message);
     }
+  };
+
+  const handleSearchBuyer = async (query: string) => {
+    setBuyerSearch(query);
+    if (query.trim().length < 3) { setBuyerResults([]); return; }
+    const { data } = await supabase
+      .from('users')
+      .select('userid, fullname, phone, email')
+      .or(`fullname.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(5);
+    setBuyerResults(data || []);
   };
 
   const handleDeleteCat = async () => {
@@ -298,16 +326,16 @@ export default function CatDetailPage() {
     return (
       <div className="flex items-center group/node animate-fade-in">
         {level > 1 && <div className="w-10 h-[2px] bg-red-200 rounded-full transition-colors group-hover/node:bg-red-400"></div>}
-        
+
         <Link href={`/dashboard/cats/kinvie/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 cursor-pointer ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 shrink-0 relative">
-             <img src={cat.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-full h-full object-cover" alt="cat" />
-             <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-xl"></div>
+            <img src={cat.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-full h-full object-cover" alt="cat" />
+            <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-xl"></div>
           </div>
           <div className="overflow-hidden flex-1">
-             <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
-             <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-red-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
+            <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-red-600 transition-colors">{cat.name}</p>
+            <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -315,8 +343,8 @@ export default function CatDetailPage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-red-200 rounded-full transition-colors group-hover/node:bg-red-400"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-red-200 py-4 my-2 transition-colors group-hover/node:border-red-400 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} /></div>}
+              {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level + 1} label={`Đời ${level + 1} (Bố)`} /></div>}
+              {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level + 1} label={`Đời ${level + 1} (Mẹ)`} /></div>}
             </div>
           </div>
         )}
@@ -324,17 +352,12 @@ export default function CatDetailPage() {
     );
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-red-500 animate-pulse">
-      <span className="text-6xl mb-4">🐈</span>
-      <h2 className="text-2xl font-black font-sans">Đang mở hồ sơ mật...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-      
+
       {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
       <BackgroundGlow />
 
@@ -383,11 +406,11 @@ export default function CatDetailPage() {
             <h2 className="text-2xl font-black text-stone-800 mb-8 flex items-center gap-3">Thông tin chi tiết <span className="text-red-500">❖</span></h2>
 
             <div className="space-y-8 relative z-10">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Tên gọi / Mã bầy</label>
-                  <input type="text" value={catData.name} onChange={(e) => setCatData({...catData, name: e.target.value})} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="text" value={catData.name} onChange={(e) => setCatData({ ...catData, name: e.target.value })} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giới tính</label>
@@ -402,28 +425,28 @@ export default function CatDetailPage() {
                 {/* 🎯 DROPDOWN GIỐNG MÈO DARK MODE */}
                 <div className="relative">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giống mèo</label>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setIsBreedOpen(!isBreedOpen)}
                     className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-left text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 transition-all shadow-sm flex justify-between items-center"
                   >
                     <span className={catData.breed === 'Chưa rõ' ? 'text-stone-400' : 'text-red-600'}>{catData.breed}</span>
                     <span className={`transition-transform duration-300 text-red-400 ${isBreedOpen ? 'rotate-180' : ''}`}>▼</span>
                   </button>
-                  
+
                   <AnimatePresence>
                     {isBreedOpen && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col"
                       >
                         <div className="overflow-y-auto p-2 custom-scrollbar">
                           <motion.div variants={listVariants} initial="hidden" animate="show">
-                            {ALL_BREEDS.map(breed => (
-                              <motion.div 
-                                key={breed} 
+                            {dbBreeds.map(breed => (
+                              <motion.div
+                                key={breed}
                                 variants={itemVariants}
-                                onClick={() => { setCatData({...catData, breed}); setIsBreedOpen(false); }}
+                                onClick={() => { setCatData({ ...catData, breed }); setIsBreedOpen(false); }}
                                 className={`cursor-pointer px-5 py-3 rounded-xl font-bold text-sm transition-all mb-1 flex justify-between ${catData.breed === breed ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'text-red-600 hover:bg-red-600 hover:text-white'}`}
                               >
                                 <span>{breed}</span>
@@ -439,17 +462,17 @@ export default function CatDetailPage() {
 
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Ngày sinh (DOB)</label>
-                  <input type="date" value={catData.dob || ''} onChange={(e) => setCatData({...catData, dob: e.target.value})} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="date" value={catData.dob || ''} onChange={(e) => setCatData({ ...catData, dob: e.target.value })} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Trạng thái hiện tại</label>
                 <div className="flex flex-wrap gap-3">
-                  
+
                   {/* 🎯 BẢNG MÀU TƯƠNG ỨNG VỚI TỪNG TRẠNG THÁI */}
                   {['Chưa sẵn sàng', 'Sẵn sàng', 'Đã cọc', 'Đã về nhà mới'].map((item) => {
-                    
+
                     const statusStyles = {
                       'Chưa sẵn sàng': {
                         active: 'bg-stone-800 text-white border-stone-800 shadow-lg shadow-stone-500/30',
@@ -473,14 +496,13 @@ export default function CatDetailPage() {
                     const isActive = catData.status === item;
 
                     return (
-                      <button 
-                        key={item} 
-                        onClick={() => setCatData({...catData, status: item})}
-                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border ${
-                          isActive 
-                            ? `${style.active} transform scale-[1.02]` 
-                            : `bg-white text-stone-500 border-stone-200 ${style.hover}`
-                        }`}
+                      <button
+                        key={item}
+                        onClick={() => setCatData({ ...catData, status: item })}
+                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border ${isActive
+                          ? `${style.active} transform scale-[1.02]`
+                          : `bg-white text-stone-500 border-stone-200 ${style.hover}`
+                          }`}
                       >
                         {item}
                       </button>
@@ -488,6 +510,46 @@ export default function CatDetailPage() {
                   })}
 
                 </div>
+
+                {catData.status === 'Đã về nhà mới' && (
+                  <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl">
+                    <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">🎯 Người mua (để lưu vào "Cây Ký Ức" sau này)</label>
+                    {selectedBuyer ? (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-stone-200">
+                        <div>
+                          <p className="font-bold text-sm text-stone-800">{selectedBuyer.fullname}</p>
+                          <p className="text-xs text-stone-400">{selectedBuyer.phone}</p>
+                        </div>
+                        <button type="button" onClick={() => { setSelectedBuyer(null); setBuyerSearch(''); }} className="text-xs text-rose-500 font-bold">Đổi</button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={buyerSearch}
+                          onChange={(e) => handleSearchBuyer(e.target.value)}
+                          placeholder="Gõ tên, SĐT hoặc email khách..."
+                          className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm"
+                        />
+                        {buyerResults.length > 0 && (
+                          <div className="absolute z-10 w-full bg-white border border-stone-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
+                            {buyerResults.map((u) => (
+                              <button
+                                type="button"
+                                key={u.userid}
+                                onClick={() => { setSelectedBuyer(u); setBuyerResults([]); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm border-b border-stone-50 last:border-0"
+                              >
+                                <p className="font-bold text-stone-800">{u.fullname}</p>
+                                <p className="text-xs text-stone-400">{u.phone} · {u.email}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* KHỐI CHỌN BỐ MẸ - GIAO DIỆN GLASS TRẮNG */}
@@ -496,23 +558,23 @@ export default function CatDetailPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-sm font-bold text-red-800 uppercase flex items-center gap-2"><span>🌳</span> Gán Phả Hệ (Bố/Mẹ)</h3>
                   </div>
-                  
+
                   {/* BỐ */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    
+
                     {/* TRẠI CỦA MÈO BỐ */}
                     <div className="relative">
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Trại của Mèo Bố</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => { setIsFatherBreederOpen(!isFatherBreederOpen); setIsMotherBreederOpen(false); setIsFatherDropdownOpen(false); setIsMotherDropdownOpen(false); setIsBreedOpen(false); }}
                         className="cursor-pointer w-full bg-white border border-blue-100 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between hover:border-blue-300 hover:shadow-md transition-all"
                       >
                         <span className={!fatherBreederId ? 'text-stone-400' : 'text-blue-700'}>
-                          {fatherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.userid === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
+                          {fatherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.userid === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-blue-400 transition-transform duration-300 ${isFatherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -523,18 +585,18 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setFatherBreederId(''); setCatData({...catData, father_id: null}); setIsFatherBreederOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
-                                                                {breedersList.map(b => (
-                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setFatherBreederId(b.userid.toString()); setIsFatherBreederOpen(false); setCatData({...catData, father_id: null}); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
-                                    
+                                <motion.div variants={itemVariants} onClick={() => { setFatherBreederId(''); setCatData({ ...catData, father_id: null }); setIsFatherBreederOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                {breedersList.map(b => (
+                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setFatherBreederId(b.userid.toString()); setIsFatherBreederOpen(false); setCatData({ ...catData, father_id: null }); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
+
                                     {/* 🎯 THAY ICON NHÀ BẰNG ẢNH AVATAR */}
-                                    <img 
-                                      src={getAvatarUrl(b.avatarurl)} 
-                                      className="w-7 h-7 rounded-full object-cover border-2 border-blue-100 shadow-sm shrink-0" 
-                                      alt="avatar" 
+                                    <img
+                                      src={getAvatarUrl(b.avatarurl)}
+                                      className="w-7 h-7 rounded-full object-cover border-2 border-blue-100 shadow-sm shrink-0"
+                                      alt="avatar"
                                     />
                                     <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
-                                    
+
                                   </motion.div>
                                 ))}
                               </motion.div>
@@ -557,9 +619,9 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setCatData({...catData, father_id: null}); setIsFatherDropdownOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setCatData({ ...catData, father_id: null }); setIsFatherDropdownOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {allCatsList.filter(c => c.gender !== false && !excludedForFather.includes(c.id) && (c.breeder_id?.toString() === fatherBreederId || c.id === catData.father_id)).map(c => (
-                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({...catData, father_id: c.id}); setIsFatherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-colors">
+                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({ ...catData, father_id: c.id }); setIsFatherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-colors">
                                     <img src={c.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-8 h-8 rounded-lg object-cover border border-blue-100 shadow-sm shrink-0" alt="cat" />
                                     <div className="overflow-hidden"><p className="text-sm font-bold text-stone-800 truncate">{c.name}</p><p className="text-[10px] text-stone-500 truncate">{formatEmsCode(c.color)}</p></div>
                                   </motion.div>
@@ -574,20 +636,20 @@ export default function CatDetailPage() {
 
                   {/* MẸ */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
+
                     {/* TRẠI CỦA MÈO MẸ */}
                     <div className="relative">
                       <label className="block text-[10px] font-black text-rose-400 uppercase mb-2">Trại của Mèo Mẹ</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => { setIsMotherBreederOpen(!isMotherBreederOpen); setIsFatherBreederOpen(false); setIsFatherDropdownOpen(false); setIsMotherDropdownOpen(false); setIsBreedOpen(false); }}
                         className="cursor-pointer w-full bg-white border border-rose-100 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between hover:border-rose-300 hover:shadow-md transition-all"
                       >
                         <span className={!motherBreederId ? 'text-stone-400' : 'text-rose-700'}>
-                          {motherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.userid === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
+                          {motherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.userid === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-rose-400 transition-transform duration-300 ${isMotherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -598,18 +660,18 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-rose-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setMotherBreederId(''); setCatData({...catData, mother_id: null}); setIsMotherBreederOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setMotherBreederId(''); setCatData({ ...catData, mother_id: null }); setIsMotherBreederOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {breedersList.map(b => (
-                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setMotherBreederId(b.userid.toString()); setIsMotherBreederOpen(false); setCatData({...catData, mother_id: null}); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
-                                    
+                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setMotherBreederId(b.userid.toString()); setIsMotherBreederOpen(false); setCatData({ ...catData, mother_id: null }); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
+
                                     {/* 🎯 THAY ICON NHÀ BẰNG ẢNH AVATAR */}
-                                    <img 
-                                      src={getAvatarUrl(b.avatarurl)} 
-                                      className="w-7 h-7 rounded-full object-cover border-2 border-rose-100 shadow-sm shrink-0" 
-                                      alt="avatar" 
+                                    <img
+                                      src={getAvatarUrl(b.avatarurl)}
+                                      className="w-7 h-7 rounded-full object-cover border-2 border-rose-100 shadow-sm shrink-0"
+                                      alt="avatar"
                                     />
                                     <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
-                                    
+
                                   </motion.div>
                                 ))}
                               </motion.div>
@@ -632,9 +694,9 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-rose-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setCatData({...catData, mother_id: null}); setIsMotherDropdownOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setCatData({ ...catData, mother_id: null }); setIsMotherDropdownOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {allCatsList.filter(c => c.gender === false && !excludedForMother.includes(c.id) && (c.breeder_id?.toString() === motherBreederId || c.id === catData.mother_id)).map(c => (
-                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({...catData, mother_id: c.id}); setIsMotherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer rounded-xl transition-colors">
+                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({ ...catData, mother_id: c.id }); setIsMotherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer rounded-xl transition-colors">
                                     <img src={c.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-8 h-8 rounded-lg object-cover border border-rose-100 shadow-sm shrink-0" alt="cat" />
                                     <div className="overflow-hidden"><p className="text-sm font-bold text-stone-800 truncate">{c.name}</p><p className="text-[10px] text-stone-500 truncate">{formatEmsCode(c.color)}</p></div>
                                   </motion.div>
@@ -652,61 +714,61 @@ export default function CatDetailPage() {
               {/* BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-red-50/40 rounded-3xl p-6 border border-red-100 shadow-sm transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
-                       <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
-                       <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
-                     </h3>
-                     <div className="text-right">
-                       <p className="text-[10px] text-stone-500 uppercase font-bold">Mã của Boss</p>
-                       <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || catData.color || '???'}</p>
-                     </div>
-                   </div>
-                   
-                   {isEmsOpen && dbBaseColors.length > 0 && (
-                     <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
-                       <div className="mb-6">
-                         <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                  <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
+                      <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
+                      <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </h3>
+                    <div className="text-right">
+                      <p className="text-[10px] text-stone-500 uppercase font-bold">Mã của Boss</p>
+                      <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || catData.color || '???'}</p>
+                    </div>
+                  </div>
+
+                  {isEmsOpen && dbBaseColors.length > 0 && (
+                    <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
+                      <div className="mb-6">
+                        <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </div>
-                   )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-stone-50/50 rounded-3xl p-6 border border-stone-200 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
-                     <div className="text-right">
-                       <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{simpleColor || catData.color || '???'}</p>
-                     </div>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{simpleColor || catData.color || '???'}</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {SIMPLE_COLORS.map(c => (
@@ -750,9 +812,9 @@ export default function CatDetailPage() {
 
                 <div className="mt-8 border-t border-stone-200/50 pt-6">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Đặc điểm / Ghi chú (Notes)</label>
-                  <textarea 
-                    value={catData.notes || ''} onChange={(e) => setCatData({...catData, notes: e.target.value})}
-                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4} 
+                  <textarea
+                    value={catData.notes || ''} onChange={(e) => setCatData({ ...catData, notes: e.target.value })}
+                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4}
                     className="w-full bg-white border border-stone-200/80 rounded-2xl px-5 py-4 text-stone-800 text-sm focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm resize-none"
                   ></textarea>
                 </div>
@@ -765,9 +827,9 @@ export default function CatDetailPage() {
                 </label>
                 <div className="relative group/price">
                   <div className="absolute -inset-1 bg-gradient-to-r from-red-400 to-orange-400 rounded-2xl blur opacity-25 group-hover/price:opacity-50 transition duration-500 pointer-events-none"></div>
-                  <input 
-                    type="number" value={catData.price} onChange={(e) => setCatData({...catData, price: parseInt(e.target.value) || 0})}
-                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200" 
+                  <input
+                    type="number" value={catData.price} onChange={(e) => setCatData({ ...catData, price: parseInt(e.target.value) || 0 })}
+                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200"
                   />
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-red-400 font-black text-3xl select-none pointer-events-none">đ</span>
                 </div>
@@ -786,11 +848,11 @@ export default function CatDetailPage() {
           <h2 className="text-2xl font-black text-stone-800 mb-8 flex items-center gap-3 relative z-10">
             Cây Phả Hệ Gia Tộc (5 Đời) <span className="text-red-600 text-3xl drop-shadow-md">🌳</span>
           </h2>
-          
+
           <div className="overflow-x-auto custom-scrollbar pb-12 pt-4 border-t border-red-100 mt-4 relative z-10">
-             <div className="min-w-max pr-16 pt-6">
-                <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Mèo Hiện Tại" />
-             </div>
+            <div className="min-w-max pr-16 pt-6">
+              <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Mèo Hiện Tại" />
+            </div>
           </div>
         </div>
       )}
@@ -799,7 +861,7 @@ export default function CatDetailPage() {
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl"
           >
@@ -807,20 +869,20 @@ export default function CatDetailPage() {
             <div className="space-y-5 mb-8">
               <div>
                 <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Tên Vaccine / Mũi tiêm</label>
-                <input 
+                <input
                   type="text" placeholder="Ví dụ: Vaccine 4 bệnh, Dại, Tẩy giun..."
-                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({...newRecord, vaccineName: e.target.value})} 
+                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({ ...newRecord, vaccineName: e.target.value })}
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Ngày tiêm</label>
-                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({ ...newRecord, dateGiven: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Nhắc lại (Nếu có)</label>
-                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({ ...newRecord, nextDueDate: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
               </div>
             </div>

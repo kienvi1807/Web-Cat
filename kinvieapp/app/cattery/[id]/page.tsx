@@ -5,12 +5,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { formatEmsCode } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function PublicCatProfilePage() {
   const params = useParams();
   const catId = params.id;
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [catData, setCatData] = useState<any>(null);
   const [mainImage, setMainImage] = useState<string>('');
 
@@ -116,6 +118,7 @@ export default function PublicCatProfilePage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tìm hồ sơ Boss...');
 
       // Lấy danh sách trại & tất cả mèo để vẽ phả hệ
       const { data: breeders } = await supabase.from('users').select('userid, fullname, cattery_name, phone').in('type_id', [1, 3]);
@@ -135,6 +138,7 @@ export default function PublicCatProfilePage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -213,12 +217,7 @@ export default function PublicCatProfilePage() {
   };
 
   // LOADING STATE
-  if (isLoading) return (
-    <div className="min-h-screen bg-[#FFF8FA] flex flex-col items-center justify-center text-pink-400">
-      <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mb-4"></div>
-      <h2 className="text-xl font-black uppercase tracking-widest animate-pulse">Đang tìm hồ sơ Boss...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!catData) return (
     <div className="min-h-screen bg-[#FFF8FA] flex flex-col items-center justify-center text-stone-500">

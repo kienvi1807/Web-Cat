@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -24,6 +25,7 @@ export default function ProductDetailedAdmin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
@@ -40,6 +42,7 @@ export default function ProductDetailedAdmin() {
 
   const fetchProduct = async () => {
     setIsLoading(true);
+    showGlobalLoading('SYSTEM SCANNING...');
     const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
     
     if (error) {
@@ -62,6 +65,7 @@ export default function ProductDetailedAdmin() {
       });
     }
     setIsLoading(false);
+    hideGlobalLoading();
   };
 
   const handleImageClick = (index: number) => {
@@ -127,12 +131,7 @@ export default function ProductDetailedAdmin() {
     }
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-[#fffafa] flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-rose-200 border-t-rose-600 rounded-full animate-spin mb-4"></div>
-      <p className="font-black text-rose-400 tracking-widest text-sm uppercase animate-pulse">SYSTEM SCANNING...</p>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-[#fffafa] pb-20 relative overflow-hidden selection:bg-rose-200">

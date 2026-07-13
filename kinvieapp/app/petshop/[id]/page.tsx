@@ -4,8 +4,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import GlobalLoading from '@/components/layout/GlobalLoading';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import Link from 'next/link';
 
 export default function ProductDetailPage() {
@@ -14,6 +14,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
 
@@ -40,6 +41,7 @@ export default function ProductDetailPage() {
     // 2. LẤY DỮ LIỆU SẢN PHẨM
     const fetchProduct = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang check kho hàng...');
       try {
         const { data, error } = await supabase
           .from('products')
@@ -53,6 +55,7 @@ export default function ProductDetailPage() {
         console.error("Lỗi lấy chi tiết sản phẩm:", err);
       } finally {
         setIsLoading(false);
+        hideGlobalLoading();
       }
     };
 
@@ -195,12 +198,7 @@ export default function ProductDetailPage() {
     if (updated) setProduct((prev: any) => ({ ...prev, ...updated }));
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFFBFD]">
-      <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
-      <p className="font-bold text-orange-400 animate-pulse">Đang check kho hàng...</p>
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!product) return <div className="min-h-screen flex items-center justify-center font-bold">Không tìm thấy sản phẩm sếp ơi! 😿</div>;
 

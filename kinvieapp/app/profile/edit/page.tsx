@@ -6,12 +6,14 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function EditProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -23,8 +25,8 @@ export default function EditProfilePage() {
   const [formData, setFormData] = useState({
     fullname: '',
     phone: '',
-    birthdate: '', 
-    specificAddress: '' 
+    birthdate: '',
+    specificAddress: ''
   });
 
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -44,8 +46,10 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      showGlobalLoading('Đang tải hồ sơ...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        hideGlobalLoading();
         router.push('/login');
         return;
       }
@@ -56,11 +60,12 @@ export default function EditProfilePage() {
           fullname: dbUser.fullname || dbUser.name || user.user_metadata?.full_name || '',
           phone: dbUser.phone || '',
           birthdate: formatDateForInput(dbUser.birthdate), // Đọc ngày sinh từ DB
-          specificAddress: '' 
+          specificAddress: ''
         });
         setPreviewUrl(dbUser.avatarurl || user.user_metadata?.avatar_url || '');
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
 
     fetchUserData();
@@ -98,19 +103,19 @@ export default function EditProfilePage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setAvatarFile(file);
-      setPreviewUrl(URL.createObjectURL(file)); 
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
   // CÁC HÀM XỬ LÝ GÕ NGÀY THÁNG THÔNG MINH
   const handleDateInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 8) val = val.slice(0, 8); 
-    
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
+
     let newDate = val;
     if (val.length >= 5) newDate = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`;
     else if (val.length >= 3) newDate = `${val.slice(0, 2)}/${val.slice(2)}`;
-    
+
     setFormData({ ...formData, birthdate: newDate });
   };
 
@@ -142,7 +147,7 @@ export default function EditProfilePage() {
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile);
@@ -154,9 +159,9 @@ export default function EditProfilePage() {
       }
 
       const fullAddress = [
-        formData.specificAddress, 
-        selectedWard.name, 
-        selectedDistrict.name, 
+        formData.specificAddress,
+        selectedWard.name,
+        selectedDistrict.name,
         selectedProvince.name
       ].filter(Boolean).join(', ');
 
@@ -184,14 +189,14 @@ export default function EditProfilePage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Đang tải hồ sơ...</div>;
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
       <Header />
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10 flex justify-center">
         <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-sm border border-stone-100 w-full max-w-3xl">
-          
+
           <div className="mb-8">
             <Link href="/profile" className="text-stone-400 hover:text-pink-500 text-sm font-bold flex items-center gap-2 mb-6 inline-block">
               <span>❮</span> Quay lại Hồ sơ
@@ -201,7 +206,7 @@ export default function EditProfilePage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
             <div className="flex flex-col items-center justify-center p-6 bg-pink-50/50 rounded-3xl border border-pink-100 border-dashed mb-8">
               <div className="relative group">
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border-4 border-white overflow-hidden">
@@ -218,11 +223,11 @@ export default function EditProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Họ và tên <span className="text-rose-500">*</span></label>
-                <input type="text" required name="fullname" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.fullname} onChange={(e) => setFormData({...formData, fullname: e.target.value})} />
+                <input type="text" required name="fullname" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.fullname} onChange={(e) => setFormData({ ...formData, fullname: e.target.value })} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Số điện thoại <span className="text-rose-500">*</span></label>
-                <input type="tel" required name="phone" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <input type="tel" required name="phone" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
             </div>
 
@@ -239,10 +244,10 @@ export default function EditProfilePage() {
             <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
               <h4 className="text-sm font-bold text-stone-700 mb-4 flex items-center gap-2"><span>📍</span> Địa chỉ nhận hàng</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                
+
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Tỉnh / Thành phố</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none"
                     value={selectedProvince.code}
                     onChange={(e) => {
@@ -260,7 +265,7 @@ export default function EditProfilePage() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Quận / Huyện</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
                     value={selectedDistrict.code}
                     onChange={(e) => {
@@ -278,7 +283,7 @@ export default function EditProfilePage() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Phường / Xã</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
                     value={selectedWard.code}
                     onChange={(e) => setSelectedWard({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text })}
@@ -294,7 +299,7 @@ export default function EditProfilePage() {
 
               <div>
                 <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Số nhà, tên đường</label>
-                <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({...formData, specificAddress: e.target.value})} />
+                <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({ ...formData, specificAddress: e.target.value })} />
               </div>
             </div>
 

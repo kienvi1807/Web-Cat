@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 
 const STATUS_OPTIONS = ['Mới', 'Đã liên hệ', 'Đã chốt', 'Hủy'];
@@ -27,6 +28,7 @@ export default function StaffBreederInquiryDetailPage() {
 
   const [inquiry, setInquiry] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -36,8 +38,9 @@ export default function StaffBreederInquiryDetailPage() {
 
   useEffect(() => {
     const checkAccessAndLoad = async () => {
+      showGlobalLoading('Đang tải yêu cầu...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (!user) { hideGlobalLoading(); router.push('/login'); return; }
 
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
@@ -45,6 +48,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (!dbUser || (dbUser.type_id !== 2 && dbUser.type_id !== 3)) {
         setAccessDenied(true);
         setIsCheckingAuth(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -57,6 +61,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (!inquiryData) {
         setIsCheckingAuth(false);
         setIsLoading(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -64,6 +69,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (dbUser.type_id === 3 && inquiryData.cats?.breeder_id !== dbUser.userid) {
         setAccessDenied(true);
         setIsCheckingAuth(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -71,6 +77,7 @@ export default function StaffBreederInquiryDetailPage() {
       setInquiry(inquiryData);
       setIsCheckingAuth(false);
       setIsLoading(false);
+      hideGlobalLoading();
     };
 
     if (inquiryId) checkAccessAndLoad();
@@ -102,11 +109,7 @@ export default function StaffBreederInquiryDetailPage() {
     );
   }
 
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
-      Đang tải yêu cầu...
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!inquiry) return (
     <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
@@ -210,9 +213,8 @@ export default function StaffBreederInquiryDetailPage() {
                   key={opt}
                   onClick={() => handleUpdateStatus(opt)}
                   disabled={isUpdating || inquiry.status === opt}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
-                    inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
-                  }`}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
+                    }`}
                 >
                   {opt}
                 </button>

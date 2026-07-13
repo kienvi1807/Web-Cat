@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import CatCard from '@/components/common/CatCard';
 import { formatEmsCode } from '@/lib/utils';
 import GlassSelect from '@/components/ui/GlassSelect';
@@ -31,6 +32,7 @@ const getAgeCategory = (dob: string) => {
 export default function CatteryDetailsPage() {
   const [cats, setCats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
 
   const [filterBreed, setFilterBreed] = useState<string>('Tất cả');
   const [filterColor, setFilterColor] = useState<string>('Tất cả');
@@ -44,6 +46,7 @@ export default function CatteryDetailsPage() {
   useEffect(() => {
     const fetchCats = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang rước các Boss ra...');
       const { data } = await supabase
         .from('cats')
         .select('*')
@@ -53,6 +56,7 @@ export default function CatteryDetailsPage() {
         setCats(data);
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     fetchCats();
   }, []);
@@ -224,13 +228,7 @@ export default function CatteryDetailsPage() {
               </div>
             </div>
 
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-[50vh] text-pink-400">
-                <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mb-4"></div>
-                <h2 className="text-xl font-black uppercase tracking-widest animate-pulse">Đang rước các Boss ra...</h2>
-              </div>
-            ) : filteredCats.length > 0 ? (
-
+            {filteredCats.length > 0 ? (
               /* 🌟 ĐÃ FIX: Chỉ giữ nguyên tối đa 3 cột. Khi đóng bộ lọc thì 3 cột này giãn to ra */
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-8 transition-all duration-500">
                 {filteredCats.map((cat) => (

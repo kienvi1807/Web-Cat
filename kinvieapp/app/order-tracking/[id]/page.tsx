@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function OrderTrackingPage() {
   const params = useParams();
@@ -13,6 +14,7 @@ export default function OrderTrackingPage() {
   const orderId = params.id;
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [orderData, setOrderData] = useState<any>(null);
   const [dbUserId, setDbUserId] = useState<number | null>(null);
   const [myReviews, setMyReviews] = useState<Record<number, boolean>>({});
@@ -22,9 +24,11 @@ export default function OrderTrackingPage() {
 
   useEffect(() => {
     const fetchOrder = async () => {
+      showGlobalLoading('Đang tải đơn hàng...');
       const { data } = await supabase.from('orders').select('*, orderdetails(products(id, name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
       if (data) setOrderData(data);
       setIsLoading(false);
+      hideGlobalLoading();
     };
     if (orderId) fetchOrder();
   }, [orderId]);
@@ -70,7 +74,7 @@ export default function OrderTrackingPage() {
     setMyReviews(prev => ({ ...prev, [productId]: true }));
   };
 
-  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (isLoading) return null;
   if (!orderData) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><h1 className="text-2xl font-black">Không tìm thấy đơn hàng</h1></div>;
 
   // LOGIC TIMELINE TIẾN TRÌNH

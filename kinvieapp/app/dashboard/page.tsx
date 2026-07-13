@@ -31,21 +31,27 @@ export default function DashboardHubPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    
+
     // Kéo Đơn hàng (Cả chờ duyệt và đã hoàn thành)
     const { data: orders } = await supabase.from('orders').select('*');
     // Kéo Khách hàng
     const { data: users } = await supabase.from('users').select('*').eq('type_id', 4); // Giả sử 4 là KH
     // Kéo Mèo
     const { data: cats } = await supabase.from('cats').select('*');
-    
-    setRawData({ 
-      orders: orders || [], 
-      users: users || [], 
+
+    // 🆕 Đếm feedback chưa phản hồi (status khác 'replied')
+    const { count: pendingReviewsCount } = await supabase
+      .from('feedbacks')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'replied');
+
+    setRawData({
+      orders: orders || [],
+      users: users || [],
       cats: cats || [],
-      pendingReviews: 3 // Dữ liệu khiếu nại (Demo)
+      pendingReviews: pendingReviewsCount || 0
     });
-    
+
     setIsLoading(false);
   };
 
@@ -62,7 +68,7 @@ export default function DashboardHubPage() {
     if (isNaN(d.getTime())) return false;
 
     const now = new Date();
-    
+
     if (filterType === 'this_month') {
       if (isPreviousPeriod) {
         const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
@@ -71,14 +77,14 @@ export default function DashboardHubPage() {
       }
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }
-    
+
     if (filterType === 'this_week') {
       const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1)); // Thứ 2
-      firstDayOfWeek.setHours(0,0,0,0);
+      firstDayOfWeek.setHours(0, 0, 0, 0);
       const lastDayOfWeek = new Date(firstDayOfWeek);
       lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6); // CN
-      lastDayOfWeek.setHours(23,59,59,999);
-      
+      lastDayOfWeek.setHours(23, 59, 59, 999);
+
       if (isPreviousPeriod) {
         firstDayOfWeek.setDate(firstDayOfWeek.getDate() - 7);
         lastDayOfWeek.setDate(lastDayOfWeek.getDate() - 7);
@@ -87,7 +93,7 @@ export default function DashboardHubPage() {
     }
 
     if (filterType === 'today') {
-      const today = new Date(now.setHours(0,0,0,0));
+      const today = new Date(now.setHours(0, 0, 0, 0));
       if (isPreviousPeriod) {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -104,7 +110,7 @@ export default function DashboardHubPage() {
     // 1. Tính Doanh thu & Đơn chờ
     rawData.orders.forEach(o => {
       const oDate = o.orderdate || o.created_at || o.createdat;
-      
+
       // Đơn chờ duyệt
       if (o.orderstatus === 'Chờ duyệt') pendingOrd++;
 
@@ -193,19 +199,19 @@ export default function DashboardHubPage() {
 
   return (
     <div className="space-y-16 animate-fade-in max-w-[1400px] mx-auto pb-16">
-      
+
       {/* ==========================================
           KHU VỰC THỐNG KÊ (HẮC HƯỜNG NEON GLOW) - ĐÃ GẮN DATA ĐỘNG
           ========================================== */}
       <div className="space-y-6">
-        
+
         {/* TẦNG 1: DOANH THU & BỘ LỌC THỜI GIAN */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+
           {/* KHỐI DOANH THU ĐỘNG */}
           <div className="bg-[#111] rounded-[2rem] p-6 xl:p-8 border border-stone-800 shadow-2xl relative overflow-hidden group hover:border-pink-500 transition-all duration-500 cursor-default">
             <div className="absolute -right-8 -top-8 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl group-hover:bg-pink-500/40 transition-all duration-500"></div>
-            
+
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start mb-4">
                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Tổng Doanh Thu</p>
@@ -213,7 +219,7 @@ export default function DashboardHubPage() {
                   {dateFilter === 'this_month' ? 'Tháng này' : dateFilter === 'this_week' ? 'Tuần này' : 'Hôm nay'}
                 </span>
               </div>
-              
+
               {isLoading ? (
                 <div className="animate-pulse h-16 w-3/4 bg-stone-800 rounded-2xl mb-4"></div>
               ) : (
@@ -233,37 +239,37 @@ export default function DashboardHubPage() {
 
           {/* KHỐI BỘ LỌC */}
           <div className="bg-[#111] rounded-[2rem] p-6 xl:p-8 border border-stone-800 shadow-2xl relative overflow-hidden flex flex-col justify-center group hover:border-slate-500 transition-all duration-500">
-             <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-6">Thời gian hiển thị</p>
-             <div className="flex flex-wrap gap-2 mb-6">
-                <button onClick={() => setDateFilter('this_month')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_month' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tháng này</button>
-                <button onClick={() => setDateFilter('this_week')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_week' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tuần này</button>
-                <button onClick={() => setDateFilter('today')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'today' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Hôm nay</button>
-             </div>
-             
-             {/* Fake Inputs Date cho đẹp giao diện như ảnh của sếp */}
-             <div className="flex flex-col xl:flex-row items-center gap-3 w-full opacity-50 pointer-events-none">
-               <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-stone-500">📅</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Từ ngày</p>
-                    <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-01" />
-                  </div>
-               </div>
-               <span className="text-stone-600 font-black hidden xl:block">-</span>
-               <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-stone-500">📅</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Đến ngày</p>
-                    <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-30" />
-                  </div>
-               </div>
-             </div>
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-6">Thời gian hiển thị</p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button onClick={() => setDateFilter('this_month')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_month' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tháng này</button>
+              <button onClick={() => setDateFilter('this_week')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_week' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tuần này</button>
+              <button onClick={() => setDateFilter('today')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'today' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Hôm nay</button>
+            </div>
+
+            {/* Fake Inputs Date cho đẹp giao diện như ảnh của sếp */}
+            <div className="flex flex-col xl:flex-row items-center gap-3 w-full opacity-50 pointer-events-none">
+              <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <span className="text-stone-500">📅</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Từ ngày</p>
+                  <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-01" />
+                </div>
+              </div>
+              <span className="text-stone-600 font-black hidden xl:block">-</span>
+              <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <span className="text-stone-500">📅</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Đến ngày</p>
+                  <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-30" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* TẦNG 2: 4 CHỈ SỐ NHANH ĐỘNG */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
+
           <div className="bg-[#111] rounded-[2rem] p-6 border border-stone-800 shadow-2xl relative overflow-hidden group hover:border-rose-500 transition-all duration-500 cursor-default">
             <div className="absolute -right-8 -top-8 w-32 h-32 bg-rose-500/20 rounded-full blur-2xl group-hover:bg-rose-500/40 transition-all duration-500"></div>
             <div className="relative z-10 flex flex-col justify-between h-full">
@@ -311,7 +317,7 @@ export default function DashboardHubPage() {
       <div className="space-y-16 mt-16 relative">
         {groupedModules.map((section, idx) => (
           <div key={idx} className="relative group/section">
-            
+
             {/* Lớp Hào Quang Tỏa Ra Phía Sau */}
             <div className="absolute -inset-4 bg-gradient-to-r from-pink-500/0 via-pink-400/10 to-purple-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -323,7 +329,7 @@ export default function DashboardHubPage() {
 
               {/* Vệt Laser quét ngang viền trên khi hover */}
               <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-                 <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-pink-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+                <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-pink-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
               </div>
 
               {/* Tiêu đề Nhóm (Header) */}
@@ -344,21 +350,21 @@ export default function DashboardHubPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
                 {section.items.map((item) => (
                   <Link href={item.path} key={item.name} className="relative group block h-full">
-                    
+
                     {/* Lớp sáng neon tỏa ra từ thẻ con */}
                     <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                     <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                    
+
                     <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                      
+
                       <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                         {item.icon}
                       </div>
-                      
+
                       <h3 className={`text-[15px] font-black text-${item.color}-600 mb-2 tracking-wide`}>
                         {item.name}
                       </h3>
-                      
+
                       <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
                         <span className={`${item.labelColor} border font-black px-5 py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                           {item.labelText}
@@ -369,7 +375,7 @@ export default function DashboardHubPage() {
                   </Link>
                 ))}
               </div>
-              
+
             </div>
           </div>
         ))}

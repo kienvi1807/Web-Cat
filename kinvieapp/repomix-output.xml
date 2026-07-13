@@ -183,6 +183,7 @@ app/
   sitemap.ts
 components/
   common/
+    BreedSearchSelect.tsx
     CatCard.tsx
     EvilEye.tsx
     ProductCard.tsx
@@ -909,12 +910,14 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { formatEmsCode } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function PublicCatProfilePage() {
   const params = useParams();
   const catId = params.id;
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [catData, setCatData] = useState<any>(null);
   const [mainImage, setMainImage] = useState<string>('');
 
@@ -1020,6 +1023,7 @@ export default function PublicCatProfilePage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tìm hồ sơ Boss...');
 
       // Lấy danh sách trại & tất cả mèo để vẽ phả hệ
       const { data: breeders } = await supabase.from('users').select('userid, fullname, cattery_name, phone').in('type_id', [1, 3]);
@@ -1039,6 +1043,7 @@ export default function PublicCatProfilePage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -1117,12 +1122,7 @@ export default function PublicCatProfilePage() {
   };
 
   // LOADING STATE
-  if (isLoading) return (
-    <div className="min-h-screen bg-[#FFF8FA] flex flex-col items-center justify-center text-pink-400">
-      <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mb-4"></div>
-      <h2 className="text-xl font-black uppercase tracking-widest animate-pulse">Đang tìm hồ sơ Boss...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!catData) return (
     <div className="min-h-screen bg-[#FFF8FA] flex flex-col items-center justify-center text-stone-500">
@@ -1364,6 +1364,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import CatCard from '@/components/common/CatCard';
 import { formatEmsCode } from '@/lib/utils';
 import GlassSelect from '@/components/ui/GlassSelect';
@@ -1390,6 +1391,7 @@ const getAgeCategory = (dob: string) => {
 export default function CatteryDetailsPage() {
   const [cats, setCats] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
 
   const [filterBreed, setFilterBreed] = useState<string>('Tất cả');
   const [filterColor, setFilterColor] = useState<string>('Tất cả');
@@ -1403,6 +1405,7 @@ export default function CatteryDetailsPage() {
   useEffect(() => {
     const fetchCats = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang rước các Boss ra...');
       const { data } = await supabase
         .from('cats')
         .select('*')
@@ -1412,6 +1415,7 @@ export default function CatteryDetailsPage() {
         setCats(data);
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     fetchCats();
   }, []);
@@ -1583,13 +1587,7 @@ export default function CatteryDetailsPage() {
               </div>
             </div>
 
-            {isLoading ? (
-              <div className="flex flex-col items-center justify-center h-[50vh] text-pink-400">
-                <div className="w-16 h-16 border-4 border-pink-200 border-t-pink-500 rounded-full animate-spin mb-4"></div>
-                <h2 className="text-xl font-black uppercase tracking-widest animate-pulse">Đang rước các Boss ra...</h2>
-              </div>
-            ) : filteredCats.length > 0 ? (
-
+            {filteredCats.length > 0 ? (
               /* 🌟 ĐÃ FIX: Chỉ giữ nguyên tối đa 3 cột. Khi đóng bộ lọc thì 3 cột này giãn to ra */
               <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-8 transition-all duration-500">
                 {filteredCats.map((cat) => (
@@ -1766,14 +1764,16 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [userId, setUserId] = useState<number | null>(null);
   const [cartItems, setCartItems] = useState<any[]>([]);
-  
+
   const [customerInfo, setCustomerInfo] = useState({
     name: '',
     phone: '',
@@ -1786,14 +1786,16 @@ export default function CheckoutPage() {
   }, [router]);
 
   const fetchCartAndUser = async () => {
+    showGlobalLoading('Đang xử lý đơn hàng...');
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) {
+      hideGlobalLoading();
       router.push('/login');
       return;
     }
 
     const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
-    
+
     if (dbUser) {
       setUserId(dbUser.userid);
       // Tự động điền thông tin sẵn nếu có
@@ -1815,6 +1817,7 @@ export default function CheckoutPage() {
       }
     }
     setIsLoading(false);
+    hideGlobalLoading();
   };
 
   const subTotal = cartItems.reduce((sum, item) => sum + (item.products?.price || 0) * item.quantity, 0);
@@ -1885,7 +1888,7 @@ export default function CheckoutPage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
@@ -1903,15 +1906,15 @@ export default function CheckoutPage() {
               <div className="space-y-4">
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Họ và Tên người nhận</label>
-                  <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({...customerInfo, name: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Tên của Sen..." />
+                  <input type="text" value={customerInfo.name} onChange={(e) => setCustomerInfo({ ...customerInfo, name: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Tên của Sen..." />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Số điện thoại</label>
-                  <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({...customerInfo, phone: e.target.value})} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Để Shipper gọi..." />
+                  <input type="tel" value={customerInfo.phone} onChange={(e) => setCustomerInfo({ ...customerInfo, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all" placeholder="Để Shipper gọi..." />
                 </div>
                 <div>
                   <label className="block text-xs font-black text-stone-400 uppercase tracking-widest mb-2 ml-2">Địa chỉ giao hàng</label>
-                  <textarea value={customerInfo.address} onChange={(e) => setCustomerInfo({...customerInfo, address: e.target.value})} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all resize-none" placeholder="VD: Gần Aeon Mall Lê Chân, Hải Phòng..." />
+                  <textarea value={customerInfo.address} onChange={(e) => setCustomerInfo({ ...customerInfo, address: e.target.value })} rows={3} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 font-bold text-stone-800 outline-none focus:border-pink-400 transition-all resize-none" placeholder="VD: Gần Aeon Mall Lê Chân, Hải Phòng..." />
                 </div>
               </div>
             </div>
@@ -1935,7 +1938,7 @@ export default function CheckoutPage() {
           <div className="lg:w-1/3">
             <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-100 p-8 sticky top-24">
               <h3 className="text-lg font-bold text-stone-800 mb-6 flex items-center gap-2"><span>🧾</span> Tóm tắt đơn hàng</h3>
-              
+
               <div className="space-y-4 mb-6 max-h-60 overflow-y-auto custom-scrollbar pr-2">
                 {cartItems.map(item => (
                   <div key={item.id} className="flex justify-between items-start gap-4">
@@ -2040,7 +2043,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
-import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function BreederCatDetailPage() {
@@ -2052,6 +2056,7 @@ export default function BreederCatDetailPage() {
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
 
@@ -2063,6 +2068,7 @@ export default function BreederCatDetailPage() {
   const [gender, setGender] = useState<boolean>(true);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<string[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -2094,12 +2100,16 @@ export default function BreederCatDetailPage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tải hồ sơ kiểm duyệt...');
 
       const { data: colors } = await supabase.from('ems_base_colors').select('*');
       if (colors) setDbBaseColors(colors);
 
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      const { data: breeds } = await supabase.from('cat_breeds').select('name').order('sort_order');
+      if (breeds) setDbBreeds(breeds.map(b => b.name));
 
       const { data: breeders } = await supabase.from('users').select('*').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -2137,6 +2147,7 @@ export default function BreederCatDetailPage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -2361,12 +2372,7 @@ export default function BreederCatDetailPage() {
     );
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-orange-500 animate-pulse">
-      <span className="text-6xl mb-4">⚖️</span>
-      <h2 className="text-2xl font-black font-sans">Đang tải hồ sơ kiểm duyệt...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
@@ -2463,7 +2469,7 @@ export default function BreederCatDetailPage() {
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giống mèo</label>
                   <select value={catData.breed} onChange={(e) => setCatData({ ...catData, breed: e.target.value })} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-orange-400 focus:bg-white focus:ring-4 focus:ring-orange-500/10 transition-all shadow-sm appearance-none">
-                    {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
+                    {dbBreeds.map(b => <option key={b} value={b}>{b}</option>)}
                   </select>
                 </div>
                 <div>
@@ -3379,6 +3385,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 
 const STATUS_OPTIONS = ['Mới', 'Đã liên hệ', 'Đã chốt', 'Hủy'];
@@ -3400,6 +3407,7 @@ export default function InquiryDetailPage() {
 
   const [inquiry, setInquiry] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
   // 🎯 GÁC CỔNG: CHỈ TÀI KHOẢN BOSS (type_id === 1) MỚI ĐƯỢC XEM TRANG NÀY
@@ -3425,6 +3433,7 @@ export default function InquiryDetailPage() {
     if (!isBoss) return;
     const fetchInquiry = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tải yêu cầu...');
       const { data } = await supabase
         .from('cat_inquiries')
         .select('*, cats(id, name, images, breed, price, breeder_id), users(fullname, avatarurl, email)')
@@ -3432,6 +3441,7 @@ export default function InquiryDetailPage() {
         .maybeSingle();
       if (data) setInquiry(data);
       setIsLoading(false);
+      hideGlobalLoading();
     };
     if (inquiryId) fetchInquiry();
   }, [inquiryId, isBoss]);
@@ -3439,6 +3449,7 @@ export default function InquiryDetailPage() {
   useEffect(() => {
     const fetchInquiry = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang tải yêu cầu...');
       const { data } = await supabase
         .from('cat_inquiries')
         .select('*, cats(id, name, images, breed, price, breeder_id), users(fullname, avatarurl, email)')
@@ -3446,6 +3457,7 @@ export default function InquiryDetailPage() {
         .maybeSingle();
       if (data) setInquiry(data);
       setIsLoading(false);
+      hideGlobalLoading();
     };
     if (inquiryId) fetchInquiry();
   }, [inquiryId]);
@@ -3478,11 +3490,7 @@ export default function InquiryDetailPage() {
     );
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
-      Đang tải yêu cầu...
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!inquiry) return (
     <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
@@ -3585,9 +3593,8 @@ export default function InquiryDetailPage() {
                   key={opt}
                   onClick={() => handleUpdateStatus(opt)}
                   disabled={isUpdating || inquiry.status === opt}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
-                    inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
-                  }`}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
+                    }`}
                 >
                   {opt}
                 </button>
@@ -3612,7 +3619,8 @@ import { supabase } from '@/lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion vào
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
-import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { useLoadingStore } from '@/store/useLoadingStore';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 
 // Cấu hình animation Stagger cho Dropdown
 const listVariants = {
@@ -3630,12 +3638,13 @@ export default function CatDetailPage() {
   const catId = params.id;
 
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null); 
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); 
-  
+  const [isUploading, setIsUploading] = useState(false);
+
   const [catData, setCatData] = useState<any>({
     name: '', breed: 'Maine Coon', color: '', price: 0, status: '', dob: '', images: [], medical_history: [], notes: '', father_id: null, mother_id: null
   });
@@ -3645,6 +3654,7 @@ export default function CatDetailPage() {
 
   // STATE MÀU SẮC
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<string[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -3667,6 +3677,10 @@ export default function CatDetailPage() {
   const [isFatherBreederOpen, setIsFatherBreederOpen] = useState(false);
   const [isMotherBreederOpen, setIsMotherBreederOpen] = useState(false);
 
+  const [buyerSearch, setBuyerSearch] = useState('');
+  const [buyerResults, setBuyerResults] = useState<any[]>([]);
+  const [selectedBuyer, setSelectedBuyer] = useState<any>(null);
+
   const setThemeColor = useLayoutStore((state: any) => state.setThemeColor);
   useEffect(() => {
     setThemeColor('red'); // 👈 Set lại tone đỏ
@@ -3674,10 +3688,10 @@ export default function CatDetailPage() {
 
   const getAvatarUrl = (path: string) => {
     if (!path) return 'https://ui-avatars.com/api/?name=Trại&background=E2E8F0&color=64748B&bold=true';
-    
+
     // Nếu database đã lưu sẵn link http đầy đủ thì trả về luôn
     if (path.startsWith('http')) return path;
-    
+
     // Nếu chỉ lưu path (VD: avatars/abc.jpg), dùng supabase để tạo link public
     const { data } = supabase.storage.from('avatars').getPublicUrl(path);
     return data.publicUrl;
@@ -3692,12 +3706,16 @@ export default function CatDetailPage() {
   useEffect(() => {
     const initData = async () => {
       setIsLoading(true);
-      
+      showGlobalLoading('Đang mở hồ sơ mật...');
+
       const { data: colors } = await supabase.from('ems_base_colors').select('*');
       if (colors) setDbBaseColors(colors);
-      
+
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      const { data: breeds } = await supabase.from('cat_breeds').select('name').order('sort_order');
+      if (breeds) setDbBreeds(breeds.map(b => b.name));
 
       const { data: breeders } = await supabase.from('users').select('userid, fullname, email, phone, avatarurl, cattery_name').in('type_id', [1, 3]);
       if (breeders) setBreedersList(breeders);
@@ -3709,8 +3727,12 @@ export default function CatDetailPage() {
         const { data, error } = await supabase.from('cats').select('*').eq('id', catId).single();
         if (data) {
           let loadedImages = data.images || [];
-          while (loadedImages.length < 5) loadedImages.push(''); 
+          while (loadedImages.length < 5) loadedImages.push('');
           setCatData({ ...data, images: loadedImages, medical_history: data.medical_history || [], notes: data.notes || '' });
+          if (data.buyer_id) {
+            const { data: buyerData } = await supabase.from('users').select('userid, fullname, phone, email').eq('userid', data.buyer_id).maybeSingle();
+            if (buyerData) setSelectedBuyer(buyerData);
+          }
           if (loadedImages[0]) setMainImage(loadedImages[0]);
           setGender(data.gender !== false);
 
@@ -3735,6 +3757,7 @@ export default function CatDetailPage() {
         }
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
     initData();
   }, [catId]);
@@ -3763,12 +3786,12 @@ export default function CatDetailPage() {
       alert("Lỗi tải ảnh lên: " + uploadError.message);
     }
     setIsUploading(false);
-    setUploadingSlot(null); 
-    if (fileInputRef.current) fileInputRef.current.value = ''; 
+    setUploadingSlot(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(catData.breed); 
+  const isPurebred = purebredList.includes(catData.breed);
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
   const handleUpdateCat = async () => {
@@ -3780,7 +3803,8 @@ export default function CatDetailPage() {
       name: catData.name, breed: catData.breed, gender: gender, color: finalColor,
       price: catData.price, status: catData.status, dob: catData.dob, images: cleanImages,
       medical_history: catData.medical_history, notes: catData.notes,
-      father_id: catData.father_id || null, mother_id: catData.mother_id || null
+      father_id: catData.father_id || null, mother_id: catData.mother_id || null,
+      buyer_id: selectedBuyer?.userid || null
     }).eq('id', catId);
 
     setIsSaving(false);
@@ -3790,6 +3814,17 @@ export default function CatDetailPage() {
     } else {
       alert("Có lỗi xảy ra: " + error.message);
     }
+  };
+
+  const handleSearchBuyer = async (query: string) => {
+    setBuyerSearch(query);
+    if (query.trim().length < 3) { setBuyerResults([]); return; }
+    const { data } = await supabase
+      .from('users')
+      .select('userid, fullname, phone, email')
+      .or(`fullname.ilike.%${query}%,phone.ilike.%${query}%,email.ilike.%${query}%`)
+      .limit(5);
+    setBuyerResults(data || []);
   };
 
   const handleDeleteCat = async () => {
@@ -3903,16 +3938,16 @@ export default function CatDetailPage() {
     return (
       <div className="flex items-center group/node animate-fade-in">
         {level > 1 && <div className="w-10 h-[2px] bg-red-200 rounded-full transition-colors group-hover/node:bg-red-400"></div>}
-        
+
         <Link href={`/dashboard/cats/kinvie/${cat.id}`} className={`w-64 p-3 rounded-2xl border bg-white flex items-center gap-3 relative z-10 transition-all duration-300 hover:-translate-y-1 cursor-pointer ${borderClass} ${glowClass}`}>
           <div className="w-12 h-12 rounded-xl overflow-hidden bg-stone-100 shrink-0 relative">
-             <img src={cat.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-full h-full object-cover" alt="cat" />
-             <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-xl"></div>
+            <img src={cat.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-full h-full object-cover" alt="cat" />
+            <div className="absolute inset-0 ring-1 ring-inset ring-black/10 rounded-xl"></div>
           </div>
           <div className="overflow-hidden flex-1">
-             <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
-             <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-red-600 transition-colors">{cat.name}</p>
-             <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
+            <p className={`text-[10px] font-black uppercase tracking-widest mb-0.5 ${textThemeClass}`}>{label}</p>
+            <p className="text-sm font-bold text-stone-800 truncate group-hover/node:text-red-600 transition-colors">{cat.name}</p>
+            <p className="text-[10px] text-stone-500 truncate">{formatEmsCode(cat.color)}</p>
           </div>
         </Link>
 
@@ -3920,8 +3955,8 @@ export default function CatDetailPage() {
           <div className="flex items-center">
             <div className="w-8 h-[2px] bg-red-200 rounded-full transition-colors group-hover/node:bg-red-400"></div>
             <div className="flex flex-col justify-center gap-6 border-l-2 border-red-200 py-4 my-2 transition-colors group-hover/node:border-red-400 relative">
-               {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level+1} label={`Đời ${level+1} (Bố)`} /></div>}
-               {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level+1} label={`Đời ${level+1} (Mẹ)`} /></div>}
+              {hasFather && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.father_id} level={level + 1} label={`Đời ${level + 1} (Bố)`} /></div>}
+              {hasMother && <div className="flex items-center relative -left-[2px]"><PedigreeNode catIdNode={cat.mother_id} level={level + 1} label={`Đời ${level + 1} (Mẹ)`} /></div>}
             </div>
           </div>
         )}
@@ -3929,17 +3964,12 @@ export default function CatDetailPage() {
     );
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center text-red-500 animate-pulse">
-      <span className="text-6xl mb-4">🐈</span>
-      <h2 className="text-2xl font-black font-sans">Đang mở hồ sơ mật...</h2>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="animate-fade-in max-w-[1400px] mx-auto pb-24 relative">
       <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
-      
+
       {/* 🎯 GỌI COMPONENT NỀN THÔNG MINH */}
       <BackgroundGlow />
 
@@ -3988,11 +4018,11 @@ export default function CatDetailPage() {
             <h2 className="text-2xl font-black text-stone-800 mb-8 flex items-center gap-3">Thông tin chi tiết <span className="text-red-500">❖</span></h2>
 
             <div className="space-y-8 relative z-10">
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Tên gọi / Mã bầy</label>
-                  <input type="text" value={catData.name} onChange={(e) => setCatData({...catData, name: e.target.value})} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="text" value={catData.name} onChange={(e) => setCatData({ ...catData, name: e.target.value })} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giới tính</label>
@@ -4007,28 +4037,28 @@ export default function CatDetailPage() {
                 {/* 🎯 DROPDOWN GIỐNG MÈO DARK MODE */}
                 <div className="relative">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giống mèo</label>
-                  <button 
-                    type="button" 
+                  <button
+                    type="button"
                     onClick={() => setIsBreedOpen(!isBreedOpen)}
                     className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-left text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 transition-all shadow-sm flex justify-between items-center"
                   >
                     <span className={catData.breed === 'Chưa rõ' ? 'text-stone-400' : 'text-red-600'}>{catData.breed}</span>
                     <span className={`transition-transform duration-300 text-red-400 ${isBreedOpen ? 'rotate-180' : ''}`}>▼</span>
                   </button>
-                  
+
                   <AnimatePresence>
                     {isBreedOpen && (
-                      <motion.div 
+                      <motion.div
                         initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }}
                         className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col"
                       >
                         <div className="overflow-y-auto p-2 custom-scrollbar">
                           <motion.div variants={listVariants} initial="hidden" animate="show">
-                            {ALL_BREEDS.map(breed => (
-                              <motion.div 
-                                key={breed} 
+                            {dbBreeds.map(breed => (
+                              <motion.div
+                                key={breed}
                                 variants={itemVariants}
-                                onClick={() => { setCatData({...catData, breed}); setIsBreedOpen(false); }}
+                                onClick={() => { setCatData({ ...catData, breed }); setIsBreedOpen(false); }}
                                 className={`cursor-pointer px-5 py-3 rounded-xl font-bold text-sm transition-all mb-1 flex justify-between ${catData.breed === breed ? 'bg-red-600 text-white shadow-lg shadow-red-600/30' : 'text-red-600 hover:bg-red-600 hover:text-white'}`}
                               >
                                 <span>{breed}</span>
@@ -4044,17 +4074,17 @@ export default function CatDetailPage() {
 
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Ngày sinh (DOB)</label>
-                  <input type="date" value={catData.dob || ''} onChange={(e) => setCatData({...catData, dob: e.target.value})} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="date" value={catData.dob || ''} onChange={(e) => setCatData({ ...catData, dob: e.target.value })} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Trạng thái hiện tại</label>
                 <div className="flex flex-wrap gap-3">
-                  
+
                   {/* 🎯 BẢNG MÀU TƯƠNG ỨNG VỚI TỪNG TRẠNG THÁI */}
                   {['Chưa sẵn sàng', 'Sẵn sàng', 'Đã cọc', 'Đã về nhà mới'].map((item) => {
-                    
+
                     const statusStyles = {
                       'Chưa sẵn sàng': {
                         active: 'bg-stone-800 text-white border-stone-800 shadow-lg shadow-stone-500/30',
@@ -4078,14 +4108,13 @@ export default function CatDetailPage() {
                     const isActive = catData.status === item;
 
                     return (
-                      <button 
-                        key={item} 
-                        onClick={() => setCatData({...catData, status: item})}
-                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border ${
-                          isActive 
-                            ? `${style.active} transform scale-[1.02]` 
-                            : `bg-white text-stone-500 border-stone-200 ${style.hover}`
-                        }`}
+                      <button
+                        key={item}
+                        onClick={() => setCatData({ ...catData, status: item })}
+                        className={`cursor-pointer px-5 py-3 rounded-2xl text-[14px] font-bold transition-all duration-300 border ${isActive
+                          ? `${style.active} transform scale-[1.02]`
+                          : `bg-white text-stone-500 border-stone-200 ${style.hover}`
+                          }`}
                       >
                         {item}
                       </button>
@@ -4093,6 +4122,46 @@ export default function CatDetailPage() {
                   })}
 
                 </div>
+
+                {catData.status === 'Đã về nhà mới' && (
+                  <div className="mt-4 p-4 bg-blue-50/50 border border-blue-100 rounded-2xl">
+                    <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">🎯 Người mua (để lưu vào "Cây Ký Ức" sau này)</label>
+                    {selectedBuyer ? (
+                      <div className="flex items-center justify-between bg-white p-3 rounded-xl border border-stone-200">
+                        <div>
+                          <p className="font-bold text-sm text-stone-800">{selectedBuyer.fullname}</p>
+                          <p className="text-xs text-stone-400">{selectedBuyer.phone}</p>
+                        </div>
+                        <button type="button" onClick={() => { setSelectedBuyer(null); setBuyerSearch(''); }} className="text-xs text-rose-500 font-bold">Đổi</button>
+                      </div>
+                    ) : (
+                      <div className="relative">
+                        <input
+                          type="text"
+                          value={buyerSearch}
+                          onChange={(e) => handleSearchBuyer(e.target.value)}
+                          placeholder="Gõ tên, SĐT hoặc email khách..."
+                          className="w-full bg-white border border-stone-200 rounded-xl px-4 py-3 text-sm"
+                        />
+                        {buyerResults.length > 0 && (
+                          <div className="absolute z-10 w-full bg-white border border-stone-200 rounded-xl mt-1 shadow-lg max-h-48 overflow-y-auto">
+                            {buyerResults.map((u) => (
+                              <button
+                                type="button"
+                                key={u.userid}
+                                onClick={() => { setSelectedBuyer(u); setBuyerResults([]); }}
+                                className="w-full text-left px-4 py-2.5 hover:bg-blue-50 text-sm border-b border-stone-50 last:border-0"
+                              >
+                                <p className="font-bold text-stone-800">{u.fullname}</p>
+                                <p className="text-xs text-stone-400">{u.phone} · {u.email}</p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* KHỐI CHỌN BỐ MẸ - GIAO DIỆN GLASS TRẮNG */}
@@ -4101,23 +4170,23 @@ export default function CatDetailPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-sm font-bold text-red-800 uppercase flex items-center gap-2"><span>🌳</span> Gán Phả Hệ (Bố/Mẹ)</h3>
                   </div>
-                  
+
                   {/* BỐ */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                    
+
                     {/* TRẠI CỦA MÈO BỐ */}
                     <div className="relative">
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Trại của Mèo Bố</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => { setIsFatherBreederOpen(!isFatherBreederOpen); setIsMotherBreederOpen(false); setIsFatherDropdownOpen(false); setIsMotherDropdownOpen(false); setIsBreedOpen(false); }}
                         className="cursor-pointer w-full bg-white border border-blue-100 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between hover:border-blue-300 hover:shadow-md transition-all"
                       >
                         <span className={!fatherBreederId ? 'text-stone-400' : 'text-blue-700'}>
-                          {fatherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.userid === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
+                          {fatherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.userid === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-blue-400 transition-transform duration-300 ${isFatherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -4128,18 +4197,18 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setFatherBreederId(''); setCatData({...catData, father_id: null}); setIsFatherBreederOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
-                                                                {breedersList.map(b => (
-                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setFatherBreederId(b.userid.toString()); setIsFatherBreederOpen(false); setCatData({...catData, father_id: null}); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
-                                    
+                                <motion.div variants={itemVariants} onClick={() => { setFatherBreederId(''); setCatData({ ...catData, father_id: null }); setIsFatherBreederOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                {breedersList.map(b => (
+                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setFatherBreederId(b.userid.toString()); setIsFatherBreederOpen(false); setCatData({ ...catData, father_id: null }); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
+
                                     {/* 🎯 THAY ICON NHÀ BẰNG ẢNH AVATAR */}
-                                    <img 
-                                      src={getAvatarUrl(b.avatarurl)} 
-                                      className="w-7 h-7 rounded-full object-cover border-2 border-blue-100 shadow-sm shrink-0" 
-                                      alt="avatar" 
+                                    <img
+                                      src={getAvatarUrl(b.avatarurl)}
+                                      className="w-7 h-7 rounded-full object-cover border-2 border-blue-100 shadow-sm shrink-0"
+                                      alt="avatar"
                                     />
                                     <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
-                                    
+
                                   </motion.div>
                                 ))}
                               </motion.div>
@@ -4162,9 +4231,9 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-blue-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setCatData({...catData, father_id: null}); setIsFatherDropdownOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setCatData({ ...catData, father_id: null }); setIsFatherDropdownOpen(false); }} className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {allCatsList.filter(c => c.gender !== false && !excludedForFather.includes(c.id) && (c.breeder_id?.toString() === fatherBreederId || c.id === catData.father_id)).map(c => (
-                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({...catData, father_id: c.id}); setIsFatherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-colors">
+                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({ ...catData, father_id: c.id }); setIsFatherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer rounded-xl transition-colors">
                                     <img src={c.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-8 h-8 rounded-lg object-cover border border-blue-100 shadow-sm shrink-0" alt="cat" />
                                     <div className="overflow-hidden"><p className="text-sm font-bold text-stone-800 truncate">{c.name}</p><p className="text-[10px] text-stone-500 truncate">{formatEmsCode(c.color)}</p></div>
                                   </motion.div>
@@ -4179,20 +4248,20 @@ export default function CatDetailPage() {
 
                   {/* MẸ */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    
+
                     {/* TRẠI CỦA MÈO MẸ */}
                     <div className="relative">
                       <label className="block text-[10px] font-black text-rose-400 uppercase mb-2">Trại của Mèo Mẹ</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         onClick={() => { setIsMotherBreederOpen(!isMotherBreederOpen); setIsFatherBreederOpen(false); setIsFatherDropdownOpen(false); setIsMotherDropdownOpen(false); setIsBreedOpen(false); }}
                         className="cursor-pointer w-full bg-white border border-rose-100 px-4 py-3 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between hover:border-rose-300 hover:shadow-md transition-all"
                       >
                         <span className={!motherBreederId ? 'text-stone-400' : 'text-rose-700'}>
-                          {motherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.userid === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
+                          {motherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.userid === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || 'Tên trại chưa cập nhật')
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className={`text-[10px] text-rose-400 transition-transform duration-300 ${isMotherBreederOpen ? 'rotate-180' : ''}`}>▼</span>
@@ -4203,18 +4272,18 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-rose-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setMotherBreederId(''); setCatData({...catData, mother_id: null}); setIsMotherBreederOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setMotherBreederId(''); setCatData({ ...catData, mother_id: null }); setIsMotherBreederOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {breedersList.map(b => (
-                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setMotherBreederId(b.userid.toString()); setIsMotherBreederOpen(false); setCatData({...catData, mother_id: null}); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
-                                    
+                                  <motion.div key={b.userid} variants={itemVariants} onClick={() => { setMotherBreederId(b.userid.toString()); setIsMotherBreederOpen(false); setCatData({ ...catData, mother_id: null }); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-700 font-bold rounded-xl transition-colors flex items-center gap-3">
+
                                     {/* 🎯 THAY ICON NHÀ BẰNG ẢNH AVATAR */}
-                                    <img 
-                                      src={getAvatarUrl(b.avatarurl)} 
-                                      className="w-7 h-7 rounded-full object-cover border-2 border-rose-100 shadow-sm shrink-0" 
-                                      alt="avatar" 
+                                    <img
+                                      src={getAvatarUrl(b.avatarurl)}
+                                      className="w-7 h-7 rounded-full object-cover border-2 border-rose-100 shadow-sm shrink-0"
+                                      alt="avatar"
                                     />
                                     <span className="truncate">{b.userid === 1 ? 'KinVie Cattery' : b.cattery_name || 'Chưa đặt tên'}</span>
-                                    
+
                                   </motion.div>
                                 ))}
                               </motion.div>
@@ -4237,9 +4306,9 @@ export default function CatDetailPage() {
                           <motion.div initial={{ opacity: 0, y: -10, scale: 0.95 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -10, scale: 0.95 }} className="absolute top-full left-0 w-full mt-2 bg-white/95 backdrop-blur-xl border border-rose-100 shadow-xl rounded-2xl z-50 max-h-60 overflow-hidden flex flex-col">
                             <div className="overflow-y-auto custom-scrollbar p-2">
                               <motion.div variants={listVariants} initial="hidden" animate="show">
-                                <motion.div variants={itemVariants} onClick={() => { setCatData({...catData, mother_id: null}); setIsMotherDropdownOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
+                                <motion.div variants={itemVariants} onClick={() => { setCatData({ ...catData, mother_id: null }); setIsMotherDropdownOpen(false); }} className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-400 font-bold rounded-xl transition-colors">-- Bỏ chọn --</motion.div>
                                 {allCatsList.filter(c => c.gender === false && !excludedForMother.includes(c.id) && (c.breeder_id?.toString() === motherBreederId || c.id === catData.mother_id)).map(c => (
-                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({...catData, mother_id: c.id}); setIsMotherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer rounded-xl transition-colors">
+                                  <motion.div key={c.id} variants={itemVariants} onClick={() => { setCatData({ ...catData, mother_id: c.id }); setIsMotherDropdownOpen(false); }} className="flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer rounded-xl transition-colors">
                                     <img src={c.images?.[0] || 'https://via.placeholder.com/100?text=No+Img'} className="w-8 h-8 rounded-lg object-cover border border-rose-100 shadow-sm shrink-0" alt="cat" />
                                     <div className="overflow-hidden"><p className="text-sm font-bold text-stone-800 truncate">{c.name}</p><p className="text-[10px] text-stone-500 truncate">{formatEmsCode(c.color)}</p></div>
                                   </motion.div>
@@ -4257,61 +4326,61 @@ export default function CatDetailPage() {
               {/* BẢNG CHỌN MÀU EMS */}
               {isPurebred ? (
                 <div className="bg-red-50/40 rounded-3xl p-6 border border-red-100 shadow-sm transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
-                       <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
-                       <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
-                     </h3>
-                     <div className="text-right">
-                       <p className="text-[10px] text-stone-500 uppercase font-bold">Mã của Boss</p>
-                       <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || catData.color || '???'}</p>
-                     </div>
-                   </div>
-                   
-                   {isEmsOpen && dbBaseColors.length > 0 && (
-                     <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
-                       <div className="mb-6">
-                         <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                  <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
+                      <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
+                      <span className={`text-red-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </h3>
+                    <div className="text-right">
+                      <p className="text-[10px] text-stone-500 uppercase font-bold">Mã của Boss</p>
+                      <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || catData.color || '???'}</p>
+                    </div>
+                  </div>
+
+                  {isEmsOpen && dbBaseColors.length > 0 && (
+                    <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
+                      <div className="mb-6">
+                        <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </div>
-                   )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-stone-50/50 rounded-3xl p-6 border border-stone-200 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
-                     <div className="text-right">
-                       <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{simpleColor || catData.color || '???'}</p>
-                     </div>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{simpleColor || catData.color || '???'}</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {SIMPLE_COLORS.map(c => (
@@ -4355,9 +4424,9 @@ export default function CatDetailPage() {
 
                 <div className="mt-8 border-t border-stone-200/50 pt-6">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Đặc điểm / Ghi chú (Notes)</label>
-                  <textarea 
-                    value={catData.notes || ''} onChange={(e) => setCatData({...catData, notes: e.target.value})}
-                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4} 
+                  <textarea
+                    value={catData.notes || ''} onChange={(e) => setCatData({ ...catData, notes: e.target.value })}
+                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4}
                     className="w-full bg-white border border-stone-200/80 rounded-2xl px-5 py-4 text-stone-800 text-sm focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm resize-none"
                   ></textarea>
                 </div>
@@ -4370,9 +4439,9 @@ export default function CatDetailPage() {
                 </label>
                 <div className="relative group/price">
                   <div className="absolute -inset-1 bg-gradient-to-r from-red-400 to-orange-400 rounded-2xl blur opacity-25 group-hover/price:opacity-50 transition duration-500 pointer-events-none"></div>
-                  <input 
-                    type="number" value={catData.price} onChange={(e) => setCatData({...catData, price: parseInt(e.target.value) || 0})}
-                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200" 
+                  <input
+                    type="number" value={catData.price} onChange={(e) => setCatData({ ...catData, price: parseInt(e.target.value) || 0 })}
+                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200"
                   />
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-red-400 font-black text-3xl select-none pointer-events-none">đ</span>
                 </div>
@@ -4391,11 +4460,11 @@ export default function CatDetailPage() {
           <h2 className="text-2xl font-black text-stone-800 mb-8 flex items-center gap-3 relative z-10">
             Cây Phả Hệ Gia Tộc (5 Đời) <span className="text-red-600 text-3xl drop-shadow-md">🌳</span>
           </h2>
-          
+
           <div className="overflow-x-auto custom-scrollbar pb-12 pt-4 border-t border-red-100 mt-4 relative z-10">
-             <div className="min-w-max pr-16 pt-6">
-                <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Mèo Hiện Tại" />
-             </div>
+            <div className="min-w-max pr-16 pt-6">
+              <PedigreeNode catIdNode={parseInt(catId as string)} level={1} label="Mèo Hiện Tại" />
+            </div>
           </div>
         </div>
       )}
@@ -4404,7 +4473,7 @@ export default function CatDetailPage() {
       {isMedicalModalOpen && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-sm cursor-pointer" onClick={() => setIsMedicalModalOpen(false)}></div>
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
             className="relative bg-white rounded-3xl w-full max-w-md p-8 shadow-2xl"
           >
@@ -4412,20 +4481,20 @@ export default function CatDetailPage() {
             <div className="space-y-5 mb-8">
               <div>
                 <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Tên Vaccine / Mũi tiêm</label>
-                <input 
+                <input
                   type="text" placeholder="Ví dụ: Vaccine 4 bệnh, Dại, Tẩy giun..."
-                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({...newRecord, vaccineName: e.target.value})} 
+                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({ ...newRecord, vaccineName: e.target.value })}
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Ngày tiêm</label>
-                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({ ...newRecord, dateGiven: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Nhắc lại (Nếu có)</label>
-                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({ ...newRecord, nextDueDate: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
               </div>
             </div>
@@ -4447,15 +4516,15 @@ export default function CatDetailPage() {
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { supabase } from '@/lib/supabase'; 
+import { supabase } from '@/lib/supabase';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
-import { ALL_BREEDS, SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
 
 export default function AddCatPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null); 
+  const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
 
   const setThemeColor = useLayoutStore(state => state.setThemeColor);
   useEffect(() => {
@@ -4463,21 +4532,21 @@ export default function AddCatPage() {
   }, [setThemeColor]);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [isUploading, setIsUploading] = useState(false); 
-  
+  const [isUploading, setIsUploading] = useState(false);
+
   // 🎯 BỔ SUNG STATE LƯU ID CỦA BOSS ĐỂ TRÁNH LỖI FOREIGN KEY
   const [bossId, setBossId] = useState<number | null>(null);
-  
+
   const [catData, setCatData] = useState<any>({
-    name: '', breed: 'Maine Coon', price: 0, status: 'Chưa sẵn sàng', dob: '', 
+    name: '', breed: 'Maine Coon', price: 0, status: 'Chưa sẵn sàng', dob: '',
     images: ['', '', '', '', ''], medical_history: [], notes: ''
   });
 
   const [mainImage, setMainImage] = useState<string>('');
-  
+
   const [gender, setGender] = useState<boolean>(true); // true = Đực, false = Cái
   const [hasPedigree, setHasPedigree] = useState<boolean>(false);
-  
+
   // 🎯 STATE QUẢN LÝ PHẢ HỆ
   const [breedersList, setBreedersList] = useState<any[]>([]);
   const [allCatsList, setAllCatsList] = useState<any[]>([]);
@@ -4491,11 +4560,12 @@ export default function AddCatPage() {
   const [isMotherDropdownOpen, setIsMotherDropdownOpen] = useState(false);
   const [isFatherBreederDropdownOpen, setIsFatherBreederDropdownOpen] = useState(false);
   const [isMotherBreederDropdownOpen, setIsMotherBreederDropdownOpen] = useState(false);
-  
+
   const [mix1, setMix1] = useState('Anh lông ngắn (ALN)');
   const [mix2, setMix2] = useState('Mèo Ta');
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
   const [baseColor, setBaseColor] = useState<string | null>(null);
   const [hasSilver, setHasSilver] = useState(false);
@@ -4525,9 +4595,12 @@ export default function AddCatPage() {
       // 2. Kéo các dữ liệu danh mục
       const { data: colors } = await supabase.from('ems_base_colors').select('*');
       if (colors) setDbBaseColors(colors);
-      
+
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+
+      const { data: breeds } = await supabase.from('cat_breeds').select('*').order('sort_order');
+      if (breeds) setDbBreeds(breeds);
 
       // 3. Kéo danh sách Trại giống (Boss và Breeder)
       // Bổ sung kéo thêm fullname và cattery_name để lấy thông tin hiển thị
@@ -4569,13 +4642,13 @@ export default function AddCatPage() {
       alert("Lỗi tải ảnh lên: " + uploadError.message);
     }
     setIsUploading(false);
-    setUploadingSlot(null); 
-    if (fileInputRef.current) fileInputRef.current.value = ''; 
+    setUploadingSlot(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
   };
 
   const purebredList = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'];
-  const isPurebred = purebredList.includes(catData.breed); 
-  const isMixed = catData.breed === 'Giống lai khác'; 
+  const isPurebred = purebredList.includes(catData.breed);
+  const isMixed = catData.breed === 'Giống lai khác';
   const generatedEmsCode = `${baseColor || ''}${hasSilver && baseColor ? 's' : ''}${pattern || ''}`;
 
   const handleSaveCat = async () => {
@@ -4685,7 +4758,7 @@ export default function AddCatPage() {
           </div>
         </div>
 
-        <button 
+        <button
           onClick={handleSaveCat}
           disabled={isLoading || isUploading}
           className="cursor-pointer bg-gradient-to-r from-red-500 to-red-500 hover:from-red-600 hover:to-red-600 text-white font-black px-12 py-4 rounded-xl shadow-[0_4px_20px_rgba(249,115,22,0.4)] hover:shadow-[0_4px_30px_rgba(249,115,22,0.6)] transition-all transform hover:-translate-y-1 flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
@@ -4696,7 +4769,7 @@ export default function AddCatPage() {
 
       {/* KHU VỰC CHÍNH */}
       <div className="flex flex-col lg:flex-row gap-8 relative z-10">
-        
+
         {/* 📸 CỘT TRÁI: HÌNH ẢNH */}
         <div className="w-full lg:w-5/12 flex flex-col gap-4">
           <div onClick={() => handleImageClick(0)} className="cursor-pointer relative aspect-[4/5] bg-stone-100 rounded-[2.5rem] border border-white/80 shadow-[0_10px_40px_rgba(0,0,0,0.05)] overflow-hidden group">
@@ -4738,12 +4811,12 @@ export default function AddCatPage() {
             </h2>
 
             <div className="space-y-8 relative z-10">
-              
+
               {/* TÊN & GIỚI TÍNH */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Tên gọi / Mã bầy <span className="text-rose-500">*</span></label>
-                  <input type="text" placeholder="VD: KinVie Apollo..." value={catData.name} onChange={(e) => setCatData({...catData, name: e.target.value})} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="text" placeholder="VD: KinVie Apollo..." value={catData.name} onChange={(e) => setCatData({ ...catData, name: e.target.value })} className="w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Giới tính</label>
@@ -4768,33 +4841,42 @@ export default function AddCatPage() {
                   </button>
                   {isBreedDropdownOpen && (
                     <div className="absolute top-[85px] left-0 w-full bg-white border border-stone-200 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
-                      <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
-                      {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'].map(b => (
-                        <div key={b} onClick={() => { setCatData({...catData, breed: b}); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-red-50 hover:text-red-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                      ))}
-                      <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
-                      {['Mèo Ta', 'Giống lai khác', 'Chưa rõ'].map(b => (
-                        <div key={b} onClick={() => { setCatData({...catData, breed: b}); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-red-50 hover:text-red-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                      {Object.entries(
+                        dbBreeds.reduce((acc: any, b: any) => {
+                          const cat = b.category || 'Khác';
+                          if (!acc[cat]) acc[cat] = [];
+                          acc[cat].push(b.name);
+                          return acc;
+                        }, {})
+                      ).map(([cat, names]: any) => (
+                        <div key={cat}>
+                          <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100 first:border-t-0 first:mt-0">
+                            {cat === 'Ta / Lai' ? '🐈' : '🌟'} {cat}
+                          </div>
+                          {names.map((b: string) => (
+                            <div key={b} onClick={() => { setCatData({ ...catData, breed: b }); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-red-50 hover:text-red-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                          ))}
+                        </div>
                       ))}
                     </div>
                   )}
 
                   {isMixed && (
                     <div className="mt-3 p-4 bg-stone-100 rounded-2xl border border-stone-200 flex items-center gap-3">
-                       <select value={mix1} onChange={(e)=>setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2 rounded-xl text-xs font-bold shadow-sm">
-                         {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                       </select>
-                       <span className="text-red-500 font-black text-sm">X</span>
-                       <select value={mix2} onChange={(e)=>setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2 rounded-xl text-xs font-bold shadow-sm">
-                         {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                       </select>
+                      <select value={mix1} onChange={(e) => setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2 rounded-xl text-xs font-bold shadow-sm">
+                        {dbBreeds.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      </select>
+                      <span className="text-red-500 font-black text-sm">X</span>
+                      <select value={mix2} onChange={(e) => setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2 rounded-xl text-xs font-bold shadow-sm">
+                        {dbBreeds.map(b => <option key={b.id} value={b.name}>{b.name}</option>)}
+                      </select>
                     </div>
                   )}
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Ngày sinh (DOB)</label>
-                  <input type="date" value={catData.dob} onChange={(e) => setCatData({...catData, dob: e.target.value})} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
+                  <input type="date" value={catData.dob} onChange={(e) => setCatData({ ...catData, dob: e.target.value })} className="cursor-pointer w-full bg-white/70 backdrop-blur-sm border border-stone-200/80 rounded-2xl px-6 py-4 text-stone-800 font-bold text-lg focus:outline-none focus:border-red-400 focus:bg-white focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm" />
                 </div>
               </div>
 
@@ -4809,7 +4891,7 @@ export default function AddCatPage() {
                     { label: 'Đã về nhà mới', icon: '🔴' }
                   ].map((item) => {
                     const isSelected = catData.status === item.label;
-                    
+
                     // 🎯 SET MÀU ĐỘNG TÙY THEO TỪNG TRẠNG THÁI KHÁC NHAU
                     let activeColor = '';
                     if (item.label === 'Chưa sẵn sàng') activeColor = 'bg-stone-800 text-white border-stone-800'; // Đen
@@ -4818,13 +4900,12 @@ export default function AddCatPage() {
                     if (item.label === 'Đã về nhà mới') activeColor = 'bg-rose-500 text-white border-rose-500'; // Đỏ
 
                     return (
-                      <button 
-                        key={item.label} 
+                      <button
+                        key={item.label}
                         type="button"
-                        onClick={() => setCatData({...catData, status: item.label})}
-                        className={`cursor-pointer px-5 py-3 rounded-[14px] text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${
-                          isSelected ? `${activeColor} shadow-md transform scale-[1.02]` : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
-                        }`}
+                        onClick={() => setCatData({ ...catData, status: item.label })}
+                        className={`cursor-pointer px-5 py-3 rounded-[14px] text-[14px] font-bold transition-all duration-300 border flex items-center gap-2 ${isSelected ? `${activeColor} shadow-md transform scale-[1.02]` : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300 hover:bg-stone-50'
+                          }`}
                       >
                         <span className={`text-[15px] ${item.label === 'Đã về nhà mới' ? '' : isSelected ? 'text-white' : 'text-stone-400'}`}>
                           {item.icon}
@@ -4842,7 +4923,7 @@ export default function AddCatPage() {
                   <div className="flex items-center justify-between mb-6">
                     <h3 className="text-sm font-bold text-blue-900 uppercase flex items-center gap-2"><span>🌳</span> Gán Phả Hệ (Bố/Mẹ)</h3>
                   </div>
-                  
+
                   {/* BỐ */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4 relative z-40">
                     <div className="relative">
@@ -4853,25 +4934,25 @@ export default function AddCatPage() {
                         className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between cursor-pointer h-[46px]"
                       >
                         <span className="truncate">
-                          {fatherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.type_id === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === fatherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === fatherBreederId)?.email || `Đối tác #${fatherBreederId}`)
+                          {fatherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === fatherBreederId)?.type_id === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === fatherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === fatherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === fatherBreederId)?.email || `Đối tác #${fatherBreederId}`)
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className="text-[10px] text-stone-400">▼</span>
                       </button>
                       {isFatherBreederDropdownOpen && (
                         <div className="absolute top-full left-0 w-full mt-2 bg-white border border-blue-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
-                          <div 
+                          <div
                             onClick={() => { setFatherBreederId(''); setFatherId(null); setIsFatherBreederDropdownOpen(false); }}
                             className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100 rounded-lg"
                           >
                             -- Chọn Trại giống --
                           </div>
                           {breedersList.map(b => (
-                            <div 
-                              key={b.userid} 
+                            <div
+                              key={b.userid}
                               onClick={() => { setFatherBreederId(b.userid.toString()); setFatherId(null); setIsFatherBreederDropdownOpen(false); }}
                               className="p-3 hover:bg-blue-50 hover:text-blue-600 cursor-pointer text-sm text-stone-700 font-bold rounded-lg transition-colors truncate"
                             >
@@ -4883,16 +4964,16 @@ export default function AddCatPage() {
                     </div>
                     <div className="relative">
                       <label className="block text-[10px] font-black text-blue-500 uppercase mb-2">Mèo Bố</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         disabled={!fatherBreederId}
                         onClick={() => { setIsFatherDropdownOpen(!isFatherDropdownOpen); setIsFatherBreederDropdownOpen(false); setIsMotherDropdownOpen(false); setIsMotherBreederDropdownOpen(false); }}
                         className="w-full bg-white border border-blue-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {fatherId ? (
                           <div className="flex items-center gap-3">
-                             <img src={getCatImage(fatherId)} className="w-6 h-6 rounded-md object-cover border border-stone-200" alt="father" />
-                             <span>{allCatsList.find(c => c.id === fatherId)?.name}</span>
+                            <img src={getCatImage(fatherId)} className="w-6 h-6 rounded-md object-cover border border-stone-200" alt="father" />
+                            <span>{allCatsList.find(c => c.id === fatherId)?.name}</span>
                           </div>
                         ) : (
                           <span className="text-stone-400">-- Chọn Mèo Bố --</span>
@@ -4902,7 +4983,7 @@ export default function AddCatPage() {
 
                       {isFatherDropdownOpen && !!fatherBreederId && (
                         <div className="absolute top-full left-0 w-full mt-2 bg-white border border-blue-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar">
-                          <div 
+                          <div
                             onClick={() => { setFatherId(null); setIsFatherDropdownOpen(false); }}
                             className="p-3 hover:bg-blue-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100"
                           >
@@ -4911,8 +4992,8 @@ export default function AddCatPage() {
                           {allCatsList
                             .filter(c => c.gender !== false && c.breeder_id?.toString() === fatherBreederId && !excludedForFather.includes(c.id))
                             .map(c => (
-                              <div 
-                                key={c.id} 
+                              <div
+                                key={c.id}
                                 onClick={() => { setFatherId(c.id); setIsFatherDropdownOpen(false); }}
                                 className="flex items-center gap-3 p-3 hover:bg-blue-50 cursor-pointer border-b border-stone-50 last:border-0 transition-colors"
                               >
@@ -4938,25 +5019,25 @@ export default function AddCatPage() {
                         className="w-full bg-white border border-rose-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between cursor-pointer h-[46px]"
                       >
                         <span className="truncate">
-                          {motherBreederId 
-                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.type_id === 1 
-                                ? 'KinVie Cattery' 
-                                : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === motherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === motherBreederId)?.email || `Đối tác #${motherBreederId}`)
+                          {motherBreederId
+                            ? (breedersList.find(b => b.userid.toString() === motherBreederId)?.type_id === 1
+                              ? 'KinVie Cattery'
+                              : breedersList.find(b => b.userid.toString() === motherBreederId)?.cattery_name || breedersList.find(b => b.userid.toString() === motherBreederId)?.fullname || breedersList.find(b => b.userid.toString() === motherBreederId)?.email || `Đối tác #${motherBreederId}`)
                             : '-- Chọn Trại giống --'}
                         </span>
                         <span className="text-[10px] text-stone-400">▼</span>
                       </button>
                       {isMotherBreederDropdownOpen && (
                         <div className="absolute top-full left-0 w-full mt-2 bg-white border border-rose-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar p-2">
-                          <div 
+                          <div
                             onClick={() => { setMotherBreederId(''); setMotherId(null); setIsMotherBreederDropdownOpen(false); }}
                             className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100 rounded-lg"
                           >
                             -- Chọn Trại giống --
                           </div>
                           {breedersList.map(b => (
-                            <div 
-                              key={b.userid} 
+                            <div
+                              key={b.userid}
                               onClick={() => { setMotherBreederId(b.userid.toString()); setMotherId(null); setIsMotherBreederDropdownOpen(false); }}
                               className="p-3 hover:bg-rose-50 hover:text-rose-600 cursor-pointer text-sm text-stone-700 font-bold rounded-lg transition-colors truncate"
                             >
@@ -4966,19 +5047,19 @@ export default function AddCatPage() {
                         </div>
                       )}
                     </div>
-                    
+
                     <div className="relative">
                       <label className="block text-[10px] font-black text-rose-400 uppercase mb-2">Mèo Mẹ</label>
-                      <button 
-                        type="button" 
+                      <button
+                        type="button"
                         disabled={!motherBreederId}
                         onClick={() => { setIsMotherDropdownOpen(!isMotherDropdownOpen); setIsMotherBreederDropdownOpen(false); setIsFatherDropdownOpen(false); setIsFatherBreederDropdownOpen(false); }}
                         className="w-full bg-white border border-rose-200 px-4 py-2.5 rounded-xl text-sm font-bold shadow-sm outline-none flex items-center justify-between disabled:bg-stone-100 disabled:text-stone-400 disabled:cursor-not-allowed cursor-pointer h-[46px]"
                       >
                         {motherId ? (
                           <div className="flex items-center gap-3">
-                             <img src={getCatImage(motherId)} className="w-6 h-6 rounded-md object-cover border border-stone-200" alt="mother" />
-                             <span>{allCatsList.find(c => c.id === motherId)?.name}</span>
+                            <img src={getCatImage(motherId)} className="w-6 h-6 rounded-md object-cover border border-stone-200" alt="mother" />
+                            <span>{allCatsList.find(c => c.id === motherId)?.name}</span>
                           </div>
                         ) : (
                           <span className="text-stone-400">-- Chọn Mèo Mẹ --</span>
@@ -4988,7 +5069,7 @@ export default function AddCatPage() {
 
                       {isMotherDropdownOpen && !!motherBreederId && (
                         <div className="absolute top-full left-0 w-full mt-2 bg-white border border-rose-200 rounded-xl shadow-xl z-50 max-h-60 overflow-y-auto custom-scrollbar">
-                          <div 
+                          <div
                             onClick={() => { setMotherId(null); setIsMotherDropdownOpen(false); }}
                             className="p-3 hover:bg-rose-50 cursor-pointer text-sm text-stone-500 font-bold border-b border-stone-100"
                           >
@@ -4997,8 +5078,8 @@ export default function AddCatPage() {
                           {allCatsList
                             .filter(c => c.gender === false && c.breeder_id?.toString() === motherBreederId && !excludedForMother.includes(c.id))
                             .map(c => (
-                              <div 
-                                key={c.id} 
+                              <div
+                                key={c.id}
                                 onClick={() => { setMotherId(c.id); setIsMotherDropdownOpen(false); }}
                                 className="flex items-center gap-3 p-3 hover:bg-rose-50 cursor-pointer border-b border-stone-50 last:border-0 transition-colors"
                               >
@@ -5027,61 +5108,61 @@ export default function AddCatPage() {
               {/* 🎯 BẢNG CHỌN MÀU EMS DẠNG SỔ XUỐNG (ACCORDION) */}
               {isPurebred ? (
                 <div className="bg-red-50/50 rounded-3xl p-6 border border-red-100 shadow-sm mt-8 transition-all duration-300">
-                   <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
-                       <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
-                       <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
-                     </h3>
-                     <div className="text-right">
-                       <p className="text-[10px] text-stone-500 uppercase font-bold">Mã đang tạo</p>
-                       <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || 'Chưa chọn'}</p>
-                     </div>
-                   </div>
-                   
-                   {isEmsOpen && dbBaseColors.length > 0 && (
-                     <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
-                       <div className="mb-6">
-                         <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
-                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                           {dbBaseColors.map(c => (
-                             <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
-                                <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
-                             </div>
-                           ))}
-                         </div>
-                       </div>
-                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                          <div className="sm:col-span-1">
-                            <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
-                            <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                              <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
-                              <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
-                                {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                  <div className="flex items-center justify-between cursor-pointer group cursor-pointer" onClick={() => setIsEmsOpen(!isEmsOpen)}>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2 group-hover:text-red-600 transition-colors">
+                      <span>🎨</span> Cập nhật Màu lông (Hệ EMS)
+                      <span className={`text-stone-400 transition-transform duration-300 ${isEmsOpen ? 'rotate-180' : ''}`}>▼</span>
+                    </h3>
+                    <div className="text-right">
+                      <p className="text-[10px] text-stone-500 uppercase font-bold">Mã đang tạo</p>
+                      <p className="text-lg font-black text-red-600 bg-white px-3 py-1 rounded-lg border border-red-200 shadow-sm">{generatedEmsCode || 'Chưa chọn'}</p>
+                    </div>
+                  </div>
+
+                  {isEmsOpen && dbBaseColors.length > 0 && (
+                    <div className="mt-6 border-t border-red-200/50 pt-6 animate-fade-in">
+                      <div className="mb-6">
+                        <p className="text-xs font-bold text-stone-500 mb-2">1. Màu cơ bản (Base Color)</p>
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                          {dbBaseColors.map(c => (
+                            <div key={c.code} onClick={() => setBaseColor(baseColor === c.code ? null : c.code)} className={`flex items-center gap-2 p-2 rounded-xl border cursor-pointer transition-all ${baseColor === c.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                              <div style={{ backgroundColor: c.hex }} className="w-5 h-5 rounded-md border border-stone-200 shrink-0"></div>
+                              <div className="overflow-hidden"><p className="text-xs font-bold text-stone-800 uppercase">{c.code}</p><p className="text-[9px] text-stone-500 truncate">{c.name}</p></div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
+                        <div className="sm:col-span-1">
+                          <p className="text-xs font-bold text-stone-500 mb-2">2. Ánh bạc</p>
+                          <div onClick={() => setHasSilver(!hasSilver)} className={`flex items-center justify-between p-3 rounded-xl border cursor-pointer transition-all ${hasSilver ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                            <div><p className="text-xs font-bold text-stone-800">Mã "s"</p><p className="text-[10px] text-stone-500">Silver / Smoke</p></div>
+                            <div className={`w-4 h-4 rounded-full border-2 flex items-center justify-center ${hasSilver ? 'bg-red-500 border-red-500' : 'border-stone-300'}`}>
+                              {hasSilver && <span className="text-white text-[10px]">✓</span>}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="sm:col-span-2">
+                          <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
+                          <div className="grid grid-cols-2 gap-2">
+                            {dbPatterns.map(p => (
+                              <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
+                                <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
                               </div>
-                            </div>
+                            ))}
                           </div>
-                          <div className="sm:col-span-2">
-                            <p className="text-xs font-bold text-stone-500 mb-2">3. Hoa văn (Pattern)</p>
-                            <div className="grid grid-cols-2 gap-2">
-                              {dbPatterns.map(p => (
-                                <div key={p.code} onClick={() => setPattern(pattern === p.code ? null : p.code)} className={`p-2 rounded-xl border cursor-pointer text-center transition-all ${pattern === p.code ? 'bg-white border-red-500 shadow-sm ring-1 ring-red-500' : 'bg-white border-stone-200 hover:border-red-300'}`}>
-                                  <p className="text-xs font-bold text-stone-800">{p.code}</p><p className="text-[9px] text-stone-500 truncate">{p.name}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-                       </div>
-                     </div>
-                   )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ) : (
                 <div className="bg-stone-50/50 rounded-3xl p-6 border border-stone-200 shadow-sm mt-8">
                   <div className="flex items-center justify-between mb-4">
-                     <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
-                     <div className="text-right">
-                       <p className="text-lg font-black text-stone-600 bg-white px-3 py-1 rounded-lg border border-stone-200 shadow-sm">{simpleColor || '???'}</p>
-                     </div>
+                    <h3 className="text-sm font-bold text-stone-800 uppercase flex items-center gap-2"><span>🐈</span> Chọn Màu lông (Mèo Dân Dã)</h3>
+                    <div className="text-right">
+                      <p className="text-lg font-black text-stone-600 bg-white px-3 py-1 rounded-lg border border-stone-200 shadow-sm">{simpleColor || '???'}</p>
+                    </div>
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                     {SIMPLE_COLORS.map(c => (
@@ -5124,9 +5205,9 @@ export default function AddCatPage() {
 
                 <div className="mt-8 border-t border-stone-200/50 pt-6">
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-3 ml-1">Đặc điểm / Ghi chú (Notes)</label>
-                  <textarea 
-                    value={catData.notes} onChange={(e) => setCatData({...catData, notes: e.target.value})}
-                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4} 
+                  <textarea
+                    value={catData.notes} onChange={(e) => setCatData({ ...catData, notes: e.target.value })}
+                    placeholder="Ghi chú thêm về sức khỏe, thói quen ăn uống, tính cách của bé..." rows={4}
                     className="w-full bg-white border border-stone-200/80 rounded-2xl px-5 py-4 text-stone-800 text-sm focus:outline-none focus:border-red-400 focus:ring-4 focus:ring-red-500/10 transition-all shadow-sm resize-none"
                   ></textarea>
                 </div>
@@ -5138,9 +5219,9 @@ export default function AddCatPage() {
                 </label>
                 <div className="relative group/price">
                   <div className="absolute -inset-1 bg-gradient-to-r from-red-400 to-rose-400 rounded-2xl blur opacity-25 group-hover/price:opacity-50 transition duration-500 pointer-events-none"></div>
-                  <input 
-                    type="number" value={catData.price} onChange={(e) => setCatData({...catData, price: parseInt(e.target.value) || 0})}
-                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200" 
+                  <input
+                    type="number" value={catData.price} onChange={(e) => setCatData({ ...catData, price: parseInt(e.target.value) || 0 })}
+                    className="cursor-pointer relative w-full bg-white border-2 border-red-100 rounded-2xl pl-16 pr-6 py-6 text-4xl md:text-5xl text-red-600 font-black focus:outline-none focus:border-red-500 focus:ring-4 focus:ring-red-500/20 transition-all shadow-lg placeholder:text-red-200"
                   />
                   <span className="absolute left-6 top-1/2 -translate-y-1/2 text-red-400 font-black text-3xl select-none pointer-events-none">đ</span>
                 </div>
@@ -5161,20 +5242,20 @@ export default function AddCatPage() {
             <div className="space-y-5 mb-8">
               <div>
                 <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Tên Vaccine / Mũi tiêm</label>
-                <input 
+                <input
                   type="text" placeholder="Ví dụ: Vaccine 4 bệnh, Dại, Tẩy giun..."
-                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({...newRecord, vaccineName: e.target.value})} 
+                  value={newRecord.vaccineName} onChange={(e) => setNewRecord({ ...newRecord, vaccineName: e.target.value })}
                   className="w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none"
                 />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Ngày tiêm</label>
-                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({...newRecord, dateGiven: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.dateGiven} onChange={(e) => setNewRecord({ ...newRecord, dateGiven: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
                 <div>
                   <label className="block text-[11px] font-black text-stone-500 uppercase tracking-widest mb-2">Nhắc lại (Nếu có)</label>
-                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({...newRecord, nextDueDate: e.target.value})} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
+                  <input type="date" value={newRecord.nextDueDate} onChange={(e) => setNewRecord({ ...newRecord, nextDueDate: e.target.value })} className="cursor-pointer w-full bg-stone-50 border border-stone-200 rounded-xl px-4 py-3 text-sm font-bold text-stone-700 focus:border-red-400 focus:ring-2 focus:ring-red-500/20 outline-none" />
                 </div>
               </div>
             </div>
@@ -5763,10 +5844,10 @@ export default function CatsHubPage() {
       
       {/* HEADER */}
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
+        <h1 className="text-2xl sm:text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
           Quản lý Mèo (Cattery) <span className="text-4xl animate-bounce">😻</span>
         </h1>
-        <p className="text-stone-500 mt-3 text-lg">Lựa chọn khu vực làm việc bạn muốn thao tác.</p>
+        <p className="text-stone-500 mt-2 sm:mt-3 text-sm sm:text-lg">Lựa chọn khu vực làm việc bạn muốn thao tác.</p>
       </div>
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
@@ -5776,7 +5857,7 @@ export default function CatsHubPage() {
         <div className="absolute -inset-4 bg-gradient-to-r from-red-500/0 via-red-400/10 to-amber-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-red-200/80 hover:shadow-[0_8px_50px_rgba(249,115,22,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-red-200/80 hover:shadow-[0_8px_50px_rgba(249,115,22,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
@@ -5787,7 +5868,7 @@ export default function CatsHubPage() {
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
             
             {catModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
@@ -5797,10 +5878,10 @@ export default function CatsHubPage() {
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
                 
                 {/* Nội dung thẻ con */}
-                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
+                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
                   
                   {/* Icon */}
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
                   
@@ -5810,13 +5891,13 @@ export default function CatsHubPage() {
                   </h3>
                   
                   {/* Mô tả */}
-                  <p className="text-xs text-stone-500 mb-6 flex-1 leading-relaxed px-1">
+                  <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
                   
                   {/* Khu vực Nhãn (Badge) Căn Giữa - Xóa Nút Bấm */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
-                    <span className={`${item.labelColor} border font-black px-5 py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
+                    <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                       {item.labelText}
                     </span>
                   </div>
@@ -8710,9 +8791,9 @@ export default function OperationsHubPage() {
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
-          Kinh doanh & Vận hành <span className="text-4xl animate-pulse">⚙️</span>
+          Kinh doanh & Vận hành <span className="text-2xl sm:text-4xl animate-pulse">⚙️</span>
         </h1>
-        <p className="text-stone-500 mt-3 text-lg">Hệ thống trung tâm kiểm soát doanh thu, đơn hàng và nhân sự.</p>
+        <p className="text-stone-500 mt-2 sm:mt-3 text-sm sm:text-lg">Hệ thống trung tâm kiểm soát doanh thu, đơn hàng và nhân sự.</p>
       </div>
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
@@ -8722,7 +8803,7 @@ export default function OperationsHubPage() {
         <div className="absolute -inset-4 bg-gradient-to-r from-blue-500/0 via-blue-400/10 to-indigo-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-blue-200/80 hover:shadow-[0_8px_50px_rgba(59,130,246,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-blue-200/80 hover:shadow-[0_8px_50px_rgba(59,130,246,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
@@ -8733,7 +8814,7 @@ export default function OperationsHubPage() {
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
             
             {operationModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
@@ -8743,10 +8824,10 @@ export default function OperationsHubPage() {
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
                 
                 {/* Nội dung thẻ con */}
-                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
+                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
                   
                   {/* Icon */}
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
                   
@@ -8756,13 +8837,13 @@ export default function OperationsHubPage() {
                   </h3>
                   
                   {/* Mô tả */}
-                  <p className="text-xs text-stone-500 mb-6 flex-1 leading-relaxed px-1">
+                  <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
                   
                   {/* Khu vực Nhãn (Badge) Căn Giữa - Xóa Nút Bấm */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
-                    <span className={`${item.labelColor} border font-black px-5 py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
+                    <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                       {item.labelText}
                     </span>
                   </div>
@@ -9541,6 +9622,7 @@ export default function PateTypesManagementPage() {
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import Link from 'next/link';
 
@@ -9562,6 +9644,7 @@ export default function ProductDetailedAdmin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadingSlot, setUploadingSlot] = useState<number | null>(null);
@@ -9578,6 +9661,7 @@ export default function ProductDetailedAdmin() {
 
   const fetchProduct = async () => {
     setIsLoading(true);
+    showGlobalLoading('SYSTEM SCANNING...');
     const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
     
     if (error) {
@@ -9600,6 +9684,7 @@ export default function ProductDetailedAdmin() {
       });
     }
     setIsLoading(false);
+    hideGlobalLoading();
   };
 
   const handleImageClick = (index: number) => {
@@ -9665,12 +9750,7 @@ export default function ProductDetailedAdmin() {
     }
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen bg-[#fffafa] flex flex-col items-center justify-center">
-      <div className="w-12 h-12 border-4 border-rose-200 border-t-rose-600 rounded-full animate-spin mb-4"></div>
-      <p className="font-black text-rose-400 tracking-widest text-sm uppercase animate-pulse">SYSTEM SCANNING...</p>
-    </div>
-  );
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-[#fffafa] pb-20 relative overflow-hidden selection:bg-rose-200">
@@ -10457,10 +10537,10 @@ export default function PetshopHubPage() {
       
       {/* HEADER */}
       <div className="text-center mb-8">
-        <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
+        <h1 className="text-2xl sm:text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
           Beam Petshop <span className="text-4xl animate-bounce">🛍️</span>
         </h1>
-        <p className="text-stone-500 mt-3 text-lg">Kiểm soát hàng hóa, phụ kiện và theo dõi hạn sử dụng Pate tươi.</p>
+        <p className="text-stone-500 mt-2 sm:mt-3 text-sm sm:text-lg">Kiểm soát hàng hóa, phụ kiện và theo dõi hạn sử dụng Pate tươi.</p>
       </div>
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
@@ -10470,7 +10550,7 @@ export default function PetshopHubPage() {
         <div className="absolute -inset-4 bg-gradient-to-r from-fuchsia-500/0 via-fuchsia-400/10 to-rose-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-slate-200/80 hover:shadow-[0_8px_50px_rgba(236,72,153,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-slate-200/80 hover:shadow-[0_8px_50px_rgba(236,72,153,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
@@ -10481,7 +10561,7 @@ export default function PetshopHubPage() {
           </div>
 
           {/* GRID CHỨA 2 THẺ (CARDS) */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 relative z-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-8 relative z-10">
             
             {petshopModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
@@ -10491,26 +10571,26 @@ export default function PetshopHubPage() {
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
                 
                 {/* Nội dung thẻ con (Tăng padding cho layout 2 cột) */}
-                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-8 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
+                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-8 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
                   
                   {/* Icon */}
-                  <div className="text-6xl mb-6 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
+                  <div className="text-4xl sm:text-6xl mb-2 sm:mb-6 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
                   
                   {/* Tiêu đề */}
-                  <h3 className={`text-xl font-black text-${item.color}-600 mb-3 tracking-wide`}>
+                  <h3 className={`text-base sm:text-xl font-black text-${item.color}-600 mb-1.5 sm:mb-3 tracking-wide`}>
                     {item.name}
                   </h3>
                   
                   {/* Mô tả */}
-                  <p className="text-sm text-stone-500 mb-8 flex-1 leading-relaxed px-2">
+                  <p className="text-sm text-stone-500 mb-4 sm:mb-8 flex-1 leading-relaxed px-2">
                     {item.description}
                   </p>
                   
                   {/* Khu vực Nhãn (Badge) Căn Giữa - Xóa Nút Bấm */}
-                  <div className="w-full flex justify-center items-center mt-auto pt-6 border-t border-stone-100/80">
-                    <span className={`${item.labelColor} border font-black px-6 py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
+                  <div className="w-full flex justify-center items-center mt-auto pt-3 sm:pt-6 border-t border-stone-100/80">
+                    <span className={`${item.labelColor} border font-black px-4 sm:px-6 py-2 sm:py-2.5 rounded-xl text-[11px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                       {item.labelText}
                     </span>
                   </div>
@@ -12493,9 +12573,9 @@ export default function UsersHubPage() {
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
-          Tài khoản & Đối tác <span className="text-4xl animate-bounce">👥</span>
+          Tài khoản & Đối tác <span className="text-2xl sm:text-4xl animate-bounce">👥</span>
         </h1>
-        <p className="text-stone-500 mt-3 text-lg">Quản lý người dùng, phân quyền bảo mật và chăm sóc khách hàng.</p>
+        <p className="text-stone-500 mt-2 sm:mt-3 text-sm sm:text-lg">Quản lý người dùng, phân quyền bảo mật và chăm sóc khách hàng.</p>
       </div>
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
@@ -12505,7 +12585,7 @@ export default function UsersHubPage() {
         <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/0 via-cyan-400/10 to-blue-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
         {/* Khối Container Kính Mờ */}
-        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[2.5rem] p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-cyan-200/80 hover:shadow-[0_8px_50px_rgba(6,182,212,0.1)]">
+        <div className="relative bg-white/60 backdrop-blur-2xl rounded-[1.75rem] sm:rounded-[2.5rem] p-4 sm:p-8 md:p-10 border border-white/80 shadow-[0_8px_30px_rgba(0,0,0,0.03)] overflow-hidden transition-all duration-500 hover:border-cyan-200/80 hover:shadow-[0_8px_50px_rgba(6,182,212,0.1)]">
 
           {/* Họa tiết Lưới Chấm Bi Mờ */}
           <div className="absolute inset-0 opacity-[0.04] pointer-events-none" style={{ backgroundImage: 'radial-gradient(#000 1px, transparent 1px)', backgroundSize: '20px 20px' }}></div>
@@ -12516,7 +12596,7 @@ export default function UsersHubPage() {
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
             
             {userModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
@@ -12526,10 +12606,10 @@ export default function UsersHubPage() {
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
                 
                 {/* Nội dung thẻ con */}
-                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
+                <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
                   
                   {/* Icon */}
-                  <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
+                  <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
                   
@@ -12539,13 +12619,13 @@ export default function UsersHubPage() {
                   </h3>
                   
                   {/* Mô tả */}
-                  <p className="text-xs text-stone-500 mb-6 flex-1 leading-relaxed px-1">
+                  <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
                   
                   {/* Khu vực Nhãn (Badge) Căn Giữa - ĐÃ XÓA NÚT */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
-                    <span className={`${item.labelColor} border font-black px-5 py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
+                    <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                       {item.labelText}
                     </span>
                   </div>
@@ -12770,21 +12850,27 @@ export default function DashboardHubPage() {
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
-    
+
     // Kéo Đơn hàng (Cả chờ duyệt và đã hoàn thành)
     const { data: orders } = await supabase.from('orders').select('*');
     // Kéo Khách hàng
     const { data: users } = await supabase.from('users').select('*').eq('type_id', 4); // Giả sử 4 là KH
     // Kéo Mèo
     const { data: cats } = await supabase.from('cats').select('*');
-    
-    setRawData({ 
-      orders: orders || [], 
-      users: users || [], 
+
+    // 🆕 Đếm feedback chưa phản hồi (status khác 'replied')
+    const { count: pendingReviewsCount } = await supabase
+      .from('feedbacks')
+      .select('*', { count: 'exact', head: true })
+      .neq('status', 'replied');
+
+    setRawData({
+      orders: orders || [],
+      users: users || [],
       cats: cats || [],
-      pendingReviews: 3 // Dữ liệu khiếu nại (Demo)
+      pendingReviews: pendingReviewsCount || 0
     });
-    
+
     setIsLoading(false);
   };
 
@@ -12801,7 +12887,7 @@ export default function DashboardHubPage() {
     if (isNaN(d.getTime())) return false;
 
     const now = new Date();
-    
+
     if (filterType === 'this_month') {
       if (isPreviousPeriod) {
         const lastMonth = now.getMonth() === 0 ? 11 : now.getMonth() - 1;
@@ -12810,14 +12896,14 @@ export default function DashboardHubPage() {
       }
       return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
     }
-    
+
     if (filterType === 'this_week') {
       const firstDayOfWeek = new Date(now.setDate(now.getDate() - now.getDay() + 1)); // Thứ 2
-      firstDayOfWeek.setHours(0,0,0,0);
+      firstDayOfWeek.setHours(0, 0, 0, 0);
       const lastDayOfWeek = new Date(firstDayOfWeek);
       lastDayOfWeek.setDate(firstDayOfWeek.getDate() + 6); // CN
-      lastDayOfWeek.setHours(23,59,59,999);
-      
+      lastDayOfWeek.setHours(23, 59, 59, 999);
+
       if (isPreviousPeriod) {
         firstDayOfWeek.setDate(firstDayOfWeek.getDate() - 7);
         lastDayOfWeek.setDate(lastDayOfWeek.getDate() - 7);
@@ -12826,7 +12912,7 @@ export default function DashboardHubPage() {
     }
 
     if (filterType === 'today') {
-      const today = new Date(now.setHours(0,0,0,0));
+      const today = new Date(now.setHours(0, 0, 0, 0));
       if (isPreviousPeriod) {
         const yesterday = new Date(today);
         yesterday.setDate(yesterday.getDate() - 1);
@@ -12843,7 +12929,7 @@ export default function DashboardHubPage() {
     // 1. Tính Doanh thu & Đơn chờ
     rawData.orders.forEach(o => {
       const oDate = o.orderdate || o.created_at || o.createdat;
-      
+
       // Đơn chờ duyệt
       if (o.orderstatus === 'Chờ duyệt') pendingOrd++;
 
@@ -12932,19 +13018,19 @@ export default function DashboardHubPage() {
 
   return (
     <div className="space-y-16 animate-fade-in max-w-[1400px] mx-auto pb-16">
-      
+
       {/* ==========================================
           KHU VỰC THỐNG KÊ (HẮC HƯỜNG NEON GLOW) - ĐÃ GẮN DATA ĐỘNG
           ========================================== */}
       <div className="space-y-6">
-        
+
         {/* TẦNG 1: DOANH THU & BỘ LỌC THỜI GIAN */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          
+
           {/* KHỐI DOANH THU ĐỘNG */}
           <div className="bg-[#111] rounded-[2rem] p-6 xl:p-8 border border-stone-800 shadow-2xl relative overflow-hidden group hover:border-pink-500 transition-all duration-500 cursor-default">
             <div className="absolute -right-8 -top-8 w-48 h-48 bg-pink-500/20 rounded-full blur-3xl group-hover:bg-pink-500/40 transition-all duration-500"></div>
-            
+
             <div className="relative z-10 flex flex-col justify-between h-full">
               <div className="flex justify-between items-start mb-4">
                 <p className="text-xs font-bold text-stone-400 uppercase tracking-widest">Tổng Doanh Thu</p>
@@ -12952,7 +13038,7 @@ export default function DashboardHubPage() {
                   {dateFilter === 'this_month' ? 'Tháng này' : dateFilter === 'this_week' ? 'Tuần này' : 'Hôm nay'}
                 </span>
               </div>
-              
+
               {isLoading ? (
                 <div className="animate-pulse h-16 w-3/4 bg-stone-800 rounded-2xl mb-4"></div>
               ) : (
@@ -12972,37 +13058,37 @@ export default function DashboardHubPage() {
 
           {/* KHỐI BỘ LỌC */}
           <div className="bg-[#111] rounded-[2rem] p-6 xl:p-8 border border-stone-800 shadow-2xl relative overflow-hidden flex flex-col justify-center group hover:border-slate-500 transition-all duration-500">
-             <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-6">Thời gian hiển thị</p>
-             <div className="flex flex-wrap gap-2 mb-6">
-                <button onClick={() => setDateFilter('this_month')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_month' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tháng này</button>
-                <button onClick={() => setDateFilter('this_week')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_week' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tuần này</button>
-                <button onClick={() => setDateFilter('today')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'today' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Hôm nay</button>
-             </div>
-             
-             {/* Fake Inputs Date cho đẹp giao diện như ảnh của sếp */}
-             <div className="flex flex-col xl:flex-row items-center gap-3 w-full opacity-50 pointer-events-none">
-               <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-stone-500">📅</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Từ ngày</p>
-                    <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-01" />
-                  </div>
-               </div>
-               <span className="text-stone-600 font-black hidden xl:block">-</span>
-               <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
-                  <span className="text-stone-500">📅</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Đến ngày</p>
-                    <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-30" />
-                  </div>
-               </div>
-             </div>
+            <p className="text-xs font-bold text-stone-400 uppercase tracking-widest mb-6">Thời gian hiển thị</p>
+            <div className="flex flex-wrap gap-2 mb-6">
+              <button onClick={() => setDateFilter('this_month')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_month' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tháng này</button>
+              <button onClick={() => setDateFilter('this_week')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'this_week' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Tuần này</button>
+              <button onClick={() => setDateFilter('today')} className={`cursor-pointer px-4 py-2 rounded-xl text-sm font-bold transition-all ${dateFilter === 'today' ? 'bg-pink-500 text-white shadow-[0_0_15px_rgba(236,72,153,0.4)]' : 'bg-stone-800 hover:bg-stone-700 text-stone-300'}`}>Hôm nay</button>
+            </div>
+
+            {/* Fake Inputs Date cho đẹp giao diện như ảnh của sếp */}
+            <div className="flex flex-col xl:flex-row items-center gap-3 w-full opacity-50 pointer-events-none">
+              <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <span className="text-stone-500">📅</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Từ ngày</p>
+                  <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-01" />
+                </div>
+              </div>
+              <span className="text-stone-600 font-black hidden xl:block">-</span>
+              <div className="w-full flex-1 bg-stone-900 border border-stone-700 rounded-xl px-3 py-2.5 flex items-center gap-2">
+                <span className="text-stone-500">📅</span>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] text-stone-500 font-bold uppercase mb-0.5 leading-none">Đến ngày</p>
+                  <input type="date" className="bg-transparent text-stone-300 text-sm font-bold outline-none w-full" defaultValue="2026-04-30" />
+                </div>
+              </div>
+            </div>
           </div>
         </div>
 
         {/* TẦNG 2: 4 CHỈ SỐ NHANH ĐỘNG */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
+
           <div className="bg-[#111] rounded-[2rem] p-6 border border-stone-800 shadow-2xl relative overflow-hidden group hover:border-rose-500 transition-all duration-500 cursor-default">
             <div className="absolute -right-8 -top-8 w-32 h-32 bg-rose-500/20 rounded-full blur-2xl group-hover:bg-rose-500/40 transition-all duration-500"></div>
             <div className="relative z-10 flex flex-col justify-between h-full">
@@ -13050,7 +13136,7 @@ export default function DashboardHubPage() {
       <div className="space-y-16 mt-16 relative">
         {groupedModules.map((section, idx) => (
           <div key={idx} className="relative group/section">
-            
+
             {/* Lớp Hào Quang Tỏa Ra Phía Sau */}
             <div className="absolute -inset-4 bg-gradient-to-r from-pink-500/0 via-pink-400/10 to-purple-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -13062,7 +13148,7 @@ export default function DashboardHubPage() {
 
               {/* Vệt Laser quét ngang viền trên khi hover */}
               <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-                 <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-pink-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+                <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-pink-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
               </div>
 
               {/* Tiêu đề Nhóm (Header) */}
@@ -13083,21 +13169,21 @@ export default function DashboardHubPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
                 {section.items.map((item) => (
                   <Link href={item.path} key={item.name} className="relative group block h-full">
-                    
+
                     {/* Lớp sáng neon tỏa ra từ thẻ con */}
                     <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                     <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                    
+
                     <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-3xl p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                      
+
                       <div className="text-5xl mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                         {item.icon}
                       </div>
-                      
+
                       <h3 className={`text-[15px] font-black text-${item.color}-600 mb-2 tracking-wide`}>
                         {item.name}
                       </h3>
-                      
+
                       <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
                         <span className={`${item.labelColor} border font-black px-5 py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
                           {item.labelText}
@@ -13108,7 +13194,7 @@ export default function DashboardHubPage() {
                   </Link>
                 ))}
               </div>
-              
+
             </div>
           </div>
         ))}
@@ -14214,6 +14300,7 @@ import { useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import Toast from '@/components/ui/Toast';
 
 const MAX_FILE_SIZE = 5 * 1024 * 1024; // 5MB
@@ -14223,6 +14310,7 @@ export default function UploadMemorialPhotoPage() {
   const router = useRouter();
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [dbUserId, setDbUserId] = useState<number | null>(null);
   const [isEligible, setIsEligible] = useState(true);
   const [maxPhotos, setMaxPhotos] = useState(0);
@@ -14245,11 +14333,12 @@ export default function UploadMemorialPhotoPage() {
 
   useEffect(() => {
     const init = async () => {
+      showGlobalLoading('Đang tải...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (!user) { hideGlobalLoading(); router.push('/login'); return; }
 
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
-      if (!dbUser) { setIsLoading(false); return; }
+      if (!dbUser) { setIsLoading(false); hideGlobalLoading(); return; }
       setDbUserId(dbUser.userid);
 
       const { data: typeInfo } = await supabase.from('type_users').select('is_memorial_eligible, max_memorial_photos').eq('id', dbUser.type_id).maybeSingle();
@@ -14295,6 +14384,7 @@ export default function UploadMemorialPhotoPage() {
       }
 
       setIsLoading(false);
+      hideGlobalLoading();
     };
     init();
   }, [router]);
@@ -14768,6 +14858,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function OrderTrackingPage() {
   const params = useParams();
@@ -14775,6 +14866,7 @@ export default function OrderTrackingPage() {
   const orderId = params.id;
 
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [orderData, setOrderData] = useState<any>(null);
   const [dbUserId, setDbUserId] = useState<number | null>(null);
   const [myReviews, setMyReviews] = useState<Record<number, boolean>>({});
@@ -14784,9 +14876,11 @@ export default function OrderTrackingPage() {
 
   useEffect(() => {
     const fetchOrder = async () => {
+      showGlobalLoading('Đang tải đơn hàng...');
       const { data } = await supabase.from('orders').select('*, orderdetails(products(id, name, imageurl, images), quantity, unitprice)').eq('orderid', orderId).maybeSingle();
       if (data) setOrderData(data);
       setIsLoading(false);
+      hideGlobalLoading();
     };
     if (orderId) fetchOrder();
   }, [orderId]);
@@ -14832,7 +14926,7 @@ export default function OrderTrackingPage() {
     setMyReviews(prev => ({ ...prev, [productId]: true }));
   };
 
-  if (isLoading) return <div className="min-h-screen bg-stone-50 flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>;
+  if (isLoading) return null;
   if (!orderData) return <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center"><h1 className="text-2xl font-black">Không tìm thấy đơn hàng</h1></div>;
 
   // LOGIC TIMELINE TIẾN TRÌNH
@@ -15352,8 +15446,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
-import GlobalLoading from '@/components/layout/GlobalLoading';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import Link from 'next/link';
 
 export default function ProductDetailPage() {
@@ -15362,6 +15456,7 @@ export default function ProductDetailPage() {
 
   const [product, setProduct] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [quantity, setQuantity] = useState(1);
   const [activeTab, setActiveTab] = useState('description');
 
@@ -15388,6 +15483,7 @@ export default function ProductDetailPage() {
     // 2. LẤY DỮ LIỆU SẢN PHẨM
     const fetchProduct = async () => {
       setIsLoading(true);
+      showGlobalLoading('Đang check kho hàng...');
       try {
         const { data, error } = await supabase
           .from('products')
@@ -15401,6 +15497,7 @@ export default function ProductDetailPage() {
         console.error("Lỗi lấy chi tiết sản phẩm:", err);
       } finally {
         setIsLoading(false);
+        hideGlobalLoading();
       }
     };
 
@@ -15543,12 +15640,7 @@ export default function ProductDetailPage() {
     if (updated) setProduct((prev: any) => ({ ...prev, ...updated }));
   };
 
-  if (isLoading) return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-[#FFFBFD]">
-      <div className="w-16 h-16 border-4 border-orange-200 border-t-orange-500 rounded-full animate-spin mb-4"></div>
-      <p className="font-bold text-orange-400 animate-pulse">Đang check kho hàng...</p>
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!product) return <div className="min-h-screen flex items-center justify-center font-bold">Không tìm thấy sản phẩm sếp ơi! 😿</div>;
 
@@ -16060,6 +16152,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import BreedSearchSelect from '@/components/common/BreedSearchSelect';
 
 const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -16072,73 +16165,6 @@ const SIMPLE_COLORS = [
   { id: 'Màu pha khác', name: 'Màu pha khác' }
 ];
 
-const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
-  'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
-];
-
-// 🎯 Dropdown chọn giống mèo có ô tìm kiếm, style đồng bộ pink-rounded với phần còn lại của trang
-function BreedSearchSelect({ value, onChange, breeds, disabled = false }: { value: string; onChange: (v: string) => void; breeds: string[]; disabled?: boolean }) {
-  const [isOpen, setIsOpen] = useState(false);
-  const [search, setSearch] = useState('');
-  const wrapRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (e: MouseEvent) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setIsOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
-  const filtered = breeds.filter(b => b.toLowerCase().includes(search.trim().toLowerCase()));
-
-  return (
-    <div className="relative w-full" ref={wrapRef}>
-      <div
-        onClick={() => !disabled && setIsOpen(!isOpen)}
-        className={`w-full border px-2.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-between
-          ${disabled ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
-            : isOpen ? 'bg-white border-pink-300 ring-2 ring-pink-100 cursor-pointer'
-              : 'bg-white border-stone-200 hover:border-pink-300 cursor-pointer'}`}
-      >
-        <span className="truncate">{value}</span>
-        <span className={`text-[9px] ml-1 transition-transform ${disabled ? 'text-stone-300' : isOpen ? 'rotate-180 text-pink-400' : 'text-stone-400'}`}>▼</span>
-      </div>
-
-      {isOpen && (
-        <div className="absolute top-[calc(100%+6px)] left-0 w-56 bg-white border border-pink-200 rounded-xl shadow-xl z-50 p-2">
-          <input
-            autoFocus
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="🔍 Tìm giống mèo..."
-            className="w-full mb-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium focus:outline-none focus:border-pink-400"
-          />
-          <div className="max-h-40 overflow-y-auto">
-            {filtered.length > 0 ? filtered.map(b => (
-              <div
-                key={b}
-                onClick={() => { onChange(b); setIsOpen(false); setSearch(''); }}
-                className={`px-2.5 py-2 rounded-lg cursor-pointer text-xs font-bold transition-colors
-                  ${b === value ? 'bg-pink-100 text-pink-600' : 'text-stone-600 hover:bg-pink-50 hover:text-pink-600'}`}
-              >
-                {b}
-              </div>
-            )) : (
-              <p className="text-center text-[11px] text-stone-400 py-2">Không tìm thấy giống nào</p>
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function AddPetPage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -16148,6 +16174,7 @@ export default function AddPetPage() {
   const [currentUser, setCurrentUser] = useState<any>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
 
   // 🎯 KÉO DANH SÁCH BỐ MẸ (ĐÃ PHÂN QUYỀN & CÓ ẢNH)
@@ -16232,6 +16259,8 @@ export default function AddPetPage() {
       if (colors) setDbBaseColors(colors);
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+      const { data: breeds } = await supabase.from('cat_breeds').select('*').order('sort_order');
+      if (breeds) setDbBreeds(breeds);
 
       setIsPageLoading(false);
     };
@@ -16460,42 +16489,46 @@ export default function AddPetPage() {
                       className="w-full mb-1.5 px-3 py-2 rounded-xl border border-stone-200 text-sm font-medium focus:outline-none focus:border-pink-400"
                     />
 
-                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx']
-                      .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase())).length > 0 && (
-                        <>
-                          <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
-                          {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx']
-                            .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase()))
-                            .map(b => (
-                              <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                            ))}
-                        </>
-                      )}
+                    {(() => {
+                      const q = breedSearch.trim().toLowerCase();
+                      const grouped = dbBreeds.reduce((acc: any, b: any) => {
+                        const cat = b.category || 'Khác';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(b.name);
+                        return acc;
+                      }, {});
+                      const anyMatch = dbBreeds.some((b: any) => b.name.toLowerCase().includes(q));
 
-                    {['Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                      .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase())).length > 0 && (
+                      return (
                         <>
-                          <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
-                          {['Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                            .filter(b => b.toLowerCase().includes(breedSearch.trim().toLowerCase()))
-                            .map(b => (
-                              <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                            ))}
+                          {Object.entries(grouped).map(([cat, names]: any) => {
+                            const filtered = names.filter((b: string) => b.toLowerCase().includes(q));
+                            if (filtered.length === 0) return null;
+                            return (
+                              <div key={cat}>
+                                <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100 first:border-t-0 first:mt-0">
+                                  {cat === 'Ta / Lai' ? '🐈' : '🌟'} {cat}
+                                </div>
+                                {filtered.map((b: string) => (
+                                  <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); setBreedSearch(''); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                                ))}
+                              </div>
+                            );
+                          })}
+                          {!anyMatch && (
+                            <p className="text-center text-xs text-stone-400 py-3">Không tìm thấy giống nào</p>
+                          )}
                         </>
-                      )}
-
-                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ']
-                      .every(b => !b.toLowerCase().includes(breedSearch.trim().toLowerCase())) && (
-                        <p className="text-center text-xs text-stone-400 py-3">Không tìm thấy giống nào</p>
-                      )}
+                      );
+                    })()}
                   </div>
                 )}
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                    <BreedSearchSelect value={mix1} onChange={setMix1} breeds={ALL_BREEDS} disabled={isBreedLocked} />
+                    <BreedSearchSelect value={mix1} onChange={setMix1} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                     <span className="text-pink-400 font-black text-xs">X</span>
-                    <BreedSearchSelect value={mix2} onChange={setMix2} breeds={ALL_BREEDS} disabled={isBreedLocked} />
+                    <BreedSearchSelect value={mix2} onChange={setMix2} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                   </div>
                 )}
               </div>
@@ -16713,12 +16746,14 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 
 export default function EditProfilePage() {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  
+
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -16730,8 +16765,8 @@ export default function EditProfilePage() {
   const [formData, setFormData] = useState({
     fullname: '',
     phone: '',
-    birthdate: '', 
-    specificAddress: '' 
+    birthdate: '',
+    specificAddress: ''
   });
 
   const [provinces, setProvinces] = useState<any[]>([]);
@@ -16751,8 +16786,10 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     const fetchUserData = async () => {
+      showGlobalLoading('Đang tải hồ sơ...');
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
+        hideGlobalLoading();
         router.push('/login');
         return;
       }
@@ -16763,11 +16800,12 @@ export default function EditProfilePage() {
           fullname: dbUser.fullname || dbUser.name || user.user_metadata?.full_name || '',
           phone: dbUser.phone || '',
           birthdate: formatDateForInput(dbUser.birthdate), // Đọc ngày sinh từ DB
-          specificAddress: '' 
+          specificAddress: ''
         });
         setPreviewUrl(dbUser.avatarurl || user.user_metadata?.avatar_url || '');
       }
       setIsLoading(false);
+      hideGlobalLoading();
     };
 
     fetchUserData();
@@ -16805,19 +16843,19 @@ export default function EditProfilePage() {
     if (e.target.files && e.target.files[0]) {
       const file = e.target.files[0];
       setAvatarFile(file);
-      setPreviewUrl(URL.createObjectURL(file)); 
+      setPreviewUrl(URL.createObjectURL(file));
     }
   };
 
   // CÁC HÀM XỬ LÝ GÕ NGÀY THÁNG THÔNG MINH
   const handleDateInput = (e: React.ChangeEvent<HTMLInputElement>) => {
-    let val = e.target.value.replace(/\D/g, ''); 
-    if (val.length > 8) val = val.slice(0, 8); 
-    
+    let val = e.target.value.replace(/\D/g, '');
+    if (val.length > 8) val = val.slice(0, 8);
+
     let newDate = val;
     if (val.length >= 5) newDate = `${val.slice(0, 2)}/${val.slice(2, 4)}/${val.slice(4)}`;
     else if (val.length >= 3) newDate = `${val.slice(0, 2)}/${val.slice(2)}`;
-    
+
     setFormData({ ...formData, birthdate: newDate });
   };
 
@@ -16849,7 +16887,7 @@ export default function EditProfilePage() {
       if (avatarFile) {
         const fileExt = avatarFile.name.split('.').pop();
         const fileName = `${user.id}-${Math.random()}.${fileExt}`;
-        
+
         const { error: uploadError } = await supabase.storage
           .from('avatars')
           .upload(fileName, avatarFile);
@@ -16861,9 +16899,9 @@ export default function EditProfilePage() {
       }
 
       const fullAddress = [
-        formData.specificAddress, 
-        selectedWard.name, 
-        selectedDistrict.name, 
+        formData.specificAddress,
+        selectedWard.name,
+        selectedDistrict.name,
         selectedProvince.name
       ].filter(Boolean).join(', ');
 
@@ -16891,14 +16929,14 @@ export default function EditProfilePage() {
     }
   };
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center bg-stone-50">Đang tải hồ sơ...</div>;
+  if (isLoading) return null;
 
   return (
     <div className="min-h-screen bg-stone-50 text-stone-700 font-sans">
       <Header />
       <main className="pt-32 pb-20 container mx-auto px-4 relative z-10 flex justify-center">
         <div className="bg-white rounded-[2.5rem] p-8 sm:p-12 shadow-sm border border-stone-100 w-full max-w-3xl">
-          
+
           <div className="mb-8">
             <Link href="/profile" className="text-stone-400 hover:text-pink-500 text-sm font-bold flex items-center gap-2 mb-6 inline-block">
               <span>❮</span> Quay lại Hồ sơ
@@ -16908,7 +16946,7 @@ export default function EditProfilePage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            
+
             <div className="flex flex-col items-center justify-center p-6 bg-pink-50/50 rounded-3xl border border-pink-100 border-dashed mb-8">
               <div className="relative group">
                 <div className="w-24 h-24 bg-white rounded-full flex items-center justify-center text-3xl shadow-sm border-4 border-white overflow-hidden">
@@ -16925,11 +16963,11 @@ export default function EditProfilePage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Họ và tên <span className="text-rose-500">*</span></label>
-                <input type="text" required name="fullname" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.fullname} onChange={(e) => setFormData({...formData, fullname: e.target.value})} />
+                <input type="text" required name="fullname" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.fullname} onChange={(e) => setFormData({ ...formData, fullname: e.target.value })} />
               </div>
               <div>
                 <label className="block text-xs font-bold text-stone-500 uppercase mb-2">Số điện thoại <span className="text-rose-500">*</span></label>
-                <input type="tel" required name="phone" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.phone} onChange={(e) => setFormData({...formData, phone: e.target.value})} />
+                <input type="tel" required name="phone" className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.phone} onChange={(e) => setFormData({ ...formData, phone: e.target.value })} />
               </div>
             </div>
 
@@ -16946,10 +16984,10 @@ export default function EditProfilePage() {
             <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
               <h4 className="text-sm font-bold text-stone-700 mb-4 flex items-center gap-2"><span>📍</span> Địa chỉ nhận hàng</h4>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-                
+
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Tỉnh / Thành phố</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none"
                     value={selectedProvince.code}
                     onChange={(e) => {
@@ -16967,7 +17005,7 @@ export default function EditProfilePage() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Quận / Huyện</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
                     value={selectedDistrict.code}
                     onChange={(e) => {
@@ -16985,7 +17023,7 @@ export default function EditProfilePage() {
 
                 <div>
                   <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Phường / Xã</label>
-                  <select 
+                  <select
                     className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
                     value={selectedWard.code}
                     onChange={(e) => setSelectedWard({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text })}
@@ -17001,7 +17039,7 @@ export default function EditProfilePage() {
 
               <div>
                 <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Số nhà, tên đường</label>
-                <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({...formData, specificAddress: e.target.value})} />
+                <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({ ...formData, specificAddress: e.target.value })} />
               </div>
             </div>
 
@@ -17033,6 +17071,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import BreedSearchSelect from '@/components/common/BreedSearchSelect';
 
 const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -17043,11 +17082,6 @@ const SIMPLE_COLORS = [
   { id: 'Tam thể', name: 'Tam thể (Calico)' },
   { id: 'Đồi mồi', name: 'Đồi mồi (Tortie)' },
   { id: 'Màu pha khác', name: 'Màu pha khác' }
-];
-
-const ALL_BREEDS = [
-  'Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)',
-  'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'
 ];
 
 const PET_STATUS_OPTIONS = [
@@ -17065,6 +17099,7 @@ export default function EditPetPage() {
   const [ownerId, setOwnerId] = useState<number | null>(null);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
+  const [dbBreeds, setDbBreeds] = useState<any[]>([]);
   const [dbPatterns, setDbPatterns] = useState<any[]>([]);
 
   const [sireOptions, setSireOptions] = useState<any[]>([]);
@@ -17098,6 +17133,7 @@ export default function EditPetPage() {
 
   const [fatherId, setFatherId] = useState('');
   const [motherId, setMotherId] = useState('');
+  const isBreedLocked = !!(fatherId && motherId);
 
   // 🎯 QUẢN LÝ ĐÓNG MỞ CÁC DROPDOWN & BẢNG
   const [isBreedDropdownOpen, setIsBreedDropdownOpen] = useState(false);
@@ -17159,6 +17195,8 @@ export default function EditPetPage() {
       if (colors) setDbBaseColors(colors);
       const { data: patterns } = await supabase.from('ems_patterns').select('*');
       if (patterns) setDbPatterns(patterns);
+      const { data: breeds } = await supabase.from('cat_breeds').select('*').order('sort_order');
+      if (breeds) setDbBreeds(breeds);
 
       if (id) {
         const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).single();
@@ -17354,26 +17392,31 @@ export default function EditPetPage() {
                 </div>
                 {isBreedDropdownOpen && (
                   <div className="absolute top-[75px] left-0 w-full bg-white border border-pink-200 rounded-2xl shadow-xl z-50 max-h-60 overflow-y-auto p-2">
-                    <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2">🌟 Mèo Thuần Chủng (Tây)</div>
-                    {['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx'].map(b => (
-                      <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
-                    ))}
-                    <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100">🐈 Mèo Dân Dã (Ta / Lai)</div>
-                    {['Mèo Ta', 'Giống lai khác', 'Chưa rõ'].map(b => (
-                      <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                    {Object.entries(
+                      dbBreeds.reduce((acc: any, b: any) => {
+                        const cat = b.category || 'Khác';
+                        if (!acc[cat]) acc[cat] = [];
+                        acc[cat].push(b.name);
+                        return acc;
+                      }, {})
+                    ).map(([cat, names]: any) => (
+                      <div key={cat}>
+                        <div className="text-[10px] font-black text-stone-400 uppercase px-3 py-2 mt-2 border-t border-stone-100 first:border-t-0 first:mt-0">
+                          {cat === 'Ta / Lai' ? '🐈' : '🌟'} {cat}
+                        </div>
+                        {names.map((b: string) => (
+                          <div key={b} onClick={() => { setBreed(b); setIsBreedDropdownOpen(false); }} className="px-4 py-3 hover:bg-pink-50 hover:text-pink-600 rounded-xl cursor-pointer text-sm font-bold text-stone-700 transition-colors">{b}</div>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
 
                 {isMixed && (
                   <div className="mt-3 p-3 bg-pink-50/50 rounded-xl border border-pink-100 flex items-center gap-2">
-                    <select value={mix1} onChange={(e) => setMix1(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
-                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
+                    <BreedSearchSelect value={mix1} onChange={setMix1} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                     <span className="text-pink-400 font-black text-xs">X</span>
-                    <select value={mix2} onChange={(e) => setMix2(e.target.value)} className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-xs font-bold text-stone-700 focus:outline-none focus:border-pink-400 focus:ring-4 focus:ring-pink-500/10 transition-all cursor-pointer hover:border-pink-300 shadow-sm">
-                      {ALL_BREEDS.map(b => <option key={b} value={b}>{b}</option>)}
-                    </select>
+                    <BreedSearchSelect value={mix2} onChange={setMix2} breeds={dbBreeds.map((b: any) => b.name)} disabled={isBreedLocked} />
                   </div>
                 )}
               </div>
@@ -17875,6 +17918,9 @@ export default function ProfilePage() {
   const [currentPage, setCurrentPage] = useState(1);
   const ordersPerPage = 5;
 
+  const [draggedPetId, setDraggedPetId] = useState<number | null>(null);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
   // State chứa dữ liệu thật từ Database
   const [userData, setUserData] = useState({
     userid: null,
@@ -17918,7 +17964,7 @@ export default function ProfilePage() {
       showGlobalLoading('Đang tải hồ sơ của Sen...');
     }
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) { router.push('/login'); return; }
+    if (!session) { hideGlobalLoading(); router.push('/login'); return; }
 
     const { data: dbUser } = await supabase
       .from('users')
@@ -17979,7 +18025,7 @@ export default function ProfilePage() {
       // 🐱 GỘP BOSS: mèo của mình + mèo của các thành viên gia đình đã accepted
       const familyOwnerIds = acceptedFamily.map(f => f.userid).filter(Boolean);
       const ownerIdsToFetch = [dbUser.userid, ...familyOwnerIds];
-      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch);
+      const { data: userPets } = await supabase.from('pets').select('*').in('ownerid', ownerIdsToFetch).order('display_order', { ascending: true });
       const { data: userPosts } = await supabase.from('posts').select('*, post_pets(pets(petid, petname, imageurl))').eq('user_id', dbUser.userid).order('created_at', { ascending: false });
 
       const { data: userOrders } = await supabase
@@ -18166,6 +18212,43 @@ export default function ProfilePage() {
     }
   };
 
+  // 🎯 KÉO THẢ: khi thả 1 con mèo vào vị trí con khác -> đổi chỗ tạm trên UI
+  const handleDropPet = (targetPetId: number) => {
+    if (draggedPetId === null || draggedPetId === targetPetId) return;
+
+    setUserData(prev => {
+      const list = [...prev.pets];
+      const fromIndex = list.findIndex(p => p.petid === draggedPetId);
+      const toIndex = list.findIndex(p => p.petid === targetPetId);
+      if (fromIndex === -1 || toIndex === -1) return prev;
+
+      const [moved] = list.splice(fromIndex, 1);
+      list.splice(toIndex, 0, moved);
+
+      // Lưu thứ tự mới xuống DB (không chờ UI, chạy ngầm)
+      saveNewPetOrder(list);
+
+      return { ...prev, pets: list };
+    });
+
+    setDraggedPetId(null);
+  };
+
+  // 🎯 Lưu thứ tự mới xuống Supabase (mỗi con 1 số display_order tăng dần)
+  const saveNewPetOrder = async (orderedPets: any[]) => {
+    setIsSavingOrder(true);
+    try {
+      await Promise.all(
+        orderedPets.map((pet, index) =>
+          supabase.from('pets').update({ display_order: index }).eq('petid', pet.petid)
+        )
+      );
+    } catch (err) {
+      console.error('Lỗi lưu thứ tự Boss:', err);
+    }
+    setIsSavingOrder(false);
+  };
+
   // ==========================================
   // 🎯 LOGIC XỬ LÝ POSTS (GIỮ NGUYÊN NHƯ FILE CŨ)
   // ==========================================
@@ -18324,10 +18407,20 @@ export default function ProfilePage() {
 
             {/* Khối 2: Boss nhà mình */}
             <section className="bg-white rounded-[2.5rem] p-8 shadow-sm border border-stone-100">
-              <h3 className="text-xl font-black mb-8 flex items-center gap-3">🐱 Boss nhà mình</h3>
+              <h3 className="text-xl font-black mb-8 flex items-center gap-3">
+                🐱 Boss nhà mình
+                {isSavingOrder && <span className="text-[11px] font-bold text-pink-400 animate-pulse">Đang lưu...</span>}
+              </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {userData.pets.map(pet => (
-                  <div key={pet.petid} className="relative group">
+                  <div
+                    key={pet.petid}
+                    draggable
+                    onDragStart={() => setDraggedPetId(pet.petid)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => handleDropPet(pet.petid)}
+                    className={`relative group cursor-move transition-opacity ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'}`}
+                  >
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">
@@ -18645,6 +18738,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
+import { useLoadingStore } from '@/store/useLoadingStore';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 
 const STATUS_OPTIONS = ['Mới', 'Đã liên hệ', 'Đã chốt', 'Hủy'];
@@ -18668,6 +18762,7 @@ export default function StaffBreederInquiryDetailPage() {
 
   const [inquiry, setInquiry] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { showLoading: showGlobalLoading, hideLoading: hideGlobalLoading } = useLoadingStore();
   const [isUpdating, setIsUpdating] = useState(false);
 
   const [isCheckingAuth, setIsCheckingAuth] = useState(true);
@@ -18677,8 +18772,9 @@ export default function StaffBreederInquiryDetailPage() {
 
   useEffect(() => {
     const checkAccessAndLoad = async () => {
+      showGlobalLoading('Đang tải yêu cầu...');
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { router.push('/login'); return; }
+      if (!user) { hideGlobalLoading(); router.push('/login'); return; }
 
       const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
@@ -18686,6 +18782,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (!dbUser || (dbUser.type_id !== 2 && dbUser.type_id !== 3)) {
         setAccessDenied(true);
         setIsCheckingAuth(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -18698,6 +18795,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (!inquiryData) {
         setIsCheckingAuth(false);
         setIsLoading(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -18705,6 +18803,7 @@ export default function StaffBreederInquiryDetailPage() {
       if (dbUser.type_id === 3 && inquiryData.cats?.breeder_id !== dbUser.userid) {
         setAccessDenied(true);
         setIsCheckingAuth(false);
+        hideGlobalLoading();
         return;
       }
 
@@ -18712,6 +18811,7 @@ export default function StaffBreederInquiryDetailPage() {
       setInquiry(inquiryData);
       setIsCheckingAuth(false);
       setIsLoading(false);
+      hideGlobalLoading();
     };
 
     if (inquiryId) checkAccessAndLoad();
@@ -18743,11 +18843,7 @@ export default function StaffBreederInquiryDetailPage() {
     );
   }
 
-  if (isLoading) return (
-    <div className="min-h-screen flex items-center justify-center font-black text-pink-400 animate-pulse">
-      Đang tải yêu cầu...
-    </div>
-  );
+  if (isLoading) return null;
 
   if (!inquiry) return (
     <div className="min-h-screen flex flex-col items-center justify-center text-stone-500">
@@ -18851,9 +18947,8 @@ export default function StaffBreederInquiryDetailPage() {
                   key={opt}
                   onClick={() => handleUpdateStatus(opt)}
                   disabled={isUpdating || inquiry.status === opt}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${
-                    inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
-                  }`}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest border transition-all disabled:opacity-40 ${inquiry.status === opt ? getStatusStyle(opt) : 'bg-white text-stone-500 border-stone-200 hover:border-pink-300 hover:text-pink-500'
+                    }`}
                 >
                   {opt}
                 </button>
@@ -19640,6 +19735,74 @@ export default function sitemap(): MetadataRoute.Sitemap {
 }
 </file>
 
+<file path="components/common/BreedSearchSelect.tsx">
+"use client";
+
+import React, { useState, useEffect, useRef } from 'react';
+
+// 🎯 Dropdown chọn giống mèo có ô tìm kiếm, style đồng bộ pink-rounded với phần còn lại của trang
+export default function BreedSearchSelect({ value, onChange, breeds, disabled = false }: { value: string; onChange: (v: string) => void; breeds: string[]; disabled?: boolean }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const [search, setSearch] = useState('');
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+        setSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const filtered = breeds.filter(b => b.toLowerCase().includes(search.trim().toLowerCase()));
+
+  return (
+    <div className="relative w-full" ref={wrapRef}>
+      <div
+        onClick={() => !disabled && setIsOpen(!isOpen)}
+        className={`w-full border px-2.5 py-2 rounded-lg text-xs font-bold transition-colors flex items-center justify-between
+          ${disabled ? 'bg-stone-100 border-stone-200 text-stone-400 cursor-not-allowed'
+            : isOpen ? 'bg-white border-pink-300 ring-2 ring-pink-100 cursor-pointer'
+              : 'bg-white border-stone-200 hover:border-pink-300 cursor-pointer'}`}
+      >
+        <span className="truncate">{value}</span>
+        <span className={`text-[9px] ml-1 transition-transform ${disabled ? 'text-stone-300' : isOpen ? 'rotate-180 text-pink-400' : 'text-stone-400'}`}>▼</span>
+      </div>
+
+      {isOpen && (
+        <div className="absolute top-[calc(100%+6px)] left-0 w-56 bg-white border border-pink-200 rounded-xl shadow-xl z-50 p-2">
+          <input
+            autoFocus
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="🔍 Tìm giống mèo..."
+            className="w-full mb-1.5 px-2.5 py-1.5 rounded-lg border border-stone-200 text-xs font-medium focus:outline-none focus:border-pink-400"
+          />
+          <div className="max-h-40 overflow-y-auto">
+            {filtered.length > 0 ? filtered.map(b => (
+              <div
+                key={b}
+                onClick={() => { onChange(b); setIsOpen(false); setSearch(''); }}
+                className={`px-2.5 py-2 rounded-lg cursor-pointer text-xs font-bold transition-colors
+                  ${b === value ? 'bg-pink-100 text-pink-600' : 'text-stone-600 hover:bg-pink-50 hover:text-pink-600'}`}
+              >
+                {b}
+              </div>
+            )) : (
+              <p className="text-center text-[11px] text-stone-400 py-2">Không tìm thấy giống nào</p>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+</file>
+
 <file path="components/common/CatCard.tsx">
 "use client";
 
@@ -20189,7 +20352,7 @@ export default function ProductCard({ product }: { product: any }) {
   // 🌟 STATE CHO QUICK ADD MODAL
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [quantity, setQuantity] = useState(1);
-  const [selectedVariant, setSelectedVariant] = useState('Mặc định'); // Demo phân loại
+  const [selectedVariant] = useState('Mặc định');
   const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
@@ -20306,9 +20469,6 @@ export default function ProductCard({ product }: { product: any }) {
   const discount = product.discount_percent || 0;
   const finalPrice = discount > 0 ? rawPrice * (1 - discount / 100) : rawPrice;
 
-  // Dữ liệu giả cho các loại vị (Nếu sếp có cột phân loại trong DB thì gọi ra đây)
-  const demoVariants = ['Vị Mặc định', 'Vị Cá Hồi', 'Vị Bò Cà Rốt'];
-
   return (
     <>
       <div
@@ -20420,22 +20580,6 @@ export default function ProductCard({ product }: { product: any }) {
                 <h4 className="font-black text-stone-800 line-clamp-2 leading-tight mb-2">{product.name}</h4>
                 <p className="text-xl font-black text-orange-500">{new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(finalPrice)}</p>
                 <p className="text-[11px] text-stone-400 font-bold uppercase mt-1">Kho: {product.stock}</p>
-              </div>
-            </div>
-
-            {/* Phần chọn Phân Loại (Hiển thị kiểu Demo) */}
-            <div className="mb-6">
-              <p className="text-xs font-black text-stone-400 uppercase tracking-widest mb-3">Chọn Phân Loại</p>
-              <div className="flex flex-wrap gap-2">
-                {demoVariants.map((v) => (
-                  <button
-                    key={v}
-                    onClick={() => setSelectedVariant(v)}
-                    className={`px-4 py-2 rounded-xl text-sm font-bold transition-all border ${selectedVariant === v ? 'bg-orange-500 text-white border-orange-500 shadow-md shadow-orange-200' : 'bg-white text-stone-600 border-stone-200 hover:border-orange-300'}`}
-                  >
-                    {v}
-                  </button>
-                ))}
               </div>
             </div>
 
@@ -25541,8 +25685,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 <file path="lib/utils.ts">
 // lib/utils.ts
 
-export const ALL_BREEDS = ['Maine Coon', 'Anh lông ngắn (ALN)', 'Anh lông dài (ALD)', 'Ba Tư', 'Sphynx', 'Mèo Ta', 'Giống lai khác', 'Chưa rõ'];
-
 export const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
   { id: 'Trắng', name: 'Trắng tuyền (White)' },
@@ -25949,6 +26091,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `affiliate_clicks`: `id` (bigint), `product_id` (integer - trỏ về products.id), `user_id` (integer - trỏ về users.userid, có thể NULL nếu khách chưa đăng nhập), `created_at` (timestamp with time zone)
 - `blogs`: `created_at` (timestamp with time zone), `title` (text), `category` (text), `cover_image` (text), `status` (text), `id` (uuid), `content` (jsonb)
 - `cart_items`: `id` (integer), `created_at` (timestamp with time zone), `quantity` (integer), `variant` (text), `product_id` (integer), `user_id` (integer)
+- `cat_breeds`: `id` (serial), `name` (text, unique), `sort_order` (integer), `created_at` (timestamp with time zone). Danh sách giống mèo dùng cho các dropdown chọn giống (KinVie Cattery lẫn Pet khách hàng). Trước đây hard-code cứng thành mảng `ALL_BREEDS` ở `lib/utils.ts` và lặp lại rải rác ở `app/profile/add-pet/page.tsx`, `app/profile/edit-pet/[id]/page.tsx` — ĐÃ CHUYỂN sang fetch từ bảng này (pattern giống hệt cách fetch `ems_base_colors`/`ems_patterns` trong `initData`). ⚠️ Giá trị `'Giống lai khác'` và `'Chưa rõ'` PHẢI luôn tồn tại trong bảng vì code so sánh trực tiếp theo 2 chuỗi này (vd. `isMixed = catData.breed === 'Giống lai khác'`) — không được xoá 2 dòng đó khỏi bảng.
 - `cat_likes`: `id` (bigint), `created_at` (timestamp with time zone), `cat_id` (bigint), `user_id` (integer - Trỏ về userid của bảng users)
 - `categories`: `categoryid` (integer), `categoryname` (character varying)
 - `cat_inquiries`: `id` (bigint), `cat_id` (integer - trỏ về cats.id), `customer_id` (integer - trỏ về users.userid, NULL nếu khách chưa đăng nhập), `customer_name` (text), `customer_phone` (text), `customer_zalo` (text), `message` (text), `status` (text: 'Mới'|'Đã liên hệ'|'Đã chốt'|'Hủy'), `created_at` (timestamp with time zone). Sinh ra khi khách bấm "Gửi Yêu Cầu Đón Bé" ở trang `/cattery/[id]`, kèm gửi notification CHỈ cho tài khoản Boss (type_id === 1) — KHÔNG gửi cho staff (type_id 2) hay trại đối tác (type_id 3) vì họ không có quyền xem trang chi tiết. Notification `link` trỏ về `/dashboard/cats/inquiries/{id}`. Trang này (`app/dashboard/cats/inquiries/[id]/page.tsx`) có gác cổng RIÊNG kiểm tra `type_id === 1` ngay trong component, KHÔNG dựa vào check chung của `app/dashboard/layout.tsx` (layout chung hiện chỉ check đăng nhập, chưa check type_id). ⚠️ **LỖ HỔNG ĐÃ BIẾT:** `app/dashboard/layout.tsx` hiện chỉ kiểm tra đăng nhập, CHƯA kiểm tra `type_id`, nghĩa là mọi tài khoản đã đăng nhập (kể cả khách thường) đều gõ được URL `/dashboard/...` và vào xem. Các trang nhạy cảm (như `cat_inquiries`) phải tự gác cổng riêng bằng cách check `type_id` ngay trong component cho tới khi layout chung được vá.
@@ -25969,7 +26112,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `orders`: `totalamount` (numeric), `delivery_date` (date), `orderdate` (timestamp with time zone), `orderid` (integer), `customer_phone` (text), `userid` (integer), `address` (text), `customer_name` (text), `paymentmethod` (character varying), `orderstatus` (character varying)
 - `page_banners`: `image_url` (text), `created_at` (timestamp with time zone), `group_id` (bigint), `id` (bigint)
 - `pate_types`: `name` (text), `description` (text), `image_url` (text), `icons` (text), `created_at` (timestamp with time zone), `default_price` (numeric), `id` (uuid)
-- `pets`: `description` (text), `videourl` (text), `status` (character varying: 'Khỏe mạnh'|'Đang mất tích'|'Đã lên thiên đường mèo'), `death_date` (date, nullable - ngày mất, CHỈ có giá trị khi `status = 'Đã lên thiên đường mèo'`; nhập ở `app/profile/edit-pet/[id]/page.tsx`, bắt buộc nhập khi chọn tình trạng này, tự động set về NULL nếu đổi tình trạng khác. Dùng ở `app/pet/[id]/page.tsx` để tính "tuổi lúc mất" — `calculateAge(birthdate, death_date)` tính tuổi DỪNG LẠI ở `death_date` thay vì tính tới ngày hiện tại như bé còn sống), `ems_base_code` (character varying), `ems_pattern_code` (character varying), `simple_color` (character varying), `mother_id` (integer), `father_id` (integer), `has_pedigree` (boolean), `petid` (integer), `ems_silver` (boolean), `last_deworming_date` (date), `last_vaccine_date` (date), `neutered` (boolean), `familyid` (integer), `ownerid` (integer), `price` (numeric), `birthdate` (date), `gender` (boolean), `petname` (character varying), `breed` (character varying), `imageurl` (text), `father_source` (text: 'cat'|'pet', default 'pet'), `mother_source` (text: 'cat'|'pet', default 'pet') — ⚠️ QUAN TRỌNG: bố/mẹ của 1 pet có thể là mèo Cattery (bảng `cats`) HOẶC pet khách hàng khác (bảng `pets`), vì `father_id`/`mother_id` chỉ là integer trơn không tự phân biệt được nguồn, BẮT BUỘC kèm cột `father_source`/`mother_source` để biết query bảng nào. Ở UI chọn bố/mẹ (`app/profile/add-pet/page.tsx`, `app/profile/edit-pet/[id]/page.tsx`), option list dùng ID dạng prefix `cat_{id}` hoặc `pet_{petid}` để gộp chung 2 nguồn trong 1 dropdown — PHẢI bóc prefix bằng hàm `parseParentRef()` trước khi lưu xuống DB (không được lưu thẳng chuỗi có prefix vào cột integer). Khi hiển thị lại (vd. `app/pet/[id]/page.tsx`), PHẢI check `father_source`/`mother_source` trước để query đúng bảng `cats` hay `pets`.
+- `pets`: `description` (text), `videourl` (text), `status` (character varying: 'Khỏe mạnh'|'Đang mất tích'|'Đã lên thiên đường mèo'), `death_date` (date, nullable - ngày mất, CHỈ có giá trị khi `status = 'Đã lên thiên đường mèo'`; nhập ở `app/profile/edit-pet/[id]/page.tsx`, bắt buộc nhập khi chọn tình trạng này, tự động set về NULL nếu đổi tình trạng khác. Dùng ở `app/pet/[id]/page.tsx` để tính "tuổi lúc mất" — `calculateAge(birthdate, death_date)` tính tuổi DỪNG LẠI ở `death_date` thay vì tính tới ngày hiện tại như bé còn sống), `ems_base_code` (character varying), `ems_pattern_code` (character varying), `simple_color` (character varying), `mother_id` (integer), `father_id` (integer), `has_pedigree` (boolean), `petid` (integer), `ems_silver` (boolean), `last_deworming_date` (date), `last_vaccine_date` (date), `neutered` (boolean), `familyid` (integer), `ownerid` (integer), `price` (numeric), `birthdate` (date), `gender` (boolean), `petname` (character varying), `breed` (character varying), `imageurl` (text), `father_source` (text: 'cat'|'pet', default 'pet'), `mother_source` (text: 'cat'|'pet', default 'pet') — ⚠️ QUAN TRỌNG: bố/mẹ của 1 pet có thể là mèo Cattery (bảng `cats`) HOẶC pet khách hàng khác (bảng `pets`), vì `father_id`/`mother_id` chỉ là integer trơn không tự phân biệt được nguồn, BẮT BUỘC kèm cột `father_source`/`mother_source` để biết query bảng nào. Ở UI chọn bố/mẹ (`app/profile/add-pet/page.tsx`, `app/profile/edit-pet/[id]/page.tsx`), option list dùng ID dạng prefix `cat_{id}` hoặc `pet_{petid}` để gộp chung 2 nguồn trong 1 dropdown — PHẢI bóc prefix bằng hàm `parseParentRef()` trước khi lưu xuống DB (không được lưu thẳng chuỗi có prefix vào cột integer). Khi hiển thị lại (vd. `app/pet/[id]/page.tsx`), PHẢI check `father_source`/`mother_source` trước để query đúng bảng `cats` hay `pets`. `display_order` (integer, default 0) — thứ tự hiển thị Boss ở `/profile` (kéo thả trong khối "Boss nhà mình"), lưu CHUNG cho cả gia đình (không phải riêng từng user) vì `pets.ownerid IN [mình, ...gia đình accepted]` là danh sách gộp; ai kéo thả sau cùng thì thứ tự đó áp dụng cho mọi thành viên gia đình cùng xem. Query lấy `pets` ở `/profile` PHẢI kèm `.order('display_order', { ascending: true })`.
 - `post_comments`: `user_id` (integer), `id` (bigint), `content` (text), `post_id` (bigint), `created_at` (timestamp with time zone), `parent_id` (integer)
 - `post_likes`: `id` (bigint), `post_id` (bigint), `created_at` (timestamp with time zone), `user_id` (integer)
 - `post_pets`: `pet_id` (bigint), `post_id` (bigint)
