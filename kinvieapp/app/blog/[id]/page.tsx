@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function BlogDetailPage() {
   const params = useParams();
@@ -31,13 +32,7 @@ export default function BlogDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50">
-        <Header />
-        <div className="min-h-[60vh] flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>
-        <Footer />
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang tải bài viết..." />;
   }
 
   if (!blog) {

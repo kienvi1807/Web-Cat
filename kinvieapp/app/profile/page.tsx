@@ -579,9 +579,9 @@ export default function ProfilePage() {
                               </div>
                               <div className="relative z-0 w-full h-full bg-stone-100 rounded-full overflow-hidden border-2 border-white shadow-sm">
                                 {pet.imageurl ? (
-                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale" alt="pet" />
+                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" alt="pet" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale">😺</div>
+                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale group-hover:grayscale-0 transition-all duration-500">😺</div>
                                 )}
                               </div>
                             </>

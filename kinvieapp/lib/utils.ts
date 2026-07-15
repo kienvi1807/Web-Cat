@@ -1,4 +1,5 @@
 // lib/utils.ts
+import { supabase } from './supabase';
 
 export const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -58,4 +59,76 @@ export const AFFILIATE_PLATFORM_META: Record<AffiliatePlatform, { label: string;
   shopee: { label: 'Shopee', badgeClass: 'bg-[#EE4D2D]', icon: '🛍️' },
   tiktok: { label: 'TikTok', badgeClass: 'bg-black', icon: '🎵' },
   other: { label: 'Đối Tác', badgeClass: 'bg-gradient-to-r from-orange-500 to-rose-500', icon: '🔗' },
+};
+
+// 🎯 SUY GIỐNG TỪ CHA MẸ — dùng chung cho add-pet/edit-pet + cascade, gộp lại từ logic vốn lặp ở 2 nơi
+export const getRepresentativeBreed = (breed?: string | null): string => {
+  if (!breed) return 'Chưa rõ';
+  if (breed.startsWith('Lai: ')) {
+    const parts = breed.replace('Lai: ', '').split(' x ').map(s => s.trim());
+    const specific = parts.find(p => p !== 'Mèo Ta' && p !== 'Chưa rõ');
+    return specific || parts[0] || 'Chưa rõ';
+  }
+  return breed;
+};
+
+export const deriveBreedFromParents = (fatherBreed?: string | null, motherBreed?: string | null) => {
+  const f = getRepresentativeBreed(fatherBreed);
+  const m = getRepresentativeBreed(motherBreed);
+  if (f === m) return { breed: f, mix1: null as string | null, mix2: null as string | null };
+  return { breed: 'Giống lai khác', mix1: f, mix2: m };
+};
+
+export const parseParentRef = (id: string): { id: number | null; source: 'cat' | 'pet' } => {
+  if (!id) return { id: null, source: 'pet' };
+  const [prefix, num] = id.split('_');
+  const parsed = parseInt(num, 10);
+  return { id: isNaN(parsed) ? null : parsed, source: prefix === 'cat' ? 'cat' : 'pet' };
+};
+
+// 🎯 CASCADE (hướng B): khi breed cha/mẹ đổi, quét lại toàn bộ pets con + cháu (đệ quy) để tính lại breed.
+// Chỉ áp dụng cho bảng `pets` — `cats` KHÔNG auto-derive breed từ cha mẹ (breeder tự chọn tay).
+export const cascadeUpdateChildrenBreed = async (
+  parentId: number,
+  parentSource: 'cat' | 'pet',
+  visited: Set<string> = new Set()
+): Promise<void> => {
+  const visitKey = `${parentSource}_${parentId}`;
+  if (visited.has(visitKey)) return; // chặn vòng lặp vô hạn nếu lỡ data bị lỗi tạo chu trình cha-con
+  visited.add(visitKey);
+
+  const { data: children } = await supabase
+    .from('pets')
+    .select('petid, breed, father_id, mother_id, father_source, mother_source')
+    .or(`and(father_id.eq.${parentId},father_source.eq.${parentSource}),and(mother_id.eq.${parentId},mother_source.eq.${parentSource})`);
+
+  if (!children || children.length === 0) return;
+
+  for (const child of children) {
+    let fatherBreed: string | null = null;
+    let motherBreed: string | null = null;
+
+    if (child.father_id) {
+      const table = child.father_source === 'cat' ? 'cats' : 'pets';
+      const idCol = child.father_source === 'cat' ? 'id' : 'petid';
+      const { data } = await supabase.from(table).select('breed').eq(idCol, child.father_id).maybeSingle();
+      fatherBreed = data?.breed || null;
+    }
+    if (child.mother_id) {
+      const table = child.mother_source === 'cat' ? 'cats' : 'pets';
+      const idCol = child.mother_source === 'cat' ? 'id' : 'petid';
+      const { data } = await supabase.from(table).select('breed').eq(idCol, child.mother_id).maybeSingle();
+      motherBreed = data?.breed || null;
+    }
+
+    const result = deriveBreedFromParents(fatherBreed, motherBreed);
+    const newBreed = result.breed === 'Giống lai khác' ? `Lai: ${result.mix1} x ${result.mix2}` : result.breed;
+
+    if (newBreed !== child.breed) {
+      await supabase.from('pets').update({ breed: newBreed }).eq('petid', child.petid);
+    }
+
+    // Đệ quy xuống đàn cháu — con này có thể đang là cha/mẹ của pet khác
+    await cascadeUpdateChildrenBreed(child.petid, 'pet', visited);
+  }
 };

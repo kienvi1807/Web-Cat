@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import BreedSearchSelect from '@/components/common/BreedSearchSelect';
+import { parseParentRef, cascadeUpdateChildrenBreed } from '@/lib/utils';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -90,7 +92,7 @@ export default function EditPetPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setOwnerId(dbUser.userid);
@@ -134,7 +136,7 @@ export default function EditPetPage() {
       if (breeds) setDbBreeds(breeds);
 
       if (id) {
-        const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).single();
+        const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).maybeSingle();
         if (petData) {
           setPetname(petData.petname || '');
           setGender(petData.gender);
@@ -234,6 +236,10 @@ export default function EditPetPage() {
 
     const finalBreed = isMixed ? `Lai: ${mix1} x ${mix2}` : breed;
 
+    // 🎯 FIX: fatherId/motherId là chuỗi có prefix (cat_x / pet_x), phải bóc qua parseParentRef trước khi lưu
+    const fatherRef = parseParentRef(fatherId);
+    const motherRef = parseParentRef(motherId);
+
     const { error } = await supabase
       .from('pets')
       .update({
@@ -252,10 +258,16 @@ export default function EditPetPage() {
         // 🎯 Chỉ lưu death_date khi tình trạng là "Đã lên thiên đường mèo", đổi tình trạng khác thì tự xoá ngày mất cũ
         death_date: status === 'Đã lên thiên đường mèo' ? formatDBDate(deathDate) : null,
         imageurl: finalImageUrl,
-        father_id: fatherId || null,
-        mother_id: motherId || null
+        father_id: fatherRef.id,
+        mother_id: motherRef.id,
+        father_source: fatherRef.source,
+        mother_source: motherRef.source
       })
       .eq('petid', id);
+
+    if (!error) {
+      await cascadeUpdateChildrenBreed(Number(id), 'pet'); // 🎯 cascade breed sang đàn con/cháu (nếu có)
+    }
 
     setIsSaving(false);
 
@@ -274,7 +286,7 @@ export default function EditPetPage() {
   const defaultCatAvatar = 'https://ui-avatars.com/api/?name=Cat&background=f3f4f6&color=a8a29e';
 
   if (isLoading) {
-    return <div className="min-h-screen pt-32 text-center text-stone-400 font-bold">Đang tải hồ sơ Boss... 🐾</div>;
+    return <LoadingSpinner fullScreen text="Đang tải hồ sơ Boss..." />;
   }
 
   return (

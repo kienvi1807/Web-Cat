@@ -78,7 +78,7 @@ export default function Header() {
           .from('users')
           .select('userid, avatarurl, type_id')
           .eq('email', session.user.email)
-          .single();
+          .maybeSingle();
 
         if (dbUser && isMounted) {
           setCurrentUserId(dbUser.userid); // Lưu ID lại

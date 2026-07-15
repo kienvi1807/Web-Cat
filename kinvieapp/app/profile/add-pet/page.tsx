@@ -73,7 +73,7 @@ export default function AddPetPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setCurrentUser(dbUser);

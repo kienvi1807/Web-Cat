@@ -6,6 +6,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function CartPage() {
   const router = useRouter();
@@ -73,12 +74,7 @@ export default function CartPage() {
   const finalTotal = subTotal + shippingFee;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center font-sans">
-        <div className="text-4xl text-pink-300 animate-[spin_2s_linear_infinite] mb-4">🐾</div>
-        <p className="text-stone-400 font-medium text-sm animate-pulse">Đang kiểm tra giỏ hàng...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang kiểm tra giỏ hàng..." />;
   }
 
   return (

@@ -36,7 +36,7 @@ export default function SystemSettingsPage() {
       .from('system_settings')
       .select('*')
       .eq('id', 1)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setSettings(data);

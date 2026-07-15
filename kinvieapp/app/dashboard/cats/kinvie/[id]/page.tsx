@@ -8,7 +8,7 @@ import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion 
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
 import { useLoadingStore } from '@/store/useLoadingStore';
-import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay, cascadeUpdateChildrenBreed } from '@/lib/utils';
 
 // Cấu hình animation Stagger cho Dropdown
 const listVariants = {
@@ -112,7 +112,7 @@ export default function CatDetailPage() {
       if (allCats) setAllCatsList(allCats);
 
       if (catId) {
-        const { data, error } = await supabase.from('cats').select('*').eq('id', catId).single();
+        const { data, error } = await supabase.from('cats').select('*').eq('id', catId).maybeSingle();
         if (data) {
           let loadedImages = data.images || [];
           while (loadedImages.length < 5) loadedImages.push('');
@@ -195,6 +195,9 @@ export default function CatDetailPage() {
       buyer_id: selectedBuyer?.userid || null
     }).eq('id', catId);
 
+    if (!error) {
+      await cascadeUpdateChildrenBreed(Number(catId), 'cat'); // 🎯 cascade breed sang pets con (nếu có)
+    }
     setIsSaving(false);
     if (!error) {
       alert("Đã cập nhật hồ sơ bé mèo thành công! 🚀");

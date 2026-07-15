@@ -25,7 +25,7 @@ export default function ProductCard({ product }: { product: any }) {
           .from('users')
           .select('userid')
           .eq('email', session.user.email)
-          .single();
+          .maybeSingle();
         if (dbUser) setCurrentUserId(dbUser.userid);
       }
     };

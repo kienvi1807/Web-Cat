@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase';
 import { getAvatarColor } from '@/lib/utils';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const ROLE_OPTIONS = [
   { id: 1, name: 'Quản trị viên (Trùm Cuối 👑)' },
@@ -95,12 +96,7 @@ export default function EmployeeProfilePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
-        <p className="font-black text-stone-400 tracking-widest text-sm uppercase animate-pulse">Đang trích xuất hồ sơ...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang trích xuất hồ sơ..." />;
   }
 
   return (

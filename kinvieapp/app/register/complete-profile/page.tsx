@@ -2,11 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase' 
+import { supabase } from '@/lib/supabase'
 
 export default function CompleteProfilePage() {
   const router = useRouter()
-  
+
   // 🎯 BIẾN MỚI: Màn che lúc chờ anh cảnh sát check DB
   const [isChecking, setIsChecking] = useState(true)
 
@@ -18,9 +18,11 @@ export default function CompleteProfilePage() {
   const [email, setEmail] = useState('')
   const [providerId, setProviderId] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
-  
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
   // 👈 BƯỚC 1: Thêm biến lưu Nguồn gốc (Provider)
-  const [authProvider, setAuthProvider] = useState('') 
+  const [authProvider, setAuthProvider] = useState('')
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -28,18 +30,18 @@ export default function CompleteProfilePage() {
 
       if (user) {
         const { data: existingUser, error } = await supabase
-          .from('users') 
+          .from('users')
           .select('*')
           .eq('email', user.email)
-          .single()
+          .maybeSingle()
 
         if (existingUser && existingUser.phone) {
           // LUỒNG 1: KHÁCH CŨ
-          localStorage.setItem('kinvie_user', JSON.stringify({ 
-            name: existingUser.fullName || existingUser.name || user.user_metadata.full_name, 
-            type: 'Customer' 
+          localStorage.setItem('kinvie_user', JSON.stringify({
+            name: existingUser.fullName || existingUser.name || user.user_metadata.full_name,
+            type: 'Customer'
           }))
-          
+
           router.push('/')
         } else {
           // LUỒNG 2: KHÁCH MỚI
@@ -47,17 +49,19 @@ export default function CompleteProfilePage() {
           setEmail(user.email || '')
           setProviderId(user.id)
           setAvatarUrl(user.user_metadata?.avatar_url || '')
-          
+
           // 👈 BƯỚC 2: Tự động phân loại luồng khách từ Facebook hay Google
-          const rawProvider = user.app_metadata?.provider || 'Khác'
+          const savedProvider = localStorage.getItem('kinvie_oauth_provider')
+          const rawProvider = savedProvider || user.app_metadata?.provider || 'Khác'
           const formattedProvider = rawProvider === 'facebook' ? 'Facebook' : (rawProvider === 'google' ? 'Google' : 'Khác')
           setAuthProvider(formattedProvider)
+          localStorage.removeItem('kinvie_oauth_provider')
 
           // VÉN MÀN LÊN CHO KHÁCH ĐIỀN FORM
           setIsChecking(false)
         }
       } else {
-         router.push('/login')
+        router.push('/login')
       }
     }
 
@@ -78,12 +82,22 @@ export default function CompleteProfilePage() {
       setLoading(false)
       return
     }
+    if (password.length < 6) {
+      setError('Mật khẩu phải từ 6 ký tự trở lên.')
+      setLoading(false)
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Mật khẩu nhập lại không khớp.')
+      setLoading(false)
+      return
+    }
 
     try {
       const payload = {
         fullName: fullName,
         phone: cleanPhone, // Dùng số đã xóa khoảng trắng
-        email: email, 
+        email: email,
         provider: authProvider, // 👈 BƯỚC 4: Lấy biến động, không gõ cứng "Google" nữa
         providerId: providerId,
         avatarUrl: avatarUrl
@@ -100,11 +114,18 @@ export default function CompleteProfilePage() {
         throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu dữ liệu')
       }
 
+      // 🔑 Gắn mật khẩu vào account OAuth (Google/Facebook) để sau này login được bằng SĐT + mật khẩu
+      const { error: pwError } = await supabase.auth.updateUser({ password })
+      if (pwError) {
+        console.error('Lỗi đặt mật khẩu:', pwError)
+        // Không chặn luồng, user vẫn login được bằng Google/Facebook như cũ
+      }
+
       localStorage.setItem('kinvie_user', JSON.stringify({ name: fullName, type: 'Customer' }))
 
       alert('Đăng ký thành công! Chào mừng bạn đến với KinVie Petshop.')
-      router.push('/') 
-      
+      router.push('/')
+
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -125,14 +146,14 @@ export default function CompleteProfilePage() {
   // BÊN DƯỚI LÀ GIAO DIỆN FORM CŨ GIỮ NGUYÊN (Chỉ hiện ra khi isChecking = false)
   return (
     <div className="min-h-screen bg-pink-50/30 flex items-center justify-center font-sans relative overflow-hidden p-4">
-      
+
       {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-pink-200/40 rounded-full mix-blend-multiply blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-rose-100/50 rounded-full mix-blend-multiply blur-[80px] pointer-events-none"></div>
 
       {/* Form Container */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-pink-50 w-full max-w-md p-8 sm:p-12 relative z-10">
-        
+
         {/* Header */}
         <div className="mb-8 text-center">
           {avatarUrl && (
@@ -148,7 +169,7 @@ export default function CompleteProfilePage() {
 
         {/* Form nhập liệu */}
         <form className="space-y-4" onSubmit={handleSubmit}>
-          
+
           <div>
             <label htmlFor="fullName" className="block text-xs font-bold text-stone-500 uppercase mb-2">
               Họ và tên
@@ -160,7 +181,7 @@ export default function CompleteProfilePage() {
               required
               placeholder="Ví dụ: Nguyễn Văn A"
               className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
-              value={fullName} 
+              value={fullName}
               onChange={(e) => setFullName(e.target.value)}
             />
           </div>
@@ -181,6 +202,28 @@ export default function CompleteProfilePage() {
             />
           </div>
 
+          <div>
+            <label htmlFor="password" className="block text-xs font-bold text-stone-500 uppercase mb-2">
+              Đặt mật khẩu <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="password" type="password" required minLength={6}
+              placeholder="Tối thiểu 6 ký tự"
+              className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-xs font-bold text-stone-500 uppercase mb-2">
+              Nhập lại mật khẩu <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="confirmPassword" type="password" required
+              className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
+              value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+
           {/* Hiển thị lỗi */}
           {error && (
             <div className="text-pink-600 text-sm font-medium text-center mt-2">
@@ -192,11 +235,10 @@ export default function CompleteProfilePage() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full text-white font-bold py-3.5 rounded-xl flex items-center justify-center shadow-md mt-6 transition-colors ${
-              loading 
-                ? 'bg-pink-300 cursor-not-allowed shadow-none' 
-                : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200'
-            }`}
+            className={`w-full text-white font-bold py-3.5 rounded-xl flex items-center justify-center shadow-md mt-6 transition-colors ${loading
+              ? 'bg-pink-300 cursor-not-allowed shadow-none'
+              : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200'
+              }`}
           >
             {loading ? 'Đang xử lý...' : 'Hoàn tất đăng ký'}
           </button>

@@ -53,7 +53,7 @@ export default function EditProfilePage() {
         router.push('/login');
         return;
       }
-      const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setFormData({

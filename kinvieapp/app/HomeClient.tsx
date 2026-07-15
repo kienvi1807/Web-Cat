@@ -34,7 +34,7 @@ const ReviewPopup = () => {
           .select('userid, hasliked')
           // So khớp user đăng nhập với cột email trong bảng users (sếp có thể đổi thành providerid nếu muốn)
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
 
         if (dbError || !userData) return;
         setCurrentUser(userData);

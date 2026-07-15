@@ -76,7 +76,7 @@ export default function AddCatPage() {
   useEffect(() => {
     const initData = async () => {
       // 1. TỰ ĐỘNG TÌM ID CỦA BOSS (NGƯỜI CÓ TYPE_ID = 1)
-      const { data: bossData } = await supabase.from('users').select('userid').eq('type_id', 1).limit(1).single();
+      const { data: bossData } = await supabase.from('users').select('userid').eq('type_id', 1).limit(1).maybeSingle();
       if (bossData) setBossId(bossData.userid);
 
       // 2. Kéo các dữ liệu danh mục

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 type Product = { id: string; name: string; price: number; stock: number; images: string[] };
 type CartItem = { productid: string; name: string; price: number; quantity: number; image?: string };
@@ -139,12 +140,7 @@ export default function EditOrderPage() {
   const filteredProducts = products.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-4"></div>
-        <p className="font-bold text-stone-500">Đang tải hồ sơ đơn hàng...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang tải hồ sơ đơn hàng..." />;
   }
 
   return (

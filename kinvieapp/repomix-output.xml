@@ -42,6 +42,9 @@ The content is organized as follows:
 <directory_structure>
 app/
   api/
+    auth/
+      lookup-phone/
+        route.ts
     pets/
       route.ts
     users/
@@ -213,6 +216,7 @@ components/
     Toast.tsx
 lib/
   mock-data.ts
+  supabase-admin.ts
   supabase-server.ts
   supabase.ts
   utils.ts
@@ -250,6 +254,39 @@ tsconfig.json
 <files>
 This section contains the contents of the repository's files.
 
+<file path="app/api/auth/lookup-phone/route.ts">
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+
+export async function POST(request: Request) {
+  try {
+    const { phone } = await request.json()
+    if (!phone) {
+      return NextResponse.json({ error: 'Thiếu số điện thoại' }, { status: 400 })
+    }
+
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('email, avatarurl')
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (error) throw error
+
+    if (!user) {
+      return NextResponse.json({ exists: false })
+    }
+
+    const isSocialAccount = !!(user.avatarurl?.includes('facebook') || user.avatarurl?.includes('googleusercontent'))
+
+    return NextResponse.json({ exists: true, email: user.email, isSocialAccount })
+
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+</file>
+
 <file path="app/api/pets/route.ts">
 import { NextResponse } from 'next/server'
 import { supabase } from '@/lib/supabase'
@@ -269,7 +306,7 @@ export async function GET() {
 
 <file path="app/api/users/route.ts">
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // THÊM HÀM POST: Xử lý Đăng ký tài khoản (Local & Social)
 export async function POST(request: Request) {
@@ -286,7 +323,7 @@ export async function POST(request: Request) {
     }
 
     // BƯỚC 1: Tạo một "Hộ gia đình" mặc định cho khách hàng mới
-    const { data: familyData, error: familyError } = await supabase
+    const { data: familyData, error: familyError } = await supabaseAdmin
       .from('families')
       .insert([{ familyname: `Nhà của ${fullName}` }])
       .select('familyid')
@@ -299,7 +336,7 @@ export async function POST(request: Request) {
     // Việc nâng quyền lên Admin/Boss (type_id = 1) chỉ được thực hiện
     // thủ công trong Supabase Studio bởi người quản trị hệ thống,
     // KHÔNG BAO GIỜ qua API công khai này.
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .insert([{
         phone: phone,
@@ -394,6 +431,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function BlogDetailPage() {
   const params = useParams();
@@ -419,13 +457,7 @@ export default function BlogDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50">
-        <Header />
-        <div className="min-h-[60vh] flex items-center justify-center text-4xl text-pink-300 animate-spin">🐾</div>
-        <Footer />
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang tải bài viết..." />;
   }
 
   if (!blog) {
@@ -681,6 +713,7 @@ import Link from 'next/link';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function CartPage() {
   const router = useRouter();
@@ -748,12 +781,7 @@ export default function CartPage() {
   const finalTotal = subTotal + shippingFee;
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center font-sans">
-        <div className="text-4xl text-pink-300 animate-[spin_2s_linear_infinite] mb-4">🐾</div>
-        <p className="text-stone-400 font-medium text-sm animate-pulse">Đang kiểm tra giỏ hàng...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang kiểm tra giỏ hàng..." />;
   }
 
   return (
@@ -3620,7 +3648,7 @@ import { motion, AnimatePresence } from 'framer-motion'; // Thêm Framer Motion 
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
 import { useLoadingStore } from '@/store/useLoadingStore';
-import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay } from '@/lib/utils';
+import { SIMPLE_COLORS, formatEmsCode, formatDateDisplay, cascadeUpdateChildrenBreed } from '@/lib/utils';
 
 // Cấu hình animation Stagger cho Dropdown
 const listVariants = {
@@ -3724,7 +3752,7 @@ export default function CatDetailPage() {
       if (allCats) setAllCatsList(allCats);
 
       if (catId) {
-        const { data, error } = await supabase.from('cats').select('*').eq('id', catId).single();
+        const { data, error } = await supabase.from('cats').select('*').eq('id', catId).maybeSingle();
         if (data) {
           let loadedImages = data.images || [];
           while (loadedImages.length < 5) loadedImages.push('');
@@ -3807,6 +3835,9 @@ export default function CatDetailPage() {
       buyer_id: selectedBuyer?.userid || null
     }).eq('id', catId);
 
+    if (!error) {
+      await cascadeUpdateChildrenBreed(Number(catId), 'cat'); // 🎯 cascade breed sang pets con (nếu có)
+    }
     setIsSaving(false);
     if (!error) {
       alert("Đã cập nhật hồ sơ bé mèo thành công! 🚀");
@@ -4589,7 +4620,7 @@ export default function AddCatPage() {
   useEffect(() => {
     const initData = async () => {
       // 1. TỰ ĐỘNG TÌM ID CỦA BOSS (NGƯỜI CÓ TYPE_ID = 1)
-      const { data: bossData } = await supabase.from('users').select('userid').eq('type_id', 1).limit(1).single();
+      const { data: bossData } = await supabase.from('users').select('userid').eq('type_id', 1).limit(1).maybeSingle();
       if (bossData) setBossId(bossData.userid);
 
       // 2. Kéo các dữ liệu danh mục
@@ -6456,6 +6487,7 @@ import { supabase } from '@/lib/supabase';
 import { getAvatarColor } from '@/lib/utils';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const ROLE_OPTIONS = [
   { id: 1, name: 'Quản trị viên (Trùm Cuối 👑)' },
@@ -6544,12 +6576,7 @@ export default function EmployeeProfilePage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-[#F8F9FA] flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-purple-200 border-t-purple-600 rounded-full animate-spin mb-4"></div>
-        <p className="font-black text-stone-400 tracking-widest text-sm uppercase animate-pulse">Đang trích xuất hồ sơ...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang trích xuất hồ sơ..." />;
   }
 
   return (
@@ -6931,6 +6958,7 @@ import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 type Product = { id: string; name: string; price: number; stock: number; images: string[] };
 type CartItem = { productid: string; name: string; price: number; quantity: number; image?: string };
@@ -7066,12 +7094,7 @@ export default function EditOrderPage() {
   const filteredProducts = products.filter(p => (p.name || '').toLowerCase().includes(searchQuery.toLowerCase()));
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center">
-        <div className="w-12 h-12 border-4 border-amber-500/20 border-t-amber-500 rounded-full animate-spin mb-4"></div>
-        <p className="font-bold text-stone-500">Đang tải hồ sơ đơn hàng...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang tải hồ sơ đơn hàng..." />;
   }
 
   return (
@@ -9662,7 +9685,7 @@ export default function ProductDetailedAdmin() {
   const fetchProduct = async () => {
     setIsLoading(true);
     showGlobalLoading('SYSTEM SCANNING...');
-    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
     
     if (error) {
       alert("Không tìm thấy sản phẩm!");
@@ -11157,7 +11180,7 @@ export default function SystemSettingsPage() {
       .from('system_settings')
       .select('*')
       .eq('id', 1)
-      .single();
+      .maybeSingle();
 
     if (!error && data) {
       setSettings(data);
@@ -13656,7 +13679,7 @@ function FeedContent() {
       let userId = null;
 
       if (session) {
-        const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).single();
+        const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).maybeSingle();
         if (dbUser) {
           setCurrentUser(dbUser);
           userId = dbUser.userid;
@@ -14001,6 +14024,7 @@ export default function LoginPage() {
   // 🚀 BƯỚC 2: HÀM ĐĂNG NHẬP MẠNG XÃ HỘI
   // ==========================================
   const handleLogin = async (provider: 'google' | 'facebook') => {
+    localStorage.setItem('kinvie_oauth_provider', provider);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -14040,23 +14064,27 @@ export default function LoginPage() {
 
     if (isLoginAction) {
       // --- LUỒNG ĐĂNG NHẬP ---
-      const { data: existingUser } = await supabase.from('users').select('*').eq('phone', cleanPhone).single();
+      const lookupRes = await fetch('/api/auth/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone })
+      });
+      const lookupData = await lookupRes.json();
 
-      if (!existingUser) {
+      if (!lookupData.exists) {
         alert("Số điện thoại này chưa được đăng ký! Chuyển sang tạo tài khoản nhé.");
         setIsLoginView(false);
         setIsLoading(false);
         return;
       }
 
-      const isSocialAccount = existingUser.avatarurl?.includes('facebook') || existingUser.avatarurl?.includes('googleusercontent');
-      if (isSocialAccount) {
+      if (lookupData.isSocialAccount && !lookupData.email) {
         alert("Số điện thoại này đã được liên kết với mạng xã hội! Bấm nút Facebook/Google ở phía trên nhé.");
         setIsLoading(false);
         return;
       }
 
-      const loginEmail = existingUser.email || fakeEmail;
+      const loginEmail = lookupData.email || fakeEmail;
       const { error: loginError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
 
       if (loginError) {
@@ -14075,8 +14103,13 @@ export default function LoginPage() {
         setIsLoading(false); return;
       }
 
-      const { data: existingUser } = await supabase.from('users').select('phone').eq('phone', cleanPhone).single();
-      if (existingUser) {
+      const checkRes = await fetch('/api/auth/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone })
+      });
+      const checkData = await checkRes.json();
+      if (checkData.exists) {
         alert("Số điện thoại này đã được đăng ký rồi! Sen chuyển qua form Đăng nhập nhé.");
         setIsLoginView(true);
         setIsLoading(false); return;
@@ -15080,6 +15113,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function PetDetailPage() {
   const { id } = useParams();
@@ -15128,7 +15162,7 @@ export default function PetDetailPage() {
       .from('pets')
       .select('*')
       .eq('petid', id)
-      .single();
+      .maybeSingle();
 
     if (petError || !petData) {
       alert("Không tìm thấy thông tin Boss!");
@@ -15206,12 +15240,7 @@ export default function PetDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center font-sans">
-        <div className="text-4xl text-pink-300 animate-[spin_2s_linear_infinite] mb-4">🐾</div>
-        <p className="text-stone-400 font-medium text-sm animate-pulse">Đang lôi sổ y bạ của Boss ra...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang lôi sổ y bạ của Boss ra..." />;
   }
 
   return (
@@ -15489,9 +15518,10 @@ export default function ProductDetailPage() {
           .from('products')
           .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error('Không tìm thấy sản phẩm');
         setProduct(data);
       } catch (err) {
         console.error("Lỗi lấy chi tiết sản phẩm:", err);
@@ -16218,7 +16248,7 @@ export default function AddPetPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setCurrentUser(dbUser);
@@ -16793,7 +16823,7 @@ export default function EditProfilePage() {
         router.push('/login');
         return;
       }
-      const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setFormData({
@@ -17072,6 +17102,8 @@ import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import BreedSearchSelect from '@/components/common/BreedSearchSelect';
+import { parseParentRef, cascadeUpdateChildrenBreed } from '@/lib/utils';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -17155,7 +17187,7 @@ export default function EditPetPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { router.push('/login'); return; }
 
-      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).single();
+      const { data: dbUser } = await supabase.from('users').select('userid, type_id').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
         setOwnerId(dbUser.userid);
@@ -17199,7 +17231,7 @@ export default function EditPetPage() {
       if (breeds) setDbBreeds(breeds);
 
       if (id) {
-        const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).single();
+        const { data: petData, error } = await supabase.from('pets').select('*').eq('petid', id).maybeSingle();
         if (petData) {
           setPetname(petData.petname || '');
           setGender(petData.gender);
@@ -17299,6 +17331,10 @@ export default function EditPetPage() {
 
     const finalBreed = isMixed ? `Lai: ${mix1} x ${mix2}` : breed;
 
+    // 🎯 FIX: fatherId/motherId là chuỗi có prefix (cat_x / pet_x), phải bóc qua parseParentRef trước khi lưu
+    const fatherRef = parseParentRef(fatherId);
+    const motherRef = parseParentRef(motherId);
+
     const { error } = await supabase
       .from('pets')
       .update({
@@ -17317,10 +17353,16 @@ export default function EditPetPage() {
         // 🎯 Chỉ lưu death_date khi tình trạng là "Đã lên thiên đường mèo", đổi tình trạng khác thì tự xoá ngày mất cũ
         death_date: status === 'Đã lên thiên đường mèo' ? formatDBDate(deathDate) : null,
         imageurl: finalImageUrl,
-        father_id: fatherId || null,
-        mother_id: motherId || null
+        father_id: fatherRef.id,
+        mother_id: motherRef.id,
+        father_source: fatherRef.source,
+        mother_source: motherRef.source
       })
       .eq('petid', id);
+
+    if (!error) {
+      await cascadeUpdateChildrenBreed(Number(id), 'pet'); // 🎯 cascade breed sang đàn con/cháu (nếu có)
+    }
 
     setIsSaving(false);
 
@@ -17339,7 +17381,7 @@ export default function EditPetPage() {
   const defaultCatAvatar = 'https://ui-avatars.com/api/?name=Cat&background=f3f4f6&color=a8a29e';
 
   if (isLoading) {
-    return <div className="min-h-screen pt-32 text-center text-stone-400 font-bold">Đang tải hồ sơ Boss... 🐾</div>;
+    return <LoadingSpinner fullScreen text="Đang tải hồ sơ Boss..." />;
   }
 
   return (
@@ -18471,9 +18513,9 @@ export default function ProfilePage() {
                               </div>
                               <div className="relative z-0 w-full h-full bg-stone-100 rounded-full overflow-hidden border-2 border-white shadow-sm">
                                 {pet.imageurl ? (
-                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale" alt="pet" />
+                                  <img src={pet.imageurl} className="w-full h-full object-cover grayscale group-hover:grayscale-0 transition-all duration-500" alt="pet" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale">😺</div>
+                                  <div className="w-full h-full flex items-center justify-center text-2xl grayscale group-hover:grayscale-0 transition-all duration-500">😺</div>
                                 )}
                               </div>
                             </>
@@ -18967,11 +19009,11 @@ export default function StaffBreederInquiryDetailPage() {
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { supabase } from '@/lib/supabase' 
+import { supabase } from '@/lib/supabase'
 
 export default function CompleteProfilePage() {
   const router = useRouter()
-  
+
   // 🎯 BIẾN MỚI: Màn che lúc chờ anh cảnh sát check DB
   const [isChecking, setIsChecking] = useState(true)
 
@@ -18983,9 +19025,11 @@ export default function CompleteProfilePage() {
   const [email, setEmail] = useState('')
   const [providerId, setProviderId] = useState('')
   const [avatarUrl, setAvatarUrl] = useState('')
-  
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
   // 👈 BƯỚC 1: Thêm biến lưu Nguồn gốc (Provider)
-  const [authProvider, setAuthProvider] = useState('') 
+  const [authProvider, setAuthProvider] = useState('')
 
   useEffect(() => {
     const checkUserStatus = async () => {
@@ -18993,18 +19037,18 @@ export default function CompleteProfilePage() {
 
       if (user) {
         const { data: existingUser, error } = await supabase
-          .from('users') 
+          .from('users')
           .select('*')
           .eq('email', user.email)
-          .single()
+          .maybeSingle()
 
         if (existingUser && existingUser.phone) {
           // LUỒNG 1: KHÁCH CŨ
-          localStorage.setItem('kinvie_user', JSON.stringify({ 
-            name: existingUser.fullName || existingUser.name || user.user_metadata.full_name, 
-            type: 'Customer' 
+          localStorage.setItem('kinvie_user', JSON.stringify({
+            name: existingUser.fullName || existingUser.name || user.user_metadata.full_name,
+            type: 'Customer'
           }))
-          
+
           router.push('/')
         } else {
           // LUỒNG 2: KHÁCH MỚI
@@ -19012,17 +19056,19 @@ export default function CompleteProfilePage() {
           setEmail(user.email || '')
           setProviderId(user.id)
           setAvatarUrl(user.user_metadata?.avatar_url || '')
-          
+
           // 👈 BƯỚC 2: Tự động phân loại luồng khách từ Facebook hay Google
-          const rawProvider = user.app_metadata?.provider || 'Khác'
+          const savedProvider = localStorage.getItem('kinvie_oauth_provider')
+          const rawProvider = savedProvider || user.app_metadata?.provider || 'Khác'
           const formattedProvider = rawProvider === 'facebook' ? 'Facebook' : (rawProvider === 'google' ? 'Google' : 'Khác')
           setAuthProvider(formattedProvider)
+          localStorage.removeItem('kinvie_oauth_provider')
 
           // VÉN MÀN LÊN CHO KHÁCH ĐIỀN FORM
           setIsChecking(false)
         }
       } else {
-         router.push('/login')
+        router.push('/login')
       }
     }
 
@@ -19043,12 +19089,22 @@ export default function CompleteProfilePage() {
       setLoading(false)
       return
     }
+    if (password.length < 6) {
+      setError('Mật khẩu phải từ 6 ký tự trở lên.')
+      setLoading(false)
+      return
+    }
+    if (password !== confirmPassword) {
+      setError('Mật khẩu nhập lại không khớp.')
+      setLoading(false)
+      return
+    }
 
     try {
       const payload = {
         fullName: fullName,
         phone: cleanPhone, // Dùng số đã xóa khoảng trắng
-        email: email, 
+        email: email,
         provider: authProvider, // 👈 BƯỚC 4: Lấy biến động, không gõ cứng "Google" nữa
         providerId: providerId,
         avatarUrl: avatarUrl
@@ -19065,11 +19121,18 @@ export default function CompleteProfilePage() {
         throw new Error(errorData.error || 'Có lỗi xảy ra khi lưu dữ liệu')
       }
 
+      // 🔑 Gắn mật khẩu vào account OAuth (Google/Facebook) để sau này login được bằng SĐT + mật khẩu
+      const { error: pwError } = await supabase.auth.updateUser({ password })
+      if (pwError) {
+        console.error('Lỗi đặt mật khẩu:', pwError)
+        // Không chặn luồng, user vẫn login được bằng Google/Facebook như cũ
+      }
+
       localStorage.setItem('kinvie_user', JSON.stringify({ name: fullName, type: 'Customer' }))
 
       alert('Đăng ký thành công! Chào mừng bạn đến với KinVie Petshop.')
-      router.push('/') 
-      
+      router.push('/')
+
     } catch (err: any) {
       setError(err.message)
     } finally {
@@ -19090,14 +19153,14 @@ export default function CompleteProfilePage() {
   // BÊN DƯỚI LÀ GIAO DIỆN FORM CŨ GIỮ NGUYÊN (Chỉ hiện ra khi isChecking = false)
   return (
     <div className="min-h-screen bg-pink-50/30 flex items-center justify-center font-sans relative overflow-hidden p-4">
-      
+
       {/* Background Decor */}
       <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-pink-200/40 rounded-full mix-blend-multiply blur-[100px] pointer-events-none"></div>
       <div className="absolute bottom-[-10%] right-[-10%] w-[400px] h-[400px] bg-rose-100/50 rounded-full mix-blend-multiply blur-[80px] pointer-events-none"></div>
 
       {/* Form Container */}
       <div className="bg-white rounded-[2.5rem] shadow-xl border border-pink-50 w-full max-w-md p-8 sm:p-12 relative z-10">
-        
+
         {/* Header */}
         <div className="mb-8 text-center">
           {avatarUrl && (
@@ -19113,7 +19176,7 @@ export default function CompleteProfilePage() {
 
         {/* Form nhập liệu */}
         <form className="space-y-4" onSubmit={handleSubmit}>
-          
+
           <div>
             <label htmlFor="fullName" className="block text-xs font-bold text-stone-500 uppercase mb-2">
               Họ và tên
@@ -19125,7 +19188,7 @@ export default function CompleteProfilePage() {
               required
               placeholder="Ví dụ: Nguyễn Văn A"
               className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
-              value={fullName} 
+              value={fullName}
               onChange={(e) => setFullName(e.target.value)}
             />
           </div>
@@ -19146,6 +19209,28 @@ export default function CompleteProfilePage() {
             />
           </div>
 
+          <div>
+            <label htmlFor="password" className="block text-xs font-bold text-stone-500 uppercase mb-2">
+              Đặt mật khẩu <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="password" type="password" required minLength={6}
+              placeholder="Tối thiểu 6 ký tự"
+              className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
+              value={password} onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+          <div>
+            <label htmlFor="confirmPassword" className="block text-xs font-bold text-stone-500 uppercase mb-2">
+              Nhập lại mật khẩu <span className="text-rose-500">*</span>
+            </label>
+            <input
+              id="confirmPassword" type="password" required
+              className="w-full bg-stone-50 border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400 focus:bg-white transition-colors"
+              value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)}
+            />
+          </div>
+
           {/* Hiển thị lỗi */}
           {error && (
             <div className="text-pink-600 text-sm font-medium text-center mt-2">
@@ -19157,11 +19242,10 @@ export default function CompleteProfilePage() {
           <button
             type="submit"
             disabled={loading}
-            className={`w-full text-white font-bold py-3.5 rounded-xl flex items-center justify-center shadow-md mt-6 transition-colors ${
-              loading 
-                ? 'bg-pink-300 cursor-not-allowed shadow-none' 
-                : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200'
-            }`}
+            className={`w-full text-white font-bold py-3.5 rounded-xl flex items-center justify-center shadow-md mt-6 transition-colors ${loading
+              ? 'bg-pink-300 cursor-not-allowed shadow-none'
+              : 'bg-pink-500 hover:bg-pink-600 shadow-pink-200'
+              }`}
           >
             {loading ? 'Đang xử lý...' : 'Hoàn tất đăng ký'}
           </button>
@@ -19329,7 +19413,7 @@ const ReviewPopup = () => {
           .select('userid, hasliked')
           // So khớp user đăng nhập với cột email trong bảng users (sếp có thể đổi thành providerid nếu muốn)
           .eq('email', user.email)
-          .single();
+          .maybeSingle();
 
         if (dbError || !userData) return;
         setCurrentUser(userData);
@@ -19835,7 +19919,7 @@ export default function CatCard({ cat }: { cat: any }) {
           .select('id')
           .eq('cat_id', cat.id)
           .eq('user_id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setIsLiked(true); // Đã thả tim rồi thì tô hồng trái tim
@@ -20363,7 +20447,7 @@ export default function ProductCard({ product }: { product: any }) {
           .from('users')
           .select('userid')
           .eq('email', session.user.email)
-          .single();
+          .maybeSingle();
         if (dbUser) setCurrentUserId(dbUser.userid);
       }
     };
@@ -24718,7 +24802,7 @@ export default function Header() {
           .from('users')
           .select('userid, avatarurl, type_id')
           .eq('email', session.user.email)
-          .single();
+          .maybeSingle();
 
         if (dbUser && isMounted) {
           setCurrentUserId(dbUser.userid); // Lưu ID lại
@@ -25663,6 +25747,18 @@ export const ALL_CATS: Cat[] = [
 ];
 </file>
 
+<file path="lib/supabase-admin.ts">
+import { createClient } from '@supabase/supabase-js'
+
+// ⚠️ CHỈ dùng trong API routes (server-side). TUYỆT ĐỐI không import file này
+// vào bất kỳ component nào có "use client", vì service role key sẽ bị lộ.
+export const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!,
+  { auth: { persistSession: false } }
+)
+</file>
+
 <file path="lib/supabase-server.ts">
 import { createClient } from '@supabase/supabase-js'
 
@@ -25684,6 +25780,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
 <file path="lib/utils.ts">
 // lib/utils.ts
+import { supabase } from './supabase';
 
 export const SIMPLE_COLORS = [
   { id: 'Vàng cam', name: 'Vàng cam (Ginger)' },
@@ -25743,6 +25840,78 @@ export const AFFILIATE_PLATFORM_META: Record<AffiliatePlatform, { label: string;
   shopee: { label: 'Shopee', badgeClass: 'bg-[#EE4D2D]', icon: '🛍️' },
   tiktok: { label: 'TikTok', badgeClass: 'bg-black', icon: '🎵' },
   other: { label: 'Đối Tác', badgeClass: 'bg-gradient-to-r from-orange-500 to-rose-500', icon: '🔗' },
+};
+
+// 🎯 SUY GIỐNG TỪ CHA MẸ — dùng chung cho add-pet/edit-pet + cascade, gộp lại từ logic vốn lặp ở 2 nơi
+export const getRepresentativeBreed = (breed?: string | null): string => {
+  if (!breed) return 'Chưa rõ';
+  if (breed.startsWith('Lai: ')) {
+    const parts = breed.replace('Lai: ', '').split(' x ').map(s => s.trim());
+    const specific = parts.find(p => p !== 'Mèo Ta' && p !== 'Chưa rõ');
+    return specific || parts[0] || 'Chưa rõ';
+  }
+  return breed;
+};
+
+export const deriveBreedFromParents = (fatherBreed?: string | null, motherBreed?: string | null) => {
+  const f = getRepresentativeBreed(fatherBreed);
+  const m = getRepresentativeBreed(motherBreed);
+  if (f === m) return { breed: f, mix1: null as string | null, mix2: null as string | null };
+  return { breed: 'Giống lai khác', mix1: f, mix2: m };
+};
+
+export const parseParentRef = (id: string): { id: number | null; source: 'cat' | 'pet' } => {
+  if (!id) return { id: null, source: 'pet' };
+  const [prefix, num] = id.split('_');
+  const parsed = parseInt(num, 10);
+  return { id: isNaN(parsed) ? null : parsed, source: prefix === 'cat' ? 'cat' : 'pet' };
+};
+
+// 🎯 CASCADE (hướng B): khi breed cha/mẹ đổi, quét lại toàn bộ pets con + cháu (đệ quy) để tính lại breed.
+// Chỉ áp dụng cho bảng `pets` — `cats` KHÔNG auto-derive breed từ cha mẹ (breeder tự chọn tay).
+export const cascadeUpdateChildrenBreed = async (
+  parentId: number,
+  parentSource: 'cat' | 'pet',
+  visited: Set<string> = new Set()
+): Promise<void> => {
+  const visitKey = `${parentSource}_${parentId}`;
+  if (visited.has(visitKey)) return; // chặn vòng lặp vô hạn nếu lỡ data bị lỗi tạo chu trình cha-con
+  visited.add(visitKey);
+
+  const { data: children } = await supabase
+    .from('pets')
+    .select('petid, breed, father_id, mother_id, father_source, mother_source')
+    .or(`and(father_id.eq.${parentId},father_source.eq.${parentSource}),and(mother_id.eq.${parentId},mother_source.eq.${parentSource})`);
+
+  if (!children || children.length === 0) return;
+
+  for (const child of children) {
+    let fatherBreed: string | null = null;
+    let motherBreed: string | null = null;
+
+    if (child.father_id) {
+      const table = child.father_source === 'cat' ? 'cats' : 'pets';
+      const idCol = child.father_source === 'cat' ? 'id' : 'petid';
+      const { data } = await supabase.from(table).select('breed').eq(idCol, child.father_id).maybeSingle();
+      fatherBreed = data?.breed || null;
+    }
+    if (child.mother_id) {
+      const table = child.mother_source === 'cat' ? 'cats' : 'pets';
+      const idCol = child.mother_source === 'cat' ? 'id' : 'petid';
+      const { data } = await supabase.from(table).select('breed').eq(idCol, child.mother_id).maybeSingle();
+      motherBreed = data?.breed || null;
+    }
+
+    const result = deriveBreedFromParents(fatherBreed, motherBreed);
+    const newBreed = result.breed === 'Giống lai khác' ? `Lai: ${result.mix1} x ${result.mix2}` : result.breed;
+
+    if (newBreed !== child.breed) {
+      await supabase.from('pets').update({ breed: newBreed }).eq('petid', child.petid);
+    }
+
+    // Đệ quy xuống đàn cháu — con này có thể đang là cha/mẹ của pet khác
+    await cascadeUpdateChildrenBreed(child.petid, 'pet', visited);
+  }
 };
 </file>
 
@@ -26094,7 +26263,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `cat_breeds`: `id` (serial), `name` (text, unique), `sort_order` (integer), `created_at` (timestamp with time zone). Danh sách giống mèo dùng cho các dropdown chọn giống (KinVie Cattery lẫn Pet khách hàng). Trước đây hard-code cứng thành mảng `ALL_BREEDS` ở `lib/utils.ts` và lặp lại rải rác ở `app/profile/add-pet/page.tsx`, `app/profile/edit-pet/[id]/page.tsx` — ĐÃ CHUYỂN sang fetch từ bảng này (pattern giống hệt cách fetch `ems_base_colors`/`ems_patterns` trong `initData`). ⚠️ Giá trị `'Giống lai khác'` và `'Chưa rõ'` PHẢI luôn tồn tại trong bảng vì code so sánh trực tiếp theo 2 chuỗi này (vd. `isMixed = catData.breed === 'Giống lai khác'`) — không được xoá 2 dòng đó khỏi bảng.
 - `cat_likes`: `id` (bigint), `created_at` (timestamp with time zone), `cat_id` (bigint), `user_id` (integer - Trỏ về userid của bảng users)
 - `categories`: `categoryid` (integer), `categoryname` (character varying)
-- `cat_inquiries`: `id` (bigint), `cat_id` (integer - trỏ về cats.id), `customer_id` (integer - trỏ về users.userid, NULL nếu khách chưa đăng nhập), `customer_name` (text), `customer_phone` (text), `customer_zalo` (text), `message` (text), `status` (text: 'Mới'|'Đã liên hệ'|'Đã chốt'|'Hủy'), `created_at` (timestamp with time zone). Sinh ra khi khách bấm "Gửi Yêu Cầu Đón Bé" ở trang `/cattery/[id]`, kèm gửi notification CHỈ cho tài khoản Boss (type_id === 1) — KHÔNG gửi cho staff (type_id 2) hay trại đối tác (type_id 3) vì họ không có quyền xem trang chi tiết. Notification `link` trỏ về `/dashboard/cats/inquiries/{id}`. Trang này (`app/dashboard/cats/inquiries/[id]/page.tsx`) có gác cổng RIÊNG kiểm tra `type_id === 1` ngay trong component, KHÔNG dựa vào check chung của `app/dashboard/layout.tsx` (layout chung hiện chỉ check đăng nhập, chưa check type_id). ⚠️ **LỖ HỔNG ĐÃ BIẾT:** `app/dashboard/layout.tsx` hiện chỉ kiểm tra đăng nhập, CHƯA kiểm tra `type_id`, nghĩa là mọi tài khoản đã đăng nhập (kể cả khách thường) đều gõ được URL `/dashboard/...` và vào xem. Các trang nhạy cảm (như `cat_inquiries`) phải tự gác cổng riêng bằng cách check `type_id` ngay trong component cho tới khi layout chung được vá.
+- `cat_inquiries`: `id` (bigint), `cat_id` (integer - trỏ về cats.id), `customer_id` (integer - trỏ về users.userid, NULL nếu khách chưa đăng nhập), `customer_name` (text), `customer_phone` (text), `customer_zalo` (text), `message` (text), `status` (text: 'Mới'|'Đã liên hệ'|'Đã chốt'|'Hủy'), `created_at` (timestamp with time zone). Sinh ra khi khách bấm "Gửi Yêu Cầu Đón Bé" ở trang `/cattery/[id]`, kèm gửi notification CHỈ cho tài khoản Boss (type_id === 1) — KHÔNG gửi cho staff (type_id 2) hay trại đối tác (type_id 3) vì họ không có quyền xem trang chi tiết. Notification `link` trỏ về `/dashboard/cats/inquiries/{id}`. Trang này (`app/dashboard/cats/inquiries/[id]/page.tsx`) có gác cổng RIÊNG kiểm tra `type_id === 1` ngay trong component, CỘNG THÊM với check chung của `app/dashboard/layout.tsx` (layout chung ĐÃ check `type_id === 1`, redirect về `/` nếu không phải Boss — xem mục 4b, đây là kiểm tra ở tầng client/UI). ⚠️ Việc này chỉ chặn được ở giao diện, KHÔNG chặn được request gọi thẳng Supabase bằng anon key — bảo mật dữ liệu thật sự nằm ở RLS policy của bảng `cat_inquiries` (xem mục 4b).
 - `cats`: `color` (character varying), `status` (character varying), `approval_status` (character varying), `gender` (boolean), `has_pedigree` (boolean), `father_id` (integer), `mother_id` (integer), `likes` (integer), `breeder_id` (integer), `created_at` (timestamp with time zone), `posted_date` (date), `breed` (character varying), `id` (integer), `dob` (date), `notes` (text), `medical_history` (jsonb), `name` (character varying), `price` (numeric), `images` (ARRAY), `buyer_id` (integer - trỏ về users.userid, khách đã mua bé mèo này; CHỈ được gán khi status chuyển sang 'Đã về nhà mới', chọn qua ô tìm kiếm khách ở trang edit mèo, KHÔNG join chung `select('*, users(*)')` với breeder_id vì gây lỗi ambiguous relationship — phải fetch buyer bằng query riêng)
 - `ems_base_colors`: `code` (character varying), `name` (character varying), `hex` (character varying)
 - `ems_patterns`: `code` (character varying), `name` (character varying)
@@ -26124,6 +26293,19 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text)
 
 
+## 4b. BẢO MẬT DATABASE (RLS - ROW LEVEL SECURITY)
+⚠️ **BỐI CẢNH QUAN TRỌNG:** App KHÔNG có `middleware.ts` và toàn bộ query chạy thẳng từ client bằng `NEXT_PUBLIC_SUPABASE_ANON_KEY` (key này lộ sẵn trong bundle JS, ai mở DevTools cũng lấy được). Mọi check quyền viết bằng React (`if (dbUser.type_id !== 1) ...`) CHỈ chặn được ở giao diện, KHÔNG chặn được request gọi thẳng Supabase bỏ qua UI. Bảo mật dữ liệu thật sự BẮT BUỘC phải nằm ở RLS (Row Level Security) của từng bảng trong Postgres. Đang trong quá trình rà soát và vá lại toàn bộ 32 bảng (phát hiện lúc audit: 22 bảng tắt RLS hoàn toàn, nhiều bảng bật RLS nhưng policy sai/hở).
+
+**3 hàm SQL dùng chung** (đã tạo, dùng lại cho mọi policy thay vì lặp subquery):
+- `is_staff_or_boss()` — trả `true` nếu người gọi request (theo `auth.email()`) có `type_id` 1 hoặc 2.
+- `is_boss()` — trả `true` nếu `type_id = 1`.
+- `current_userid()` — trả về `users.userid` (bigint) của người đang gọi request, dùng để so sánh quyền sở hữu dòng dữ liệu.
+
+**Tiến độ vá theo nhóm** (cập nhật mỗi khi vá xong 1 nhóm, đừng để lạc hậu):
+- ✅ **Nhóm F** (đã bật RLS nhưng policy sai/hở — ưu tiên vá trước vì dễ chủ quan tưởng đã an toàn): `users` (bỏ `users_select_public_temp`/`users_insert_public` hở, thêm policy chặn tự set `type_id` khác 4 và chỉ xem được dòng của mình hoặc Boss/Staff xem hết), `cat_inquiries` (SELECT/UPDATE giới hạn `is_staff_or_boss()` + policy riêng cho breeder liên quan qua `cats.breeder_id`), `system_settings` (UPDATE chỉ `is_boss()`), `page_banners` (SELECT công khai, ghi chỉ Boss/Staff), `memorial_photos` (insert/select giới hạn đúng `user_id = current_userid()`, update status chỉ Boss/Staff), `family_connections` (chỉ 2 bên `requester_id`/`receiver_id` liên quan mới thấy/sửa được, không còn mở cho `public`) — **ĐÃ XONG**.
+- ⏳ **`product_reviews`** (còn lại của Nhóm F) — INSERT hiện vẫn đang mở cho `public` không điều kiện, CHƯA thêm check "đã mua + đã giao + chưa review" ở tầng RLS (rule nghiệp vụ này hiện chỉ có UNIQUE constraint chặn trùng lặp, chưa chặn được review khống không qua đơn hàng thật) — cần làm tiếp.
+- ⏳ **Nhóm D** (`expenses` — chỉ Boss được đụng), **Nhóm E** (`families` — bảng legacy, dự định khoá kín hoàn toàn không cần policy), **Nhóm A** (công khai đọc/Boss-Staff ghi: `products`, `cats`, `categories`, `ems_base_colors`, `ems_patterns`, `pate_types`, `blogs`, `type_users`), **Nhóm B** (riêng tư theo chủ + Boss/Staff xem hết: `pets`, `notifications`, `cat_likes`, `health_records`, `medicalrecords`, `feedbacks`, `orders`, `orderdetails`), **Nhóm C** (Feed, đăng nhập mới xem: `posts`, `post_comments`, `post_likes`, `post_pets`) — TẤT CẢ hiện vẫn đang **TẮT RLS HOÀN TOÀN**, ai cầm anon key cũng đọc/ghi/xoá tự do. CHƯA XỬ LÝ, làm tiếp theo thứ tự này.
+
 ## 5. QUY TẮC VIẾT CODE BẮT BUỘC (STRICT CODING RULES)
 Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các bug đã được fix:
 
@@ -26133,12 +26315,14 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 3. **Phân loại Giỏ hàng:** Khi insert/update `cart_items`, phải check trùng lặp bằng CẢ `product_id` VÀ `variant`. (Khách mua cùng 1 sản phẩm nhưng khác Vị thì phải tách thành 2 dòng riêng biệt).
 4. **Viết lệnh:** Khi có yêu cầu về sửa hoặc thêm mới database, thì cho câu lệnh SQL để sửa chứ đừng chỉ nói chung chung là sửa hay thêm mới cái gì.
 5. **Luồng Thanh toán (Checkout):** Bảng `orders` và `orderdetails` dùng chung khóa `orderid` (integer). Khi tạo đơn hàng thành công, trạng thái mặc định BẮT BUỘC là "Chờ xác nhận" (vì thanh toán qua mã QR Momo/Bank thủ công). Sau khi tạo đơn, BẮT BUỘC phải có lệnh trừ `stock` trong bảng `products` và xóa `cart_items` của user đó.
-6. **Update sau khi cập nhật database:** Sau mỗi lần update/insert/delete database thì đều phải chỉnh sửa file AI_CONTEXT.md này.
+6. **Update sau khi cập nhật database:** Sau mỗi lần update/insert/delete database (thêm cột, thêm bảng, hoặc sửa RLS policy) thì đều phải chỉnh sửa file AI_CONTEXT.md này — kể cả tiến độ vá RLS ở mục 4b.
+6b. **RLS bắt buộc khi tạo bảng mới:** Từ nay, MỌI bảng mới tạo BẮT BUỘC phải bật RLS và viết policy ngay từ đầu (không để mặc định tắt rồi tính sau) — dùng lại 3 hàm `is_staff_or_boss()`/`is_boss()`/`current_userid()` ở mục 4b, KHÔNG viết lại subquery riêng cho từng bảng. Nếu chưa rõ nên xếp bảng mới vào nhóm quyền nào (công khai/riêng tư theo chủ/chỉ Boss...), phải hỏi lại sếp trước, không tự đoán.
 7. **Đơn hàng & Doanh số:** `sales_count` của `products` CHỈ được cộng khi admin đổi `orders.orderstatus` sang "Đã giao hàng" (xem hàm `incrementSalesCount` ở `app/dashboard/operations/orders/page.tsx`), KHÔNG cộng lúc tạo đơn. Tương tự, khách chỉ được để lại `product_reviews` khi có đơn ở trạng thái "Đã giao hàng" chứa đúng sản phẩm đó và chưa đánh giá đơn đó lần nào.
 8. **Hệ thống thông báo (notifications):** Mọi thông báo insert vào bảng `notifications` PHẢI có `type` và `link` rõ ràng để chuông thông báo (Header.tsx) hiển thị đúng icon và điều hướng đúng chỗ. Khi thông báo gắn với hành động có thể "undo" (VD: thích bài viết), phải set `related_id` dạng `${post_id}_${actor_userid}` để khi undo (bỏ thích) thì xoá được đúng thông báo đã gửi, tránh rác. Chuông dùng Supabase Realtime (`postgres_changes`) lắng nghe theo `user_id`, không polling.
 9. **Yêu cầu đón bé (cat_inquiries):** Khi khách gửi form "Gửi Yêu Cầu Đón Bé" ở `/cattery/[id]`, BẮT BUỘC lưu vào bảng `cat_inquiries` (không chỉ gửi notification suông) để còn quản lý lead sau này. Thông báo phải gửi cho TOÀN BỘ user có `type_id` 1 hoặc 2 (staff/boss), CỘNG THÊM trại đối tác nếu `cats.breeder_id` thuộc `type_id` 3 — tránh gửi trùng nếu breeder cũng đang là staff (type_id 1/2).
 10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard). Bảng memorial_photos có thêm cột is_last_photo (boolean, default false) — khách tự đánh dấu ở trang /memorial/upload khi chọn đúng 1 bé có status === 'Đã lên thiên đường mèo'. Ảnh có cờ này TRUE sẽ là ảnh tưởng niệm to nhất, có vòng hoa, hiển thị trắng đen (hover ra màu) ở đầu Cây Ký Ức (VineTimeline.tsx, biến isMemorialCap) — KHÔNG còn tự suy đoán theo taken_date muộn nhất nữa. Khi insert ảnh mới với is_last_photo = true, phải gỡ cờ này khỏi ảnh cũ của đúng bé đó trước (qua bảng nối memorial_photo_pets) để đảm bảo mỗi bé chỉ có 1 ảnh cuối.
 11. **Set gia đình (family_connections):** Tính năng ở `/profile` cho khách liên kết tài khoản với nhau qua SĐT để gộp chung Boss quản lý. BẮT BUỘC hiểu đây là quan hệ CẶP kiểu kết bạn (bảng `family_connections`), KHÔNG PHẢI cột `users.familyid`/bảng `families` — 2 cái đó là mô hình cũ dùng chung 1 group ID, không đáp ứng được yêu cầu "không bắc cầu" (A set gia đình với B và C, nhưng B-C không tự động thành gia đình nếu 2 người đó chưa tự set với nhau). Mỗi request gửi đi phải kèm insert `notifications` (`type: 'family_request'`, `link: '/profile'`) cho người nhận; khi đồng ý phải insert thêm `notifications` (`type: 'family_accepted'`) báo lại cho người gửi. Khi hiển thị Boss gộp chung ở `/profile`, chỉ gộp mèo của các quan hệ có `status = 'accepted'`; mèo không phải chủ thật của mình CHỈ ĐƯỢC XEM, không cho xoá (check `pet.ownerid === userData.userid` trước khi hiện nút xoá).
+12. **Cascade breed cha/mẹ → con (hướng B):** `pets.breed` khi có chọn cha/mẹ (`father_id`/`mother_id` kèm `father_source`/`mother_source`) được auto-derive qua hàm `deriveBreedFromParents()` (ưu tiên "giống đại diện" qua `getRepresentativeBreed()`, bỏ qua nhánh Mèo Ta/Chưa rõ khi có nhánh cụ thể hơn). Đây là dữ liệu TĨNH lưu 1 lần lúc lưu, KHÔNG tự link động — nên khi breed của 1 `cats` (trang `kinvie/[id]`) hoặc 1 `pets` (trang `profile/edit-pet/[id]`) được sửa và lưu, BẮT BUỘC gọi `cascadeUpdateChildrenBreed(parentId, parentSource)` ở `lib/utils.ts` ngay sau khi update thành công — hàm này quét tất cả `pets` con trỏ đúng `father_id`/`mother_id` + `father_source`/`mother_source`, tính lại breed, rồi ĐỆ QUY tiếp xuống đàn cháu (vì 1 pet cũng có thể là cha/mẹ của pet khác). Chạy ngầm, KHÔNG toast báo breeder. Bảng `cats` KHÔNG nằm trong diện tự cascade lẫn nhau vì breed của `cats` do breeder tự chọn tay, không auto-derive từ cha mẹ. ⚠️ Khi lưu cha/mẹ cho `pets` (cả `add-pet` lẫn `edit-pet`), BẮT BUỘC bóc `fatherId`/`motherId` (dạng prefix `cat_x`/`pet_x`) qua `parseParentRef()` trước khi insert/update — tuyệt đối không lưu thẳng chuỗi có prefix vào cột `father_id`/`mother_id` (int), và phải lưu kèm `father_source`/`mother_source` tương ứng.
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.

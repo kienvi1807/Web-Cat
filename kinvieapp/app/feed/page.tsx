@@ -448,7 +448,7 @@ function FeedContent() {
       let userId = null;
 
       if (session) {
-        const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).single();
+        const { data: dbUser } = await supabase.from('users').select('*').eq('email', session.user.email).maybeSingle();
         if (dbUser) {
           setCurrentUser(dbUser);
           userId = dbUser.userid;

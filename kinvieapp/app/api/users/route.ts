@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { supabaseAdmin } from '@/lib/supabase-admin'
 
 // THÊM HÀM POST: Xử lý Đăng ký tài khoản (Local & Social)
 export async function POST(request: Request) {
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     }
 
     // BƯỚC 1: Tạo một "Hộ gia đình" mặc định cho khách hàng mới
-    const { data: familyData, error: familyError } = await supabase
+    const { data: familyData, error: familyError } = await supabaseAdmin
       .from('families')
       .insert([{ familyname: `Nhà của ${fullName}` }])
       .select('familyid')
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     // Việc nâng quyền lên Admin/Boss (type_id = 1) chỉ được thực hiện
     // thủ công trong Supabase Studio bởi người quản trị hệ thống,
     // KHÔNG BAO GIỜ qua API công khai này.
-    const { data: userData, error: userError } = await supabase
+    const { data: userData, error: userError } = await supabaseAdmin
       .from('users')
       .insert([{
         phone: phone,

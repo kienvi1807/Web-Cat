@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
+import LoadingSpinner from '@/components/ui/LoadingSpinner';
 
 export default function PetDetailPage() {
   const { id } = useParams();
@@ -54,7 +55,7 @@ export default function PetDetailPage() {
       .from('pets')
       .select('*')
       .eq('petid', id)
-      .single();
+      .maybeSingle();
 
     if (petError || !petData) {
       alert("Không tìm thấy thông tin Boss!");
@@ -132,12 +133,7 @@ export default function PetDetailPage() {
   };
 
   if (isLoading) {
-    return (
-      <div className="min-h-screen bg-stone-50 flex flex-col items-center justify-center font-sans">
-        <div className="text-4xl text-pink-300 animate-[spin_2s_linear_infinite] mb-4">🐾</div>
-        <p className="text-stone-400 font-medium text-sm animate-pulse">Đang lôi sổ y bạ của Boss ra...</p>
-      </div>
-    );
+    return <LoadingSpinner fullScreen text="Đang lôi sổ y bạ của Boss ra..." />;
   }
 
   return (

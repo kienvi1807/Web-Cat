@@ -43,7 +43,7 @@ export default function ProductDetailedAdmin() {
   const fetchProduct = async () => {
     setIsLoading(true);
     showGlobalLoading('SYSTEM SCANNING...');
-    const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
+    const { data, error } = await supabase.from('products').select('*').eq('id', id).maybeSingle();
     
     if (error) {
       alert("Không tìm thấy sản phẩm!");

@@ -29,7 +29,7 @@ export default function CatCard({ cat }: { cat: any }) {
           .select('id')
           .eq('cat_id', cat.id)
           .eq('user_id', session.user.id)
-          .single();
+          .maybeSingle();
 
         if (data) {
           setIsLiked(true); // Đã thả tim rồi thì tô hồng trái tim

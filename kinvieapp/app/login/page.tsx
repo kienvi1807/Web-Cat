@@ -69,6 +69,7 @@ export default function LoginPage() {
   // 🚀 BƯỚC 2: HÀM ĐĂNG NHẬP MẠNG XÃ HỘI
   // ==========================================
   const handleLogin = async (provider: 'google' | 'facebook') => {
+    localStorage.setItem('kinvie_oauth_provider', provider);
     const { error } = await supabase.auth.signInWithOAuth({
       provider,
       options: {
@@ -108,23 +109,27 @@ export default function LoginPage() {
 
     if (isLoginAction) {
       // --- LUỒNG ĐĂNG NHẬP ---
-      const { data: existingUser } = await supabase.from('users').select('*').eq('phone', cleanPhone).single();
+      const lookupRes = await fetch('/api/auth/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone })
+      });
+      const lookupData = await lookupRes.json();
 
-      if (!existingUser) {
+      if (!lookupData.exists) {
         alert("Số điện thoại này chưa được đăng ký! Chuyển sang tạo tài khoản nhé.");
         setIsLoginView(false);
         setIsLoading(false);
         return;
       }
 
-      const isSocialAccount = existingUser.avatarurl?.includes('facebook') || existingUser.avatarurl?.includes('googleusercontent');
-      if (isSocialAccount) {
+      if (lookupData.isSocialAccount && !lookupData.email) {
         alert("Số điện thoại này đã được liên kết với mạng xã hội! Bấm nút Facebook/Google ở phía trên nhé.");
         setIsLoading(false);
         return;
       }
 
-      const loginEmail = existingUser.email || fakeEmail;
+      const loginEmail = lookupData.email || fakeEmail;
       const { error: loginError } = await supabase.auth.signInWithPassword({ email: loginEmail, password });
 
       if (loginError) {
@@ -143,8 +148,13 @@ export default function LoginPage() {
         setIsLoading(false); return;
       }
 
-      const { data: existingUser } = await supabase.from('users').select('phone').eq('phone', cleanPhone).single();
-      if (existingUser) {
+      const checkRes = await fetch('/api/auth/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone: cleanPhone })
+      });
+      const checkData = await checkRes.json();
+      if (checkData.exists) {
         alert("Số điện thoại này đã được đăng ký rồi! Sen chuyển qua form Đăng nhập nhé.");
         setIsLoginView(true);
         setIsLoading(false); return;

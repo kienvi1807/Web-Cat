@@ -47,9 +47,10 @@ export default function ProductDetailPage() {
           .from('products')
           .select('*')
           .eq('id', id)
-          .single();
+          .maybeSingle();
 
         if (error) throw error;
+        if (!data) throw new Error('Không tìm thấy sản phẩm');
         setProduct(data);
       } catch (err) {
         console.error("Lỗi lấy chi tiết sản phẩm:", err);
