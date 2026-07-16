@@ -2,9 +2,38 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function PetshopHubPage() {
-  
+  const [counts, setCounts] = useState({
+    products: null as number | null,
+    pateExpiring: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: totalCount } = await supabase
+        .from('products').select('id', { count: 'exact', head: true }).neq('category', 'Pate tươi (Thủ công)');
+
+      const { data: pateProducts } = await supabase
+        .from('products').select('expiry_date').eq('category', 'Pate tươi (Thủ công)');
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const pateExpiringCount = (pateProducts || []).filter(p => {
+        if (!p.expiry_date) return false;
+        const expiry = new Date(p.expiry_date);
+        expiry.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays <= 2;
+      }).length;
+
+      setCounts({ products: totalCount || 0, pateExpiring: pateExpiringCount });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH CHỨC NĂNG CỦA PETSHOP (Đã dọn dẹp các biến thừa của nút bấm)
   const petshopModules = [
     {
@@ -16,7 +45,7 @@ export default function PetshopHubPage() {
       colorFrom: 'from-fuchsia-400',
       colorHoverFrom: 'group-hover:from-fuchsia-500',
       labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200 animate-pulse',
-      labelText: '156 Sản phẩm'
+      labelText: counts.products === null ? '...' : `${counts.products} Sản phẩm`
     },
     {
       name: 'Quản lý Pate tươi',
@@ -26,8 +55,8 @@ export default function PetshopHubPage() {
       color: 'pink',
       colorFrom: 'from-pink-400',
       colorHoverFrom: 'group-hover:from-pink-500',
-      labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse',
-      labelText: '2 mẻ cận date'
+      labelColor: `text-pink-600 bg-pink-50 border-pink-200${counts.pateExpiring ? ' animate-pulse' : ''}`,
+      labelText: counts.pateExpiring === null ? '...' : `${counts.pateExpiring} mẻ cận date`
     }
   ];
 

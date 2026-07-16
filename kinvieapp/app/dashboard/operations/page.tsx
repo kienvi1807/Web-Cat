@@ -2,9 +2,28 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function OperationsHubPage() {
-  
+  const [counts, setCounts] = useState({
+    newOrders: null as number | null,
+    staff: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: newOrdersCount } = await supabase
+        .from('orders').select('orderid', { count: 'exact', head: true }).eq('orderstatus', 'Đã đặt hàng');
+
+      const { count: staffCount } = await supabase
+        .from('users').select('userid', { count: 'exact', head: true }).in('type_id', [1, 2]);
+
+      setCounts({ newOrders: newOrdersCount || 0, staff: staffCount || 0 });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH 4 CHỨC NĂNG VẬN HÀNH CHÍNH (Đã dọn dẹp các biến thừa của nút bấm)
   const operationModules = [
     {
@@ -16,7 +35,7 @@ export default function OperationsHubPage() {
       colorFrom: 'from-blue-400',
       colorHoverFrom: 'group-hover:from-blue-500',
       labelColor: 'text-blue-600 bg-blue-50 border-blue-200',
-      labelText: '12 Đơn mới'
+      labelText: counts.newOrders === null ? '...' : `${counts.newOrders} Đơn mới`
     },
     {
       name: 'Quản lý Thu/Chi',
@@ -38,7 +57,7 @@ export default function OperationsHubPage() {
       colorFrom: 'from-purple-400',
       colorHoverFrom: 'group-hover:from-purple-500',
       labelColor: 'text-purple-600 bg-purple-50 border-purple-200',
-      labelText: '5 Nhân sự'
+      labelText: counts.staff === null ? '...' : `${counts.staff} Nhân sự`
     },
     {
       name: 'Báo cáo & Phân tích',

@@ -2,9 +2,29 @@
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function UsersHubPage() {
-  
+  const [counts, setCounts] = useState({
+    totalUsers: null as number | null,
+    pendingBreeders: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: totalUsersCount } = await supabase
+        .from('users').select('userid', { count: 'exact', head: true });
+
+      const { data: breederRows } = await supabase
+        .from('users').select('status').eq('type_id', 3);
+      const pendingBreedersCount = (breederRows || []).filter(u => !u.status || u.status.trim() === '').length;
+
+      setCounts({ totalUsers: totalUsersCount || 0, pendingBreeders: pendingBreedersCount });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH 4 CHỨC NĂNG QUẢN LÝ TÀI KHOẢN & CRM (Đã dọn biến nút bấm)
   const userModules = [
     {
@@ -16,7 +36,7 @@ export default function UsersHubPage() {
       colorFrom: 'from-cyan-400',
       colorHoverFrom: 'group-hover:from-cyan-500',
       labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200',
-      labelText: '128 User'
+      labelText: counts.totalUsers === null ? '...' : `${counts.totalUsers} User`
     },
     {
       name: 'Duyệt Breeder',
@@ -26,8 +46,8 @@ export default function UsersHubPage() {
       titleColor: 'text-amber-600',
       colorFrom: 'from-amber-400',
       colorHoverFrom: 'group-hover:from-amber-500',
-      labelColor: 'text-amber-600 bg-amber-50 border-amber-200 animate-pulse',
-      labelText: '2 Yêu cầu'
+      labelColor: `text-amber-600 bg-amber-50 border-amber-200${counts.pendingBreeders ? ' animate-pulse' : ''}`,
+      labelText: counts.pendingBreeders === null ? '...' : `${counts.pendingBreeders} Yêu cầu`
     },
     {
       name: 'Hạng & Tích điểm',
@@ -49,13 +69,13 @@ export default function UsersHubPage() {
       colorFrom: 'from-violet-400',
       colorHoverFrom: 'group-hover:from-violet-500',
       labelColor: 'text-violet-600 bg-violet-50 border-violet-200',
-      labelText: '5 Đang chạy'
+      labelText: 'Sắp ra mắt'
     }
   ];
 
   return (
     <div className="space-y-10 animate-fade-in max-w-[1300px] mx-auto pb-16">
-      
+
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
@@ -66,7 +86,7 @@ export default function UsersHubPage() {
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
       <div className="relative group/section">
-        
+
         {/* Lớp Hào Quang Tỏa Ra Phía Sau (Màu Cyan/Xanh lam nhạt) */}
         <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/0 via-cyan-400/10 to-blue-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -78,37 +98,37 @@ export default function UsersHubPage() {
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+            <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
-            
+
             {userModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
-                
+
                 {/* Lớp sáng neon tỏa ra từ thẻ con */}
                 <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                
+
                 {/* Nội dung thẻ con */}
                 <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                  
+
                   {/* Icon */}
                   <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
-                  
+
                   {/* Tiêu đề */}
                   <h3 className={`text-[16px] font-black ${item.titleColor} mb-2 tracking-wide`}>
                     {item.name}
                   </h3>
-                  
+
                   {/* Mô tả */}
                   <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
-                  
+
                   {/* Khu vực Nhãn (Badge) Căn Giữa - ĐÃ XÓA NÚT */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
                     <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>

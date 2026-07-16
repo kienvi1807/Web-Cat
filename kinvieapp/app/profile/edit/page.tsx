@@ -7,6 +7,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import { useLoadingStore } from '@/store/useLoadingStore';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -17,9 +18,18 @@ export default function EditProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [authProvider, setAuthProvider] = useState('');
+  const [hasPasswordIdentity, setHasPasswordIdentity] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Đã thay 'age' thành 'birthdate'
   const [formData, setFormData] = useState({
@@ -36,6 +46,7 @@ export default function EditProfilePage() {
   const [selectedProvince, setSelectedProvince] = useState({ code: '', name: '' });
   const [selectedDistrict, setSelectedDistrict] = useState({ code: '', name: '' });
   const [selectedWard, setSelectedWard] = useState({ code: '', name: '' });
+  const [pendingAddress, setPendingAddress] = useState<{ province: string; district: string; ward: string; specific: string } | null>(null);
 
   // HÀM FORMAT NGÀY TỪ DB LÊN FORM
   const formatDateForInput = (dbDate: string | null) => {
@@ -53,15 +64,29 @@ export default function EditProfilePage() {
         router.push('/login');
         return;
       }
+      setAuthProvider(user.app_metadata?.provider || 'email');
       const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
+        setCurrentUserId(dbUser.userid);
+        setHasPasswordIdentity(!!dbUser.has_password);
+        const addressParts = (dbUser.address || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        // Lưu theo thứ tự: [Số nhà, Phường/Xã, Quận/Huyện, Tỉnh/Thành]
+        const provinceName = addressParts.length >= 1 ? addressParts[addressParts.length - 1] : '';
+        const districtName = addressParts.length >= 2 ? addressParts[addressParts.length - 2] : '';
+        const wardName = addressParts.length >= 3 ? addressParts[addressParts.length - 3] : '';
+        const specificAddress = addressParts.length >= 4 ? addressParts.slice(0, addressParts.length - 3).join(', ') : '';
+
         setFormData({
           fullname: dbUser.fullname || dbUser.name || user.user_metadata?.full_name || '',
           phone: dbUser.phone || '',
-          birthdate: formatDateForInput(dbUser.birthdate), // Đọc ngày sinh từ DB
-          specificAddress: ''
+          birthdate: formatDateForInput(dbUser.birthdate),
+          specificAddress
         });
+
+        if (provinceName || districtName || wardName) {
+          setPendingAddress({ province: provinceName, district: districtName, ward: wardName, specific: specificAddress });
+        }
         setPreviewUrl(dbUser.avatarurl || user.user_metadata?.avatar_url || '');
       }
       setIsLoading(false);
@@ -98,6 +123,28 @@ export default function EditProfilePage() {
       setWards([]);
     }
   }, [selectedDistrict.code]);
+
+  // 🎯 KHÔI PHỤC LẠI DROPDOWN TỪ ĐỊA CHỈ ĐÃ LƯU (chạy khi từng danh sách API load xong)
+  useEffect(() => {
+    if (pendingAddress?.province && provinces.length > 0) {
+      const match = provinces.find((p: any) => p.name === pendingAddress.province);
+      if (match) setSelectedProvince({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, provinces]);
+
+  useEffect(() => {
+    if (pendingAddress?.district && districts.length > 0) {
+      const match = districts.find((d: any) => d.name === pendingAddress.district);
+      if (match) setSelectedDistrict({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, districts]);
+
+  useEffect(() => {
+    if (pendingAddress?.ward && wards.length > 0) {
+      const match = wards.find((w: any) => w.name === pendingAddress.ward);
+      if (match) setSelectedWard({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, wards]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -165,16 +212,23 @@ export default function EditProfilePage() {
         selectedProvince.name
       ].filter(Boolean).join(', ');
 
-      const { error: updateError } = await supabase
+      if (!currentUserId) throw new Error("Không xác định được tài khoản, vui lòng tải lại trang!");
+
+      const { error: updateError, data: updatedRows } = await supabase
         .from('users')
         .update({
           fullname: formData.fullname,
           phone: formData.phone,
-          birthdate: formatDBDate(formData.birthdate), // Lưu ngày sinh chuẩn YYYY-MM-DD
+          birthdate: formatDBDate(formData.birthdate),
           address: fullAddress,
           avatarurl: finalAvatarUrl
         })
-        .eq('email', user.email);
+        .eq('userid', currentUserId)
+        .select();
+
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error("Không có thay đổi nào được lưu — có thể do phân quyền (RLS) chặn, vui lòng liên hệ kỹ thuật!");
+      }
 
       if (updateError) throw updateError;
 
@@ -186,6 +240,60 @@ export default function EditProfilePage() {
       setError(err.message || 'Có lỗi xảy ra khi lưu dữ liệu.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError('');
+    setPwSuccess('');
+
+    if (!newPassword || !confirmPassword) {
+      setPwError('Vui lòng điền đầy đủ các ô mật khẩu.');
+      return;
+    }
+    if (hasPasswordIdentity && !currentPassword) {
+      setPwError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwError('Mật khẩu mới phải từ 6 ký tự trở lên.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('Mật khẩu mới nhập lại không khớp.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error('Không tìm thấy phiên đăng nhập!');
+
+      // Chỉ xác minh mật khẩu cũ nếu tài khoản ĐÃ từng có mật khẩu
+      if (hasPasswordIdentity) {
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+        if (verifyError) throw new Error('Mật khẩu hiện tại không đúng!');
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+
+      if (currentUserId) {
+        await supabase.from('users').update({ has_password: true }).eq('userid', currentUserId);
+      }
+
+      setPwSuccess(hasPasswordIdentity ? 'Đã đổi mật khẩu thành công!' : 'Đã đặt mật khẩu thành công! Giờ Sen có thể đăng nhập bằng số điện thoại + mật khẩu này.');
+      setHasPasswordIdentity(true); // từ giờ chuyển sang chế độ "đổi mật khẩu"
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPwError(err.message || 'Có lỗi xảy ra khi lưu mật khẩu.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -246,60 +354,99 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Tỉnh / Thành phố</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none"
-                    value={selectedProvince.code}
-                    onChange={(e) => {
-                      setSelectedProvince({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text });
+                  <GlassSelect
+                    id="edit-profile-province"
+                    label="Tỉnh / Thành phố"
+                    themeColor="pink"
+                    placeholder="Chọn Tỉnh/Thành"
+                    allowClear={false}
+                    options={provinces.map((p: any) => ({ value: p.code, label: p.name }))}
+                    selectedValue={selectedProvince.code || null}
+                    onChange={(val) => {
+                      const match = provinces.find((p: any) => p.code === val);
+                      setSelectedProvince({ code: val || '', name: match?.name || '' });
                       setSelectedDistrict({ code: '', name: '' });
                       setSelectedWard({ code: '', name: '' });
                     }}
-                  >
-                    <option value="">Chọn Tỉnh/Thành</option>
-                    {provinces.map(p => (
-                      <option key={p.code} value={p.code}>{p.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Quận / Huyện</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
-                    value={selectedDistrict.code}
-                    onChange={(e) => {
-                      setSelectedDistrict({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text });
+                  <GlassSelect
+                    id="edit-profile-district"
+                    label="Quận / Huyện"
+                    themeColor="pink"
+                    placeholder="Chọn Quận/Huyện"
+                    allowClear={false}
+                    disabled={!selectedProvince.code}
+                    options={districts.map((d: any) => ({ value: d.code, label: d.name }))}
+                    selectedValue={selectedDistrict.code || null}
+                    onChange={(val) => {
+                      const match = districts.find((d: any) => d.code === val);
+                      setSelectedDistrict({ code: val || '', name: match?.name || '' });
                       setSelectedWard({ code: '', name: '' });
                     }}
-                    disabled={!selectedProvince.code}
-                  >
-                    <option value="">Chọn Quận/Huyện</option>
-                    {districts.map(d => (
-                      <option key={d.code} value={d.code}>{d.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Phường / Xã</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
-                    value={selectedWard.code}
-                    onChange={(e) => setSelectedWard({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text })}
+                  <GlassSelect
+                    id="edit-profile-ward"
+                    label="Phường / Xã"
+                    themeColor="pink"
+                    placeholder="Chọn Phường/Xã"
+                    allowClear={false}
                     disabled={!selectedDistrict.code}
-                  >
-                    <option value="">Chọn Phường/Xã</option>
-                    {wards.map(w => (
-                      <option key={w.code} value={w.code}>{w.name}</option>
-                    ))}
-                  </select>
+                    options={wards.map((w: any) => ({ value: w.code, label: w.name }))}
+                    selectedValue={selectedWard.code || null}
+                    onChange={(val) => {
+                      const match = wards.find((w: any) => w.code === val);
+                      setSelectedWard({ code: val || '', name: match?.name || '' });
+                    }}
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Số nhà, tên đường</label>
                 <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({ ...formData, specificAddress: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
+              <h4 className="text-sm font-bold text-stone-700 mb-1 flex items-center gap-2">
+                <span>🔒</span> {hasPasswordIdentity ? 'Đổi mật khẩu' : 'Đặt mật khẩu'}
+              </h4>
+              {!hasPasswordIdentity && (
+                <p className="text-xs text-stone-400 mb-4">
+                  Tài khoản này đang đăng nhập bằng {authProvider === 'google' ? 'Google' : authProvider === 'facebook' ? 'Facebook' : 'mạng xã hội'}, chưa có mật khẩu.
+                  Đặt mật khẩu ở đây để Sen có thể đăng nhập thêm bằng Số điện thoại + Mật khẩu.
+                </p>
+              )}
+              <div className={`grid grid-cols-1 ${hasPasswordIdentity ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 mt-4`}>
+                {hasPasswordIdentity && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Mật khẩu hiện tại</label>
+                    <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Mật khẩu mới</label>
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Nhập lại mật khẩu mới</label>
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                </div>
+              </div>
+
+              {pwError && <div className="text-rose-500 text-sm font-medium text-center bg-rose-50 p-3 rounded-xl mt-4">{pwError}</div>}
+              {pwSuccess && <div className="text-green-600 text-sm font-medium text-center bg-green-50 p-3 rounded-xl mt-4">{pwSuccess}</div>}
+
+              <div className="flex justify-end mt-4">
+                <button type="button" onClick={handleChangePassword} disabled={isChangingPassword} className="px-6 py-3 rounded-xl font-bold text-white shadow-md bg-stone-700 hover:bg-stone-800 disabled:bg-stone-300 transition-all">
+                  {isChangingPassword ? 'Đang lưu...' : hasPasswordIdentity ? 'Đổi mật khẩu' : 'Đặt mật khẩu'}
+                </button>
               </div>
             </div>
 

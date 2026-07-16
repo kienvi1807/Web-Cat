@@ -24,10 +24,70 @@ export default function DashboardHubPage() {
     prevUsers: 0,
   });
 
+  const [extraMetrics, setExtraMetrics] = useState({
+    breederPendingCats: null as number | null,
+    pedigreeMissing: null as number | null,
+    healthAlerts: null as number | null,
+    productsCount: null as number | null,
+    pateExpiring: null as number | null,
+    totalUsersAll: null as number | null,
+    staffCount: null as number | null,
+    pendingBreederUsers: null as number | null,
+    blogsCount: null as number | null,
+  });
+
   // KÉO DỮ LIỆU KHI VÀO TRANG
   useEffect(() => {
     fetchDashboardData();
+    fetchExtraMetrics();
   }, []);
+
+  const fetchExtraMetrics = async () => {
+    const { data: breederUsersList } = await supabase.from('users').select('userid, status').eq('type_id', 3);
+    const breederIds = breederUsersList?.map(u => u.userid) || [];
+
+    let breederPendingCats = 0;
+    if (breederIds.length) {
+      const { data: breederCats } = await supabase.from('cats').select('approval_status').in('breeder_id', breederIds);
+      breederPendingCats = (breederCats || []).filter(c => !c.approval_status || c.approval_status === 'Chờ duyệt').length;
+    }
+
+    const { data: allCatsForPedigree } = await supabase.from('cats').select('has_pedigree, father_id, mother_id');
+    const pedigreeMissing = (allCatsForPedigree || []).filter(c => !c.has_pedigree || !c.father_id || !c.mother_id).length;
+
+    const today = new Date().toISOString().split('T')[0];
+    const { count: healthAlertsCount } = await supabase
+      .from('medicalrecords').select('recordid', { count: 'exact', head: true }).lt('nextduedate', today);
+
+    const { count: productsCount } = await supabase
+      .from('products').select('id', { count: 'exact', head: true }).neq('category', 'Pate tươi (Thủ công)');
+
+    const { data: pateProducts } = await supabase.from('products').select('expiry_date').eq('category', 'Pate tươi (Thủ công)');
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const pateExpiring = (pateProducts || []).filter(p => {
+      if (!p.expiry_date) return false;
+      const expiry = new Date(p.expiry_date); expiry.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays <= 2;
+    }).length;
+
+    const { count: totalUsersAllCount } = await supabase.from('users').select('userid', { count: 'exact', head: true });
+    const { count: staffCountRes } = await supabase.from('users').select('userid', { count: 'exact', head: true }).in('type_id', [1, 2]);
+    const pendingBreederUsers = (breederUsersList || []).filter(u => !u.status || u.status.trim() === '').length;
+    const { count: blogsCountRes } = await supabase.from('blogs').select('id', { count: 'exact', head: true });
+
+    setExtraMetrics({
+      breederPendingCats,
+      pedigreeMissing,
+      healthAlerts: healthAlertsCount || 0,
+      productsCount: productsCount || 0,
+      pateExpiring,
+      totalUsersAll: totalUsersAllCount || 0,
+      staffCount: staffCountRes || 0,
+      pendingBreederUsers,
+      blogsCount: blogsCountRes || 0,
+    });
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -153,17 +213,17 @@ export default function DashboardHubPage() {
       sectionIcon: '🐱',
       items: [
         { name: 'Mèo KinVie Cattery', icon: '🦁', path: '/dashboard/cats/kinvie', color: 'red', colorFrom: 'from-red-400', colorHoverFrom: 'group-hover:from-red-500', labelColor: 'text-red-600 bg-red-50 border-red-200', labelText: `${metrics.totalCats} bé` },
-        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: 'text-orange-500 bg-orange-50 border-orange-200 animate-pulse', labelText: '3 bài chờ duyệt' },
-        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'teal', colorFrom: 'from-teal-400', colorHoverFrom: 'group-hover:from-teal-500', labelColor: 'text-teal-500 bg-teal-50 border-teal-200', labelText: 'Cập nhật' },
-        { name: 'Sức khỏe & Sinh sản', icon: '🩺', path: '/dashboard/cats/health', color: 'rose', colorFrom: 'from-rose-400', colorHoverFrom: 'group-hover:from-rose-500', labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse', labelText: '2 cảnh báo' },
+        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: `text-orange-500 bg-orange-50 border-orange-200${extraMetrics.breederPendingCats ? ' animate-pulse' : ''}`, labelText: extraMetrics.breederPendingCats === null ? '...' : `${extraMetrics.breederPendingCats} bài chờ duyệt` },
+        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'teal', colorFrom: 'from-teal-400', colorHoverFrom: 'group-hover:from-teal-500', labelColor: 'text-teal-500 bg-teal-50 border-teal-200', labelText: extraMetrics.pedigreeMissing === null ? '...' : extraMetrics.pedigreeMissing > 0 ? `${extraMetrics.pedigreeMissing} thiếu phả hệ` : 'Đầy đủ' },
+        { name: 'Sức khỏe & Sinh sản', icon: '🩺', path: '/dashboard/cats/health', color: 'rose', colorFrom: 'from-rose-400', colorHoverFrom: 'group-hover:from-rose-500', labelColor: `text-rose-600 bg-rose-50 border-rose-200${extraMetrics.healthAlerts ? ' animate-pulse' : ''}`, labelText: extraMetrics.healthAlerts === null ? '...' : `${extraMetrics.healthAlerts} cảnh báo` },
       ]
     },
     {
       sectionTitle: 'Beam Petshop',
       sectionIcon: '🛍️',
       items: [
-        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: '156 Sản phẩm' },
-        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse', labelText: '2 mẻ cận date' },
+        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: extraMetrics.productsCount === null ? '...' : `${extraMetrics.productsCount} Sản phẩm` },
+        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: `text-pink-600 bg-pink-50 border-pink-200${extraMetrics.pateExpiring ? ' animate-pulse' : ''}`, labelText: extraMetrics.pateExpiring === null ? '...' : `${extraMetrics.pateExpiring} mẻ cận date` },
       ]
     },
     {
@@ -172,7 +232,7 @@ export default function DashboardHubPage() {
       items: [
         { name: 'Quản lý Đơn hàng', icon: '📦', path: '/dashboard/operations/orders', color: 'blue', colorFrom: 'from-blue-400', colorHoverFrom: 'group-hover:from-blue-500', labelColor: 'text-blue-600 bg-blue-50 border-blue-200', labelText: `${metrics.pendingOrders} Đơn mới` },
         { name: 'Quản lý Thu/Chi', icon: '💸', path: '/dashboard/operations/finance', color: 'emerald', colorFrom: 'from-emerald-400', colorHoverFrom: 'group-hover:from-emerald-500', labelColor: 'text-emerald-600 bg-emerald-50 border-emerald-200', labelText: 'Cập nhật' },
-        { name: 'Quản lý Nhân sự', icon: '👥', path: '/dashboard/operations/hr', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: '5 Nhân sự' },
+        { name: 'Quản lý Nhân sự', icon: '👥', path: '/dashboard/operations/hr', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: extraMetrics.staffCount === null ? '...' : `${extraMetrics.staffCount} Nhân sự` },
         { name: 'Báo cáo & Phân tích', icon: '📊', path: '/dashboard/operations/reports', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: 'text-amber-600 bg-amber-50 border-amber-200', labelText: 'Xem báo cáo' },
         { name: 'Đánh giá & Khiếu nại', icon: '📣', path: '/dashboard/operations/feedbacks', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: 'Phản hồi ngay' },
       ]
@@ -181,17 +241,17 @@ export default function DashboardHubPage() {
       sectionTitle: 'Tài khoản & Đối tác',
       sectionIcon: '👥',
       items: [
-        { name: 'Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: '128 User' },
-        { name: 'Duyệt Breeder', icon: '🛡️', path: '/dashboard/users/promotions', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: 'text-amber-600 bg-amber-50 border-amber-200', labelText: '5 Đang chạy' },
-        { name: 'Hạng & Tích điểm', icon: '💎', path: '/dashboard/system/blog', color: 'sky', colorFrom: 'from-sky-400', colorHoverFrom: 'group-hover:from-sky-500', labelColor: 'text-sky-600 bg-sky-50 border-sky-200', labelText: '25 Bài viết' },
-        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/system/settings', color: 'violet', colorFrom: 'from-violet-400', colorHoverFrom: 'group-hover:from-violet-500', labelColor: 'text-violet-600 bg-violet-50 border-violet-200', labelText: 'Cấu hình hệ thống' },
+        { name: 'Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: extraMetrics.totalUsersAll === null ? '...' : `${extraMetrics.totalUsersAll} User` },
+        { name: 'Duyệt Breeder', icon: '🛡️', path: '/dashboard/users/breeders', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: `text-amber-600 bg-amber-50 border-amber-200${extraMetrics.pendingBreederUsers ? ' animate-pulse' : ''}`, labelText: extraMetrics.pendingBreederUsers === null ? '...' : `${extraMetrics.pendingBreederUsers} Yêu cầu` },
+        { name: 'Hạng & Tích điểm', icon: '💎', path: '/dashboard/users/ranks', color: 'sky', colorFrom: 'from-sky-400', colorHoverFrom: 'group-hover:from-sky-500', labelColor: 'text-sky-600 bg-sky-50 border-sky-200', labelText: 'Cấu hình VIP' },
+        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/users/promotions', color: 'violet', colorFrom: 'from-violet-400', colorHoverFrom: 'group-hover:from-violet-500', labelColor: 'text-violet-600 bg-violet-50 border-violet-200', labelText: 'Sắp ra mắt' },
       ]
     },
     {
       sectionTitle: 'Hệ thống & Nội dung',
       sectionIcon: '⚙️',
       items: [
-        { name: 'Quản lý Blog & Tin tức', icon: '📝', path: '/dashboard/users/list', color: 'indigo', colorFrom: 'from-indigo-400', colorHoverFrom: 'group-hover:from-indigo-500', labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200', labelText: '128 User' },
+        { name: 'Quản lý Blog & Tin tức', icon: '📝', path: '/dashboard/system/blog', color: 'indigo', colorFrom: 'from-indigo-400', colorHoverFrom: 'group-hover:from-indigo-500', labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200', labelText: extraMetrics.blogsCount === null ? '...' : `${extraMetrics.blogsCount} Bài viết` },
         { name: ' Cài đặt giao diện', icon: '🎨', path: '/dashboard/system/settings', color: 'slate', colorFrom: 'from-slate-400', colorHoverFrom: 'group-hover:from-slate-500', labelColor: 'text-slate-600 bg-slate-50 border-slate-200', labelText: 'Cấu hình hệ thống' },
       ]
     }

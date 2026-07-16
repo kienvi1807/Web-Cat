@@ -27,6 +27,7 @@ export default function ProfilePage() {
   const ordersPerPage = 5;
 
   const [draggedPetId, setDraggedPetId] = useState<number | null>(null);
+  const [dragOverPetId, setDragOverPetId] = useState<number | null>(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   // State chứa dữ liệu thật từ Database
@@ -78,7 +79,7 @@ export default function ProfilePage() {
       .from('users')
       .select(`*, type_users (role, rank_name)`)
       .eq('email', session.user.email)
-      .single();
+      .maybeSingle();
 
     if (dbUser) {
       const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
@@ -198,8 +199,15 @@ export default function ProfilePage() {
     if (!phone) { alert("Sen nhập số điện thoại của người muốn set gia đình đi đã!"); return; }
     setIsSendingFamilyRequest(true);
     try {
-      const { data: targetUser } = await supabase.from('users').select('userid, fullname, phone').eq('phone', phone).maybeSingle();
-      if (!targetUser) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      const res = await fetch('/api/family/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const lookupData = await res.json();
+      if (!res.ok) { alert("Lỗi khi tìm số điện thoại. Vui lòng thử lại!"); return; }
+      if (!lookupData.exists) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      const targetUser = lookupData.user;
       if (targetUser.userid === userData.userid) { alert("Sen không thể tự set gia đình với chính mình đâu 😅"); return; }
 
       const { data: existing } = await supabase
@@ -216,7 +224,7 @@ export default function ProfilePage() {
       const { error } = await supabase.from('family_connections').insert([{ requester_id: userData.userid, receiver_id: targetUser.userid, status: 'pending' }]);
       if (error) throw error;
 
-      await supabase.from('notifications').insert([{
+      const { error: notifError } = await supabase.from('notifications').insert([{
         user_id: targetUser.userid,
         title: 'Yêu cầu set gia đình',
         content: `${userData.name} muốn set gia đình với Sen. Vào trang cá nhân để đồng ý hoặc từ chối nhé!`,
@@ -226,7 +234,13 @@ export default function ProfilePage() {
         actor_id: userData.userid
       }]);
 
-      alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      if (notifError) {
+        console.error('Lỗi gửi thông báo family_request:', notifError);
+        // Request family_connections đã tạo thành công, chỉ noti bị lỗi -> vẫn báo cho Sen biết
+        alert(`Đã gửi yêu cầu tới ${targetUser.fullname}, nhưng hệ thống thông báo đang gặp lỗi, Sen ấy có thể chưa thấy chuông báo (vẫn thấy khi Sen ấy tự vào trang cá nhân).`);
+      } else {
+        alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      }
       setFamilyPhoneInput('');
       setIsFamilyModalOpen(false);
       fetchUserData(false);
@@ -242,7 +256,8 @@ export default function ProfilePage() {
     try {
       const { error } = await supabase.from('family_connections').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', req.connectionId);
       if (error) throw error;
-      await supabase.from('notifications').insert([{
+
+      const { error: notifError } = await supabase.from('notifications').insert([{
         user_id: req.userid,
         title: 'Yêu cầu gia đình được đồng ý',
         content: `${userData.name} đã đồng ý set gia đình với Sen rồi đó!`,
@@ -250,6 +265,11 @@ export default function ProfilePage() {
         link: '/profile',
         actor_id: userData.userid
       }]);
+
+      if (notifError) {
+        console.error('Lỗi gửi thông báo family_accepted:', notifError);
+      }
+
       await fetchUserData(false);
     } catch (err) {
       alert("Lỗi khi đồng ý yêu cầu. Vui lòng thử lại!");
@@ -321,26 +341,52 @@ export default function ProfilePage() {
   };
 
   // 🎯 KÉO THẢ: khi thả 1 con mèo vào vị trí con khác -> đổi chỗ tạm trên UI
-  const handleDropPet = (targetPetId: number) => {
-    if (draggedPetId === null || draggedPetId === targetPetId) return;
+  const handleDropPet = (targetPetId: number | null) => {
+    const sourcePetId = draggedPetId;
+    setDraggedPetId(null);
+    setDragOverPetId(null);
+
+    if (sourcePetId === null || targetPetId === null || sourcePetId === targetPetId) return;
 
     setUserData(prev => {
       const list = [...prev.pets];
-      const fromIndex = list.findIndex(p => p.petid === draggedPetId);
+      const fromIndex = list.findIndex(p => p.petid === sourcePetId);
       const toIndex = list.findIndex(p => p.petid === targetPetId);
       if (fromIndex === -1 || toIndex === -1) return prev;
 
       const [moved] = list.splice(fromIndex, 1);
       list.splice(toIndex, 0, moved);
 
-      // Lưu thứ tự mới xuống DB (không chờ UI, chạy ngầm)
       saveNewPetOrder(list);
 
       return { ...prev, pets: list };
     });
-
-    setDraggedPetId(null);
   };
+
+  // 🎯 Theo dõi con trỏ/ngón tay khi đang kéo (dùng Pointer Events — chạy được cả chuột lẫn cảm ứng)
+  useEffect(() => {
+    if (draggedPetId === null) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cardEl = el?.closest('[data-pet-card-id]') as HTMLElement | null;
+      setDragOverPetId(cardEl ? Number(cardEl.dataset.petCardId) : null);
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cardEl = el?.closest('[data-pet-card-id]') as HTMLElement | null;
+      handleDropPet(cardEl ? Number(cardEl.dataset.petCardId) : null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [draggedPetId]);
 
   // 🎯 Lưu thứ tự mới xuống Supabase (mỗi con 1 số display_order tăng dần)
   const saveNewPetOrder = async (orderedPets: any[]) => {
@@ -523,12 +569,18 @@ export default function ProfilePage() {
                 {userData.pets.map(pet => (
                   <div
                     key={pet.petid}
-                    draggable
-                    onDragStart={() => setDraggedPetId(pet.petid)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => handleDropPet(pet.petid)}
-                    className={`relative group cursor-move transition-opacity ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'}`}
+                    data-pet-card-id={pet.petid}
+                    className={`relative group transition-all ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'} ${dragOverPetId === pet.petid && draggedPetId !== null && draggedPetId !== pet.petid ? 'ring-2 ring-pink-400 rounded-2xl' : ''}`}
                   >
+                    {/* Tay cầm kéo thả riêng — không nằm trong Link nên không bị nhảy trang khi kéo */}
+                    <div
+                      onPointerDown={(e) => { e.preventDefault(); setDraggedPetId(pet.petid); }}
+                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-white/90 border border-stone-200 flex items-center justify-center text-stone-400 cursor-grab active:cursor-grabbing touch-none select-none shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Giữ để kéo sắp xếp"
+                    >
+                      ⠿
+                    </div>
+
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">

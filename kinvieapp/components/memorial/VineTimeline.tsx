@@ -102,10 +102,10 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                         <div
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
-                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
-                                ${isLeft
-                                    ? 'left-[calc(50%+7rem)] sm:left-[calc(50%+8rem)] md:left-[calc(50%+9.5rem)] lg:left-[calc(50%+11rem)] xl:left-[calc(50%+12.5rem)]'
-                                    : 'right-[calc(50%+7rem)] sm:right-[calc(50%+8rem)] md:right-[calc(50%+9.5rem)] lg:right-[calc(50%+11rem)] xl:right-[calc(50%+12.5rem)]'}`}
+                                    w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
+                                    ${isLeft
+                                    ? 'left-[calc(50%+7rem)] sm:left-[calc(50%+8rem)] md:left-[calc(50%+9.5rem)] lg:left-[calc(50%+16rem)] xl:left-[calc(50%+17rem)]'
+                                    : 'right-[calc(50%+7rem)] sm:right-[calc(50%+8rem)] md:right-[calc(50%+9.5rem)] lg:right-[calc(50%+16rem)] xl:right-[calc(50%+17rem)]'}`}
                             style={{ top: `${topPercent}%`, transform: `translateY(-50%) rotate(${rotate}deg)` }}
                         >
                             <Image src={p.image_url} alt="" fill sizes="208px" className="object-cover" />

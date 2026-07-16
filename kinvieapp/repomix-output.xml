@@ -45,6 +45,9 @@ app/
     auth/
       lookup-phone/
         route.ts
+    family/
+      lookup-phone/
+        route.ts
     pets/
       route.ts
     users/
@@ -281,6 +284,33 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ exists: true, email: user.email, isSocialAccount })
 
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+}
+</file>
+
+<file path="app/api/family/lookup-phone/route.ts">
+import { NextResponse } from 'next/server'
+import { supabaseAdmin } from '@/lib/supabase-admin'
+
+export async function POST(request: Request) {
+  try {
+    const { phone } = await request.json()
+    if (!phone) {
+      return NextResponse.json({ error: 'Thiếu số điện thoại' }, { status: 400 })
+    }
+
+    const { data: user, error } = await supabaseAdmin
+      .from('users')
+      .select('userid, fullname, phone')
+      .eq('phone', phone)
+      .maybeSingle()
+
+    if (error) throw error
+    if (!user) return NextResponse.json({ exists: false })
+
+    return NextResponse.json({ exists: true, user })
   } catch (error: any) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
@@ -5819,9 +5849,50 @@ export default function PedigreeExplorerPage() {
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function CatsHubPage() {
-  
+  const [counts, setCounts] = useState({
+    kinvie: null as number | null,
+    breederPending: null as number | null,
+    pedigreeMissing: null as number | null,
+    healthAlerts: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { data: bossUsers } = await supabase.from('users').select('userid').eq('type_id', 1);
+      const { data: breederUsers } = await supabase.from('users').select('userid').eq('type_id', 3);
+      const bossIds = bossUsers?.map(u => u.userid) || [];
+      const breederIds = breederUsers?.map(u => u.userid) || [];
+
+      const { count: kinvieCount } = await supabase
+        .from('cats').select('id', { count: 'exact', head: true }).in('breeder_id', bossIds.length ? bossIds : [-1]);
+
+      let breederPendingCount = 0;
+      if (breederIds.length) {
+        const { data: breederCats } = await supabase.from('cats').select('approval_status').in('breeder_id', breederIds);
+        breederPendingCount = (breederCats || []).filter(c => !c.approval_status || c.approval_status === 'Chờ duyệt').length;
+      }
+
+      const { data: pedigreeCats } = await supabase.from('cats').select('has_pedigree, father_id, mother_id');
+      const pedigreeMissing = (pedigreeCats || []).filter(c => !c.has_pedigree || !c.father_id || !c.mother_id).length;
+
+      const today = new Date().toISOString().split('T')[0];
+      const { count: healthAlertCount } = await supabase
+        .from('medicalrecords').select('recordid', { count: 'exact', head: true }).lt('nextduedate', today);
+
+      setCounts({
+        kinvie: kinvieCount || 0,
+        breederPending: breederPendingCount,
+        pedigreeMissing,
+        healthAlerts: healthAlertCount || 0,
+      });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH 4 CHỨC NĂNG CHÍNH CỦA CATTERY
   const catModules = [
     {
@@ -5833,7 +5904,7 @@ export default function CatsHubPage() {
       colorFrom: 'from-red-400',
       colorHoverFrom: 'group-hover:from-red-500',
       labelColor: 'text-red-600 bg-red-50 border-red-200',
-      labelText: '08 bé'
+      labelText: counts.kinvie === null ? '...' : `${String(counts.kinvie).padStart(2, '0')} bé`
     },
     {
       name: 'Mèo của Breeder',
@@ -5843,8 +5914,8 @@ export default function CatsHubPage() {
       color: 'orange',
       colorFrom: 'from-orange-400',
       colorHoverFrom: 'group-hover:from-orange-500',
-      labelColor: 'text-orange-500 bg-orange-50 border-orange-200 animate-pulse',
-      labelText: '3 bài chờ duyệt'
+      labelColor: `text-orange-500 bg-orange-50 border-orange-200${counts.breederPending ? ' animate-pulse' : ''}`,
+      labelText: counts.breederPending === null ? '...' : `${counts.breederPending} bài chờ duyệt`
     },
     {
       name: 'Quản lý Phả hệ',
@@ -5854,8 +5925,8 @@ export default function CatsHubPage() {
       color: 'teal',
       colorFrom: 'from-teal-400',
       colorHoverFrom: 'group-hover:from-teal-500',
-      labelColor: 'text-teal-500 bg-teal-50 border-teal-200 animate-pulse',
-      labelText: 'Cập nhật'
+      labelColor: `text-teal-500 bg-teal-50 border-teal-200${counts.pedigreeMissing ? ' animate-pulse' : ''}`,
+      labelText: counts.pedigreeMissing === null ? '...' : counts.pedigreeMissing > 0 ? `${counts.pedigreeMissing} thiếu phả hệ` : 'Đầy đủ'
     },
     {
       name: 'Sức khỏe & Sinh sản',
@@ -5865,14 +5936,14 @@ export default function CatsHubPage() {
       color: 'rose',
       colorFrom: 'from-rose-400',
       colorHoverFrom: 'group-hover:from-rose-500',
-      labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse',
-      labelText: '2 cảnh báo'
+      labelColor: `text-rose-600 bg-rose-50 border-rose-200${counts.healthAlerts ? ' animate-pulse' : ''}`,
+      labelText: counts.healthAlerts === null ? '...' : `${counts.healthAlerts} cảnh báo`
     },
   ];
 
   return (
     <div className="space-y-10 animate-fade-in max-w-[1300px] mx-auto pb-16">
-      
+
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-2xl sm:text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
@@ -5883,7 +5954,7 @@ export default function CatsHubPage() {
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
       <div className="relative group/section">
-        
+
         {/* Lớp Hào Quang Tỏa Ra Phía Sau */}
         <div className="absolute -inset-4 bg-gradient-to-r from-red-500/0 via-red-400/10 to-amber-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -5895,37 +5966,37 @@ export default function CatsHubPage() {
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-red-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+            <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-red-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
-            
+
             {catModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
-                
+
                 {/* Lớp sáng neon tỏa ra từ thẻ con */}
                 <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                
+
                 {/* Nội dung thẻ con */}
                 <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                  
+
                   {/* Icon */}
                   <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
-                  
+
                   {/* Tiêu đề */}
                   <h3 className={`text-[16px] font-black ${item.name === 'Mèo của Breeder' ? 'text-orange-700' : `text-${item.color}-600`} mb-2 tracking-wide`}>
                     {item.name}
                   </h3>
-                  
+
                   {/* Mô tả */}
                   <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
-                  
+
                   {/* Khu vực Nhãn (Badge) Căn Giữa - Xóa Nút Bấm */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
                     <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
@@ -8757,9 +8828,28 @@ export default function ReportsPage() {
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function OperationsHubPage() {
-  
+  const [counts, setCounts] = useState({
+    newOrders: null as number | null,
+    staff: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: newOrdersCount } = await supabase
+        .from('orders').select('orderid', { count: 'exact', head: true }).eq('orderstatus', 'Đã đặt hàng');
+
+      const { count: staffCount } = await supabase
+        .from('users').select('userid', { count: 'exact', head: true }).in('type_id', [1, 2]);
+
+      setCounts({ newOrders: newOrdersCount || 0, staff: staffCount || 0 });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH 4 CHỨC NĂNG VẬN HÀNH CHÍNH (Đã dọn dẹp các biến thừa của nút bấm)
   const operationModules = [
     {
@@ -8771,7 +8861,7 @@ export default function OperationsHubPage() {
       colorFrom: 'from-blue-400',
       colorHoverFrom: 'group-hover:from-blue-500',
       labelColor: 'text-blue-600 bg-blue-50 border-blue-200',
-      labelText: '12 Đơn mới'
+      labelText: counts.newOrders === null ? '...' : `${counts.newOrders} Đơn mới`
     },
     {
       name: 'Quản lý Thu/Chi',
@@ -8793,7 +8883,7 @@ export default function OperationsHubPage() {
       colorFrom: 'from-purple-400',
       colorHoverFrom: 'group-hover:from-purple-500',
       labelColor: 'text-purple-600 bg-purple-50 border-purple-200',
-      labelText: '5 Nhân sự'
+      labelText: counts.staff === null ? '...' : `${counts.staff} Nhân sự`
     },
     {
       name: 'Báo cáo & Phân tích',
@@ -10526,9 +10616,38 @@ export default function ProductsPage() {
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function PetshopHubPage() {
-  
+  const [counts, setCounts] = useState({
+    products: null as number | null,
+    pateExpiring: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: totalCount } = await supabase
+        .from('products').select('id', { count: 'exact', head: true }).neq('category', 'Pate tươi (Thủ công)');
+
+      const { data: pateProducts } = await supabase
+        .from('products').select('expiry_date').eq('category', 'Pate tươi (Thủ công)');
+
+      const now = new Date();
+      now.setHours(0, 0, 0, 0);
+      const pateExpiringCount = (pateProducts || []).filter(p => {
+        if (!p.expiry_date) return false;
+        const expiry = new Date(p.expiry_date);
+        expiry.setHours(0, 0, 0, 0);
+        const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+        return diffDays <= 2;
+      }).length;
+
+      setCounts({ products: totalCount || 0, pateExpiring: pateExpiringCount });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH CHỨC NĂNG CỦA PETSHOP (Đã dọn dẹp các biến thừa của nút bấm)
   const petshopModules = [
     {
@@ -10540,7 +10659,7 @@ export default function PetshopHubPage() {
       colorFrom: 'from-fuchsia-400',
       colorHoverFrom: 'group-hover:from-fuchsia-500',
       labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200 animate-pulse',
-      labelText: '156 Sản phẩm'
+      labelText: counts.products === null ? '...' : `${counts.products} Sản phẩm`
     },
     {
       name: 'Quản lý Pate tươi',
@@ -10550,8 +10669,8 @@ export default function PetshopHubPage() {
       color: 'pink',
       colorFrom: 'from-pink-400',
       colorHoverFrom: 'group-hover:from-pink-500',
-      labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse',
-      labelText: '2 mẻ cận date'
+      labelColor: `text-pink-600 bg-pink-50 border-pink-200${counts.pateExpiring ? ' animate-pulse' : ''}`,
+      labelText: counts.pateExpiring === null ? '...' : `${counts.pateExpiring} mẻ cận date`
     }
   ];
 
@@ -12539,9 +12658,29 @@ export default function RankManagementPage() {
 
 import React from 'react';
 import Link from 'next/link';
+import { useState, useEffect } from 'react';
+import { supabase } from '@/lib/supabase';
 
 export default function UsersHubPage() {
-  
+  const [counts, setCounts] = useState({
+    totalUsers: null as number | null,
+    pendingBreeders: null as number | null,
+  });
+
+  useEffect(() => {
+    const fetchCounts = async () => {
+      const { count: totalUsersCount } = await supabase
+        .from('users').select('userid', { count: 'exact', head: true });
+
+      const { data: breederRows } = await supabase
+        .from('users').select('status').eq('type_id', 3);
+      const pendingBreedersCount = (breederRows || []).filter(u => !u.status || u.status.trim() === '').length;
+
+      setCounts({ totalUsers: totalUsersCount || 0, pendingBreeders: pendingBreedersCount });
+    };
+    fetchCounts();
+  }, []);
+
   // 🎯 DANH SÁCH 4 CHỨC NĂNG QUẢN LÝ TÀI KHOẢN & CRM (Đã dọn biến nút bấm)
   const userModules = [
     {
@@ -12553,7 +12692,7 @@ export default function UsersHubPage() {
       colorFrom: 'from-cyan-400',
       colorHoverFrom: 'group-hover:from-cyan-500',
       labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200',
-      labelText: '128 User'
+      labelText: counts.totalUsers === null ? '...' : `${counts.totalUsers} User`
     },
     {
       name: 'Duyệt Breeder',
@@ -12563,8 +12702,8 @@ export default function UsersHubPage() {
       titleColor: 'text-amber-600',
       colorFrom: 'from-amber-400',
       colorHoverFrom: 'group-hover:from-amber-500',
-      labelColor: 'text-amber-600 bg-amber-50 border-amber-200 animate-pulse',
-      labelText: '2 Yêu cầu'
+      labelColor: `text-amber-600 bg-amber-50 border-amber-200${counts.pendingBreeders ? ' animate-pulse' : ''}`,
+      labelText: counts.pendingBreeders === null ? '...' : `${counts.pendingBreeders} Yêu cầu`
     },
     {
       name: 'Hạng & Tích điểm',
@@ -12586,13 +12725,13 @@ export default function UsersHubPage() {
       colorFrom: 'from-violet-400',
       colorHoverFrom: 'group-hover:from-violet-500',
       labelColor: 'text-violet-600 bg-violet-50 border-violet-200',
-      labelText: '5 Đang chạy'
+      labelText: 'Sắp ra mắt'
     }
   ];
 
   return (
     <div className="space-y-10 animate-fade-in max-w-[1300px] mx-auto pb-16">
-      
+
       {/* HEADER */}
       <div className="text-center mb-8">
         <h1 className="text-4xl font-serif font-black text-stone-800 flex items-center justify-center gap-3">
@@ -12603,7 +12742,7 @@ export default function UsersHubPage() {
 
       {/* 🎯 KHỐI CONTAINER CHÍNH CÓ HIỆU ỨNG GLASSMORPHISM & LASER */}
       <div className="relative group/section">
-        
+
         {/* Lớp Hào Quang Tỏa Ra Phía Sau (Màu Cyan/Xanh lam nhạt) */}
         <div className="absolute -inset-4 bg-gradient-to-r from-cyan-500/0 via-cyan-400/10 to-blue-500/0 rounded-[3.5rem] blur-2xl opacity-0 group-hover/section:opacity-100 transition-opacity duration-1000 -z-10"></div>
 
@@ -12615,37 +12754,37 @@ export default function UsersHubPage() {
 
           {/* Vệt Laser quét ngang viền trên khi hover */}
           <div className="absolute top-0 left-0 w-full h-[3px] opacity-0 group-hover/section:opacity-100 transition-opacity duration-500 overflow-hidden pointer-events-none">
-             <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
+            <div className="w-[100%] h-full bg-gradient-to-r from-transparent via-cyan-500 to-transparent -translate-x-full group-hover/section:translate-x-full transition-transform duration-[1500ms] ease-in-out"></div>
           </div>
 
           {/* GRID CHỨA 4 THẺ (CARDS) */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 relative z-10">
-            
+
             {userModules.map((item) => (
               <Link href={item.path} key={item.name} className="relative group block h-full">
-                
+
                 {/* Lớp sáng neon tỏa ra từ thẻ con */}
                 <div className={`absolute -inset-[2px] bg-gradient-to-b ${item.colorFrom} via-transparent to-transparent rounded-3xl blur-[10px] opacity-20 group-hover:opacity-100 ${item.colorHoverFrom} transition-all duration-500`}></div>
                 <div className={`absolute -inset-[1px] bg-gradient-to-b ${item.colorFrom} to-stone-200/50 rounded-3xl z-0`}></div>
-                
+
                 {/* Nội dung thẻ con */}
                 <div className="relative h-full bg-white/90 backdrop-blur-sm rounded-2xl sm:rounded-3xl p-4 sm:p-6 flex flex-col items-center text-center z-10 shadow-[0_8px_20px_rgb(0,0,0,0.02)] border border-white">
-                  
+
                   {/* Icon */}
                   <div className="text-4xl sm:text-5xl mb-2 sm:mb-4 group-hover:scale-110 transition-transform duration-500 drop-shadow-sm">
                     {item.icon}
                   </div>
-                  
+
                   {/* Tiêu đề */}
                   <h3 className={`text-[16px] font-black ${item.titleColor} mb-2 tracking-wide`}>
                     {item.name}
                   </h3>
-                  
+
                   {/* Mô tả */}
                   <p className="text-xs text-stone-500 mb-3 sm:mb-6 flex-1 leading-relaxed px-1">
                     {item.description}
                   </p>
-                  
+
                   {/* Khu vực Nhãn (Badge) Căn Giữa - ĐÃ XÓA NÚT */}
                   <div className="w-full flex justify-center items-center mt-auto pt-5 border-t border-stone-100/80">
                     <span className={`${item.labelColor} border font-black px-3 sm:px-5 py-1.5 sm:py-2 rounded-xl text-[10px] uppercase tracking-widest shadow-sm group-hover:scale-105 transition-transform duration-300`}>
@@ -12866,10 +13005,70 @@ export default function DashboardHubPage() {
     prevUsers: 0,
   });
 
+  const [extraMetrics, setExtraMetrics] = useState({
+    breederPendingCats: null as number | null,
+    pedigreeMissing: null as number | null,
+    healthAlerts: null as number | null,
+    productsCount: null as number | null,
+    pateExpiring: null as number | null,
+    totalUsersAll: null as number | null,
+    staffCount: null as number | null,
+    pendingBreederUsers: null as number | null,
+    blogsCount: null as number | null,
+  });
+
   // KÉO DỮ LIỆU KHI VÀO TRANG
   useEffect(() => {
     fetchDashboardData();
+    fetchExtraMetrics();
   }, []);
+
+  const fetchExtraMetrics = async () => {
+    const { data: breederUsersList } = await supabase.from('users').select('userid, status').eq('type_id', 3);
+    const breederIds = breederUsersList?.map(u => u.userid) || [];
+
+    let breederPendingCats = 0;
+    if (breederIds.length) {
+      const { data: breederCats } = await supabase.from('cats').select('approval_status').in('breeder_id', breederIds);
+      breederPendingCats = (breederCats || []).filter(c => !c.approval_status || c.approval_status === 'Chờ duyệt').length;
+    }
+
+    const { data: allCatsForPedigree } = await supabase.from('cats').select('has_pedigree, father_id, mother_id');
+    const pedigreeMissing = (allCatsForPedigree || []).filter(c => !c.has_pedigree || !c.father_id || !c.mother_id).length;
+
+    const today = new Date().toISOString().split('T')[0];
+    const { count: healthAlertsCount } = await supabase
+      .from('medicalrecords').select('recordid', { count: 'exact', head: true }).lt('nextduedate', today);
+
+    const { count: productsCount } = await supabase
+      .from('products').select('id', { count: 'exact', head: true }).neq('category', 'Pate tươi (Thủ công)');
+
+    const { data: pateProducts } = await supabase.from('products').select('expiry_date').eq('category', 'Pate tươi (Thủ công)');
+    const now = new Date(); now.setHours(0, 0, 0, 0);
+    const pateExpiring = (pateProducts || []).filter(p => {
+      if (!p.expiry_date) return false;
+      const expiry = new Date(p.expiry_date); expiry.setHours(0, 0, 0, 0);
+      const diffDays = Math.ceil((expiry.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+      return diffDays <= 2;
+    }).length;
+
+    const { count: totalUsersAllCount } = await supabase.from('users').select('userid', { count: 'exact', head: true });
+    const { count: staffCountRes } = await supabase.from('users').select('userid', { count: 'exact', head: true }).in('type_id', [1, 2]);
+    const pendingBreederUsers = (breederUsersList || []).filter(u => !u.status || u.status.trim() === '').length;
+    const { count: blogsCountRes } = await supabase.from('blogs').select('id', { count: 'exact', head: true });
+
+    setExtraMetrics({
+      breederPendingCats,
+      pedigreeMissing,
+      healthAlerts: healthAlertsCount || 0,
+      productsCount: productsCount || 0,
+      pateExpiring,
+      totalUsersAll: totalUsersAllCount || 0,
+      staffCount: staffCountRes || 0,
+      pendingBreederUsers,
+      blogsCount: blogsCountRes || 0,
+    });
+  };
 
   const fetchDashboardData = async () => {
     setIsLoading(true);
@@ -12995,17 +13194,17 @@ export default function DashboardHubPage() {
       sectionIcon: '🐱',
       items: [
         { name: 'Mèo KinVie Cattery', icon: '🦁', path: '/dashboard/cats/kinvie', color: 'red', colorFrom: 'from-red-400', colorHoverFrom: 'group-hover:from-red-500', labelColor: 'text-red-600 bg-red-50 border-red-200', labelText: `${metrics.totalCats} bé` },
-        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: 'text-orange-500 bg-orange-50 border-orange-200 animate-pulse', labelText: '3 bài chờ duyệt' },
-        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'teal', colorFrom: 'from-teal-400', colorHoverFrom: 'group-hover:from-teal-500', labelColor: 'text-teal-500 bg-teal-50 border-teal-200', labelText: 'Cập nhật' },
-        { name: 'Sức khỏe & Sinh sản', icon: '🩺', path: '/dashboard/cats/health', color: 'rose', colorFrom: 'from-rose-400', colorHoverFrom: 'group-hover:from-rose-500', labelColor: 'text-rose-600 bg-rose-50 border-rose-200 animate-pulse', labelText: '2 cảnh báo' },
+        { name: 'Mèo của Breeder', icon: '🤝', path: '/dashboard/cats/breeders', color: 'orange', colorFrom: 'from-orange-400', colorHoverFrom: 'group-hover:from-orange-500', labelColor: `text-orange-500 bg-orange-50 border-orange-200${extraMetrics.breederPendingCats ? ' animate-pulse' : ''}`, labelText: extraMetrics.breederPendingCats === null ? '...' : `${extraMetrics.breederPendingCats} bài chờ duyệt` },
+        { name: 'Quản lý Phả hệ', icon: '🌳', path: '/dashboard/cats/pedigree', color: 'teal', colorFrom: 'from-teal-400', colorHoverFrom: 'group-hover:from-teal-500', labelColor: 'text-teal-500 bg-teal-50 border-teal-200', labelText: extraMetrics.pedigreeMissing === null ? '...' : extraMetrics.pedigreeMissing > 0 ? `${extraMetrics.pedigreeMissing} thiếu phả hệ` : 'Đầy đủ' },
+        { name: 'Sức khỏe & Sinh sản', icon: '🩺', path: '/dashboard/cats/health', color: 'rose', colorFrom: 'from-rose-400', colorHoverFrom: 'group-hover:from-rose-500', labelColor: `text-rose-600 bg-rose-50 border-rose-200${extraMetrics.healthAlerts ? ' animate-pulse' : ''}`, labelText: extraMetrics.healthAlerts === null ? '...' : `${extraMetrics.healthAlerts} cảnh báo` },
       ]
     },
     {
       sectionTitle: 'Beam Petshop',
       sectionIcon: '🛍️',
       items: [
-        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: '156 Sản phẩm' },
-        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: 'text-pink-600 bg-pink-50 border-pink-200 animate-pulse', labelText: '2 mẻ cận date' },
+        { name: 'Hàng hóa & Phụ kiện', icon: '🧸', path: '/dashboard/petshop/products', color: 'fuchsia', colorFrom: 'from-fuchsia-400', colorHoverFrom: 'group-hover:from-fuchsia-500', labelColor: 'text-fuchsia-600 bg-fuchsia-50 border-fuchsia-200', labelText: extraMetrics.productsCount === null ? '...' : `${extraMetrics.productsCount} Sản phẩm` },
+        { name: 'Quản lý Pate tươi', icon: '🥫', path: '/dashboard/petshop/pate', color: 'pink', colorFrom: 'from-pink-400', colorHoverFrom: 'group-hover:from-pink-500', labelColor: `text-pink-600 bg-pink-50 border-pink-200${extraMetrics.pateExpiring ? ' animate-pulse' : ''}`, labelText: extraMetrics.pateExpiring === null ? '...' : `${extraMetrics.pateExpiring} mẻ cận date` },
       ]
     },
     {
@@ -13014,7 +13213,7 @@ export default function DashboardHubPage() {
       items: [
         { name: 'Quản lý Đơn hàng', icon: '📦', path: '/dashboard/operations/orders', color: 'blue', colorFrom: 'from-blue-400', colorHoverFrom: 'group-hover:from-blue-500', labelColor: 'text-blue-600 bg-blue-50 border-blue-200', labelText: `${metrics.pendingOrders} Đơn mới` },
         { name: 'Quản lý Thu/Chi', icon: '💸', path: '/dashboard/operations/finance', color: 'emerald', colorFrom: 'from-emerald-400', colorHoverFrom: 'group-hover:from-emerald-500', labelColor: 'text-emerald-600 bg-emerald-50 border-emerald-200', labelText: 'Cập nhật' },
-        { name: 'Quản lý Nhân sự', icon: '👥', path: '/dashboard/operations/hr', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: '5 Nhân sự' },
+        { name: 'Quản lý Nhân sự', icon: '👥', path: '/dashboard/operations/hr', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: extraMetrics.staffCount === null ? '...' : `${extraMetrics.staffCount} Nhân sự` },
         { name: 'Báo cáo & Phân tích', icon: '📊', path: '/dashboard/operations/reports', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: 'text-amber-600 bg-amber-50 border-amber-200', labelText: 'Xem báo cáo' },
         { name: 'Đánh giá & Khiếu nại', icon: '📣', path: '/dashboard/operations/feedbacks', color: 'purple', colorFrom: 'from-purple-400', colorHoverFrom: 'group-hover:from-purple-500', labelColor: 'text-purple-600 bg-purple-50 border-purple-200', labelText: 'Phản hồi ngay' },
       ]
@@ -13023,17 +13222,17 @@ export default function DashboardHubPage() {
       sectionTitle: 'Tài khoản & Đối tác',
       sectionIcon: '👥',
       items: [
-        { name: 'Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: '128 User' },
-        { name: 'Duyệt Breeder', icon: '🛡️', path: '/dashboard/users/promotions', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: 'text-amber-600 bg-amber-50 border-amber-200', labelText: '5 Đang chạy' },
-        { name: 'Hạng & Tích điểm', icon: '💎', path: '/dashboard/system/blog', color: 'sky', colorFrom: 'from-sky-400', colorHoverFrom: 'group-hover:from-sky-500', labelColor: 'text-sky-600 bg-sky-50 border-sky-200', labelText: '25 Bài viết' },
-        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/system/settings', color: 'violet', colorFrom: 'from-violet-400', colorHoverFrom: 'group-hover:from-violet-500', labelColor: 'text-violet-600 bg-violet-50 border-violet-200', labelText: 'Cấu hình hệ thống' },
+        { name: 'Tài khoản', icon: '🧑‍💻', path: '/dashboard/users/list', color: 'cyan', colorFrom: 'from-cyan-400', colorHoverFrom: 'group-hover:from-cyan-500', labelColor: 'text-cyan-600 bg-cyan-50 border-cyan-200', labelText: extraMetrics.totalUsersAll === null ? '...' : `${extraMetrics.totalUsersAll} User` },
+        { name: 'Duyệt Breeder', icon: '🛡️', path: '/dashboard/users/breeders', color: 'amber', colorFrom: 'from-amber-400', colorHoverFrom: 'group-hover:from-amber-500', labelColor: `text-amber-600 bg-amber-50 border-amber-200${extraMetrics.pendingBreederUsers ? ' animate-pulse' : ''}`, labelText: extraMetrics.pendingBreederUsers === null ? '...' : `${extraMetrics.pendingBreederUsers} Yêu cầu` },
+        { name: 'Hạng & Tích điểm', icon: '💎', path: '/dashboard/users/ranks', color: 'sky', colorFrom: 'from-sky-400', colorHoverFrom: 'group-hover:from-sky-500', labelColor: 'text-sky-600 bg-sky-50 border-sky-200', labelText: 'Cấu hình VIP' },
+        { name: 'Khuyến mãi', icon: '🎟️', path: '/dashboard/users/promotions', color: 'violet', colorFrom: 'from-violet-400', colorHoverFrom: 'group-hover:from-violet-500', labelColor: 'text-violet-600 bg-violet-50 border-violet-200', labelText: 'Sắp ra mắt' },
       ]
     },
     {
       sectionTitle: 'Hệ thống & Nội dung',
       sectionIcon: '⚙️',
       items: [
-        { name: 'Quản lý Blog & Tin tức', icon: '📝', path: '/dashboard/users/list', color: 'indigo', colorFrom: 'from-indigo-400', colorHoverFrom: 'group-hover:from-indigo-500', labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200', labelText: '128 User' },
+        { name: 'Quản lý Blog & Tin tức', icon: '📝', path: '/dashboard/system/blog', color: 'indigo', colorFrom: 'from-indigo-400', colorHoverFrom: 'group-hover:from-indigo-500', labelColor: 'text-indigo-600 bg-indigo-50 border-indigo-200', labelText: extraMetrics.blogsCount === null ? '...' : `${extraMetrics.blogsCount} Bài viết` },
         { name: ' Cài đặt giao diện', icon: '🎨', path: '/dashboard/system/settings', color: 'slate', colorFrom: 'from-slate-400', colorHoverFrom: 'group-hover:from-slate-500', labelColor: 'text-slate-600 bg-slate-50 border-slate-200', labelText: 'Cấu hình hệ thống' },
       ]
     }
@@ -16777,6 +16976,7 @@ import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import { supabase } from '@/lib/supabase';
 import { useLoadingStore } from '@/store/useLoadingStore';
+import GlassSelect from '@/components/ui/GlassSelect';
 
 export default function EditProfilePage() {
   const router = useRouter();
@@ -16787,9 +16987,18 @@ export default function EditProfilePage() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [authProvider, setAuthProvider] = useState('');
+  const [hasPasswordIdentity, setHasPasswordIdentity] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [pwError, setPwError] = useState('');
+  const [pwSuccess, setPwSuccess] = useState('');
 
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState('');
+  const [currentUserId, setCurrentUserId] = useState<number | null>(null);
 
   // Đã thay 'age' thành 'birthdate'
   const [formData, setFormData] = useState({
@@ -16806,6 +17015,7 @@ export default function EditProfilePage() {
   const [selectedProvince, setSelectedProvince] = useState({ code: '', name: '' });
   const [selectedDistrict, setSelectedDistrict] = useState({ code: '', name: '' });
   const [selectedWard, setSelectedWard] = useState({ code: '', name: '' });
+  const [pendingAddress, setPendingAddress] = useState<{ province: string; district: string; ward: string; specific: string } | null>(null);
 
   // HÀM FORMAT NGÀY TỪ DB LÊN FORM
   const formatDateForInput = (dbDate: string | null) => {
@@ -16823,15 +17033,29 @@ export default function EditProfilePage() {
         router.push('/login');
         return;
       }
+      setAuthProvider(user.app_metadata?.provider || 'email');
       const { data: dbUser } = await supabase.from('users').select('*').eq('email', user.email).maybeSingle();
 
       if (dbUser) {
+        setCurrentUserId(dbUser.userid);
+        setHasPasswordIdentity(!!dbUser.has_password);
+        const addressParts = (dbUser.address || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        // Lưu theo thứ tự: [Số nhà, Phường/Xã, Quận/Huyện, Tỉnh/Thành]
+        const provinceName = addressParts.length >= 1 ? addressParts[addressParts.length - 1] : '';
+        const districtName = addressParts.length >= 2 ? addressParts[addressParts.length - 2] : '';
+        const wardName = addressParts.length >= 3 ? addressParts[addressParts.length - 3] : '';
+        const specificAddress = addressParts.length >= 4 ? addressParts.slice(0, addressParts.length - 3).join(', ') : '';
+
         setFormData({
           fullname: dbUser.fullname || dbUser.name || user.user_metadata?.full_name || '',
           phone: dbUser.phone || '',
-          birthdate: formatDateForInput(dbUser.birthdate), // Đọc ngày sinh từ DB
-          specificAddress: ''
+          birthdate: formatDateForInput(dbUser.birthdate),
+          specificAddress
         });
+
+        if (provinceName || districtName || wardName) {
+          setPendingAddress({ province: provinceName, district: districtName, ward: wardName, specific: specificAddress });
+        }
         setPreviewUrl(dbUser.avatarurl || user.user_metadata?.avatar_url || '');
       }
       setIsLoading(false);
@@ -16868,6 +17092,28 @@ export default function EditProfilePage() {
       setWards([]);
     }
   }, [selectedDistrict.code]);
+
+  // 🎯 KHÔI PHỤC LẠI DROPDOWN TỪ ĐỊA CHỈ ĐÃ LƯU (chạy khi từng danh sách API load xong)
+  useEffect(() => {
+    if (pendingAddress?.province && provinces.length > 0) {
+      const match = provinces.find((p: any) => p.name === pendingAddress.province);
+      if (match) setSelectedProvince({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, provinces]);
+
+  useEffect(() => {
+    if (pendingAddress?.district && districts.length > 0) {
+      const match = districts.find((d: any) => d.name === pendingAddress.district);
+      if (match) setSelectedDistrict({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, districts]);
+
+  useEffect(() => {
+    if (pendingAddress?.ward && wards.length > 0) {
+      const match = wards.find((w: any) => w.name === pendingAddress.ward);
+      if (match) setSelectedWard({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, wards]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -16935,16 +17181,23 @@ export default function EditProfilePage() {
         selectedProvince.name
       ].filter(Boolean).join(', ');
 
-      const { error: updateError } = await supabase
+      if (!currentUserId) throw new Error("Không xác định được tài khoản, vui lòng tải lại trang!");
+
+      const { error: updateError, data: updatedRows } = await supabase
         .from('users')
         .update({
           fullname: formData.fullname,
           phone: formData.phone,
-          birthdate: formatDBDate(formData.birthdate), // Lưu ngày sinh chuẩn YYYY-MM-DD
+          birthdate: formatDBDate(formData.birthdate),
           address: fullAddress,
           avatarurl: finalAvatarUrl
         })
-        .eq('email', user.email);
+        .eq('userid', currentUserId)
+        .select();
+
+      if (!updatedRows || updatedRows.length === 0) {
+        throw new Error("Không có thay đổi nào được lưu — có thể do phân quyền (RLS) chặn, vui lòng liên hệ kỹ thuật!");
+      }
 
       if (updateError) throw updateError;
 
@@ -16956,6 +17209,60 @@ export default function EditProfilePage() {
       setError(err.message || 'Có lỗi xảy ra khi lưu dữ liệu.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    setPwError('');
+    setPwSuccess('');
+
+    if (!newPassword || !confirmPassword) {
+      setPwError('Vui lòng điền đầy đủ các ô mật khẩu.');
+      return;
+    }
+    if (hasPasswordIdentity && !currentPassword) {
+      setPwError('Vui lòng nhập mật khẩu hiện tại.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setPwError('Mật khẩu mới phải từ 6 ký tự trở lên.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setPwError('Mật khẩu mới nhập lại không khớp.');
+      return;
+    }
+
+    setIsChangingPassword(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) throw new Error('Không tìm thấy phiên đăng nhập!');
+
+      // Chỉ xác minh mật khẩu cũ nếu tài khoản ĐÃ từng có mật khẩu
+      if (hasPasswordIdentity) {
+        const { error: verifyError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password: currentPassword,
+        });
+        if (verifyError) throw new Error('Mật khẩu hiện tại không đúng!');
+      }
+
+      const { error: updateError } = await supabase.auth.updateUser({ password: newPassword });
+      if (updateError) throw updateError;
+
+      if (currentUserId) {
+        await supabase.from('users').update({ has_password: true }).eq('userid', currentUserId);
+      }
+
+      setPwSuccess(hasPasswordIdentity ? 'Đã đổi mật khẩu thành công!' : 'Đã đặt mật khẩu thành công! Giờ Sen có thể đăng nhập bằng số điện thoại + mật khẩu này.');
+      setHasPasswordIdentity(true); // từ giờ chuyển sang chế độ "đổi mật khẩu"
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } catch (err: any) {
+      setPwError(err.message || 'Có lỗi xảy ra khi lưu mật khẩu.');
+    } finally {
+      setIsChangingPassword(false);
     }
   };
 
@@ -17016,60 +17323,99 @@ export default function EditProfilePage() {
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Tỉnh / Thành phố</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none"
-                    value={selectedProvince.code}
-                    onChange={(e) => {
-                      setSelectedProvince({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text });
+                  <GlassSelect
+                    id="edit-profile-province"
+                    label="Tỉnh / Thành phố"
+                    themeColor="pink"
+                    placeholder="Chọn Tỉnh/Thành"
+                    allowClear={false}
+                    options={provinces.map((p: any) => ({ value: p.code, label: p.name }))}
+                    selectedValue={selectedProvince.code || null}
+                    onChange={(val) => {
+                      const match = provinces.find((p: any) => p.code === val);
+                      setSelectedProvince({ code: val || '', name: match?.name || '' });
                       setSelectedDistrict({ code: '', name: '' });
                       setSelectedWard({ code: '', name: '' });
                     }}
-                  >
-                    <option value="">Chọn Tỉnh/Thành</option>
-                    {provinces.map(p => (
-                      <option key={p.code} value={p.code}>{p.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Quận / Huyện</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
-                    value={selectedDistrict.code}
-                    onChange={(e) => {
-                      setSelectedDistrict({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text });
+                  <GlassSelect
+                    id="edit-profile-district"
+                    label="Quận / Huyện"
+                    themeColor="pink"
+                    placeholder="Chọn Quận/Huyện"
+                    allowClear={false}
+                    disabled={!selectedProvince.code}
+                    options={districts.map((d: any) => ({ value: d.code, label: d.name }))}
+                    selectedValue={selectedDistrict.code || null}
+                    onChange={(val) => {
+                      const match = districts.find((d: any) => d.code === val);
+                      setSelectedDistrict({ code: val || '', name: match?.name || '' });
                       setSelectedWard({ code: '', name: '' });
                     }}
-                    disabled={!selectedProvince.code}
-                  >
-                    <option value="">Chọn Quận/Huyện</option>
-                    {districts.map(d => (
-                      <option key={d.code} value={d.code}>{d.name}</option>
-                    ))}
-                  </select>
+                  />
                 </div>
 
                 <div>
-                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Phường / Xã</label>
-                  <select
-                    className="w-full bg-white border border-stone-200 px-3 py-2.5 rounded-lg text-sm focus:border-pink-400 focus:outline-none disabled:bg-stone-100"
-                    value={selectedWard.code}
-                    onChange={(e) => setSelectedWard({ code: e.target.value, name: e.target.options[e.target.selectedIndex].text })}
+                  <GlassSelect
+                    id="edit-profile-ward"
+                    label="Phường / Xã"
+                    themeColor="pink"
+                    placeholder="Chọn Phường/Xã"
+                    allowClear={false}
                     disabled={!selectedDistrict.code}
-                  >
-                    <option value="">Chọn Phường/Xã</option>
-                    {wards.map(w => (
-                      <option key={w.code} value={w.code}>{w.name}</option>
-                    ))}
-                  </select>
+                    options={wards.map((w: any) => ({ value: w.code, label: w.name }))}
+                    selectedValue={selectedWard.code || null}
+                    onChange={(val) => {
+                      const match = wards.find((w: any) => w.code === val);
+                      setSelectedWard({ code: val || '', name: match?.name || '' });
+                    }}
+                  />
                 </div>
               </div>
 
               <div>
                 <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Số nhà, tên đường</label>
                 <input type="text" placeholder="Ví dụ: Số 12, Ngõ 34..." className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" value={formData.specificAddress} onChange={(e) => setFormData({ ...formData, specificAddress: e.target.value })} />
+              </div>
+            </div>
+
+            <div className="bg-stone-50 p-6 rounded-2xl border border-stone-200">
+              <h4 className="text-sm font-bold text-stone-700 mb-1 flex items-center gap-2">
+                <span>🔒</span> {hasPasswordIdentity ? 'Đổi mật khẩu' : 'Đặt mật khẩu'}
+              </h4>
+              {!hasPasswordIdentity && (
+                <p className="text-xs text-stone-400 mb-4">
+                  Tài khoản này đang đăng nhập bằng {authProvider === 'google' ? 'Google' : authProvider === 'facebook' ? 'Facebook' : 'mạng xã hội'}, chưa có mật khẩu.
+                  Đặt mật khẩu ở đây để Sen có thể đăng nhập thêm bằng Số điện thoại + Mật khẩu.
+                </p>
+              )}
+              <div className={`grid grid-cols-1 ${hasPasswordIdentity ? 'md:grid-cols-3' : 'md:grid-cols-2'} gap-4 mt-4`}>
+                {hasPasswordIdentity && (
+                  <div>
+                    <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Mật khẩu hiện tại</label>
+                    <input type="password" value={currentPassword} onChange={(e) => setCurrentPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                  </div>
+                )}
+                <div>
+                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Mật khẩu mới</label>
+                  <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold text-stone-500 uppercase mb-1">Nhập lại mật khẩu mới</label>
+                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className="w-full bg-white border border-stone-200 px-4 py-3 rounded-xl text-sm focus:outline-none focus:border-pink-400" />
+                </div>
+              </div>
+
+              {pwError && <div className="text-rose-500 text-sm font-medium text-center bg-rose-50 p-3 rounded-xl mt-4">{pwError}</div>}
+              {pwSuccess && <div className="text-green-600 text-sm font-medium text-center bg-green-50 p-3 rounded-xl mt-4">{pwSuccess}</div>}
+
+              <div className="flex justify-end mt-4">
+                <button type="button" onClick={handleChangePassword} disabled={isChangingPassword} className="px-6 py-3 rounded-xl font-bold text-white shadow-md bg-stone-700 hover:bg-stone-800 disabled:bg-stone-300 transition-all">
+                  {isChangingPassword ? 'Đang lưu...' : hasPasswordIdentity ? 'Đổi mật khẩu' : 'Đặt mật khẩu'}
+                </button>
               </div>
             </div>
 
@@ -17961,6 +18307,7 @@ export default function ProfilePage() {
   const ordersPerPage = 5;
 
   const [draggedPetId, setDraggedPetId] = useState<number | null>(null);
+  const [dragOverPetId, setDragOverPetId] = useState<number | null>(null);
   const [isSavingOrder, setIsSavingOrder] = useState(false);
 
   // State chứa dữ liệu thật từ Database
@@ -18012,7 +18359,7 @@ export default function ProfilePage() {
       .from('users')
       .select(`*, type_users (role, rank_name)`)
       .eq('email', session.user.email)
-      .single();
+      .maybeSingle();
 
     if (dbUser) {
       const rawName = dbUser.fullname || session.user.user_metadata?.full_name || 'Khách Hàng Bí Ẩn';
@@ -18132,8 +18479,15 @@ export default function ProfilePage() {
     if (!phone) { alert("Sen nhập số điện thoại của người muốn set gia đình đi đã!"); return; }
     setIsSendingFamilyRequest(true);
     try {
-      const { data: targetUser } = await supabase.from('users').select('userid, fullname, phone').eq('phone', phone).maybeSingle();
-      if (!targetUser) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      const res = await fetch('/api/family/lookup-phone', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ phone })
+      });
+      const lookupData = await res.json();
+      if (!res.ok) { alert("Lỗi khi tìm số điện thoại. Vui lòng thử lại!"); return; }
+      if (!lookupData.exists) { alert("Không tìm thấy Sen nào dùng số điện thoại này trong hệ thống!"); return; }
+      const targetUser = lookupData.user;
       if (targetUser.userid === userData.userid) { alert("Sen không thể tự set gia đình với chính mình đâu 😅"); return; }
 
       const { data: existing } = await supabase
@@ -18150,7 +18504,7 @@ export default function ProfilePage() {
       const { error } = await supabase.from('family_connections').insert([{ requester_id: userData.userid, receiver_id: targetUser.userid, status: 'pending' }]);
       if (error) throw error;
 
-      await supabase.from('notifications').insert([{
+      const { error: notifError } = await supabase.from('notifications').insert([{
         user_id: targetUser.userid,
         title: 'Yêu cầu set gia đình',
         content: `${userData.name} muốn set gia đình với Sen. Vào trang cá nhân để đồng ý hoặc từ chối nhé!`,
@@ -18160,7 +18514,13 @@ export default function ProfilePage() {
         actor_id: userData.userid
       }]);
 
-      alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      if (notifError) {
+        console.error('Lỗi gửi thông báo family_request:', notifError);
+        // Request family_connections đã tạo thành công, chỉ noti bị lỗi -> vẫn báo cho Sen biết
+        alert(`Đã gửi yêu cầu tới ${targetUser.fullname}, nhưng hệ thống thông báo đang gặp lỗi, Sen ấy có thể chưa thấy chuông báo (vẫn thấy khi Sen ấy tự vào trang cá nhân).`);
+      } else {
+        alert(`Đã gửi yêu cầu set gia đình tới ${targetUser.fullname}! Chờ Sen ấy đồng ý nha.`);
+      }
       setFamilyPhoneInput('');
       setIsFamilyModalOpen(false);
       fetchUserData(false);
@@ -18176,7 +18536,8 @@ export default function ProfilePage() {
     try {
       const { error } = await supabase.from('family_connections').update({ status: 'accepted', updated_at: new Date().toISOString() }).eq('id', req.connectionId);
       if (error) throw error;
-      await supabase.from('notifications').insert([{
+
+      const { error: notifError } = await supabase.from('notifications').insert([{
         user_id: req.userid,
         title: 'Yêu cầu gia đình được đồng ý',
         content: `${userData.name} đã đồng ý set gia đình với Sen rồi đó!`,
@@ -18184,6 +18545,11 @@ export default function ProfilePage() {
         link: '/profile',
         actor_id: userData.userid
       }]);
+
+      if (notifError) {
+        console.error('Lỗi gửi thông báo family_accepted:', notifError);
+      }
+
       await fetchUserData(false);
     } catch (err) {
       alert("Lỗi khi đồng ý yêu cầu. Vui lòng thử lại!");
@@ -18255,26 +18621,52 @@ export default function ProfilePage() {
   };
 
   // 🎯 KÉO THẢ: khi thả 1 con mèo vào vị trí con khác -> đổi chỗ tạm trên UI
-  const handleDropPet = (targetPetId: number) => {
-    if (draggedPetId === null || draggedPetId === targetPetId) return;
+  const handleDropPet = (targetPetId: number | null) => {
+    const sourcePetId = draggedPetId;
+    setDraggedPetId(null);
+    setDragOverPetId(null);
+
+    if (sourcePetId === null || targetPetId === null || sourcePetId === targetPetId) return;
 
     setUserData(prev => {
       const list = [...prev.pets];
-      const fromIndex = list.findIndex(p => p.petid === draggedPetId);
+      const fromIndex = list.findIndex(p => p.petid === sourcePetId);
       const toIndex = list.findIndex(p => p.petid === targetPetId);
       if (fromIndex === -1 || toIndex === -1) return prev;
 
       const [moved] = list.splice(fromIndex, 1);
       list.splice(toIndex, 0, moved);
 
-      // Lưu thứ tự mới xuống DB (không chờ UI, chạy ngầm)
       saveNewPetOrder(list);
 
       return { ...prev, pets: list };
     });
-
-    setDraggedPetId(null);
   };
+
+  // 🎯 Theo dõi con trỏ/ngón tay khi đang kéo (dùng Pointer Events — chạy được cả chuột lẫn cảm ứng)
+  useEffect(() => {
+    if (draggedPetId === null) return;
+
+    const handlePointerMove = (e: PointerEvent) => {
+      e.preventDefault();
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cardEl = el?.closest('[data-pet-card-id]') as HTMLElement | null;
+      setDragOverPetId(cardEl ? Number(cardEl.dataset.petCardId) : null);
+    };
+
+    const handlePointerUp = (e: PointerEvent) => {
+      const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
+      const cardEl = el?.closest('[data-pet-card-id]') as HTMLElement | null;
+      handleDropPet(cardEl ? Number(cardEl.dataset.petCardId) : null);
+    };
+
+    window.addEventListener('pointermove', handlePointerMove, { passive: false });
+    window.addEventListener('pointerup', handlePointerUp);
+    return () => {
+      window.removeEventListener('pointermove', handlePointerMove);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [draggedPetId]);
 
   // 🎯 Lưu thứ tự mới xuống Supabase (mỗi con 1 số display_order tăng dần)
   const saveNewPetOrder = async (orderedPets: any[]) => {
@@ -18457,12 +18849,18 @@ export default function ProfilePage() {
                 {userData.pets.map(pet => (
                   <div
                     key={pet.petid}
-                    draggable
-                    onDragStart={() => setDraggedPetId(pet.petid)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => handleDropPet(pet.petid)}
-                    className={`relative group cursor-move transition-opacity ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'}`}
+                    data-pet-card-id={pet.petid}
+                    className={`relative group transition-all ${draggedPetId === pet.petid ? 'opacity-40' : 'opacity-100'} ${dragOverPetId === pet.petid && draggedPetId !== null && draggedPetId !== pet.petid ? 'ring-2 ring-pink-400 rounded-2xl' : ''}`}
                   >
+                    {/* Tay cầm kéo thả riêng — không nằm trong Link nên không bị nhảy trang khi kéo */}
+                    <div
+                      onPointerDown={(e) => { e.preventDefault(); setDraggedPetId(pet.petid); }}
+                      className="absolute top-2 right-2 z-20 w-7 h-7 rounded-full bg-white/90 border border-stone-200 flex items-center justify-center text-stone-400 cursor-grab active:cursor-grabbing touch-none select-none shadow-sm opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Giữ để kéo sắp xếp"
+                    >
+                      ⠿
+                    </div>
+
                     {/* Thẻ nội dung mèo bấm vào xem chi tiết */}
                     <Link href={`/pet/${pet.petid}`} className="block h-full">
                       <div className="bg-stone-50 p-4 rounded-2xl border border-stone-100 flex items-center gap-4 hover:border-pink-300 transition-all h-full">
@@ -25299,10 +25697,10 @@ export default function VineTimeline({ photos, showMemorialCap = true }: { photo
                         <div
                             key={`bg-${p.id}`}
                             className={`absolute bg-white p-1.5 pb-3 sm:p-2 sm:pb-5 md:p-2.5 md:pb-7 rounded-[2px] shadow-2xl ring-1 ring-black/5
-                                w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
-                                ${isLeft
-                                    ? 'left-[calc(50%+7rem)] sm:left-[calc(50%+8rem)] md:left-[calc(50%+9.5rem)] lg:left-[calc(50%+11rem)] xl:left-[calc(50%+12.5rem)]'
-                                    : 'right-[calc(50%+7rem)] sm:right-[calc(50%+8rem)] md:right-[calc(50%+9.5rem)] lg:right-[calc(50%+11rem)] xl:right-[calc(50%+12.5rem)]'}`}
+                                    w-24 sm:w-28 md:w-36 lg:w-44 xl:w-52 aspect-[4/5]
+                                    ${isLeft
+                                    ? 'left-[calc(50%+7rem)] sm:left-[calc(50%+8rem)] md:left-[calc(50%+9.5rem)] lg:left-[calc(50%+16rem)] xl:left-[calc(50%+17rem)]'
+                                    : 'right-[calc(50%+7rem)] sm:right-[calc(50%+8rem)] md:right-[calc(50%+9.5rem)] lg:right-[calc(50%+16rem)] xl:right-[calc(50%+17rem)]'}`}
                             style={{ top: `${topPercent}%`, transform: `translateY(-50%) rotate(${rotate}deg)` }}
                         >
                             <Image src={p.image_url} alt="" fill sizes="208px" className="object-cover" />
@@ -26290,7 +26688,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `system_settings`: `zalo` (text), `hotline` (text), `theme_mode` (text), `id` (integer), `email` (text), `facebook_url` (text), `tiktok_url` (text), `instagram_url` (text), `updated_at` (timestamp with time zone)
 - `product_reviews`: `id` (bigint), `product_id` (integer), `order_id` (integer), `user_id` (integer), `rating` (integer 1-5), `comment` (text), `created_at` (timestamp with time zone). Có UNIQUE(product_id, order_id, user_id) — 1 đơn chỉ đánh giá 1 lần cho 1 sản phẩm. Có trigger `trg_update_product_rating` tự động tính lại `products.rating` và `products.reviews_count` mỗi khi insert/update/delete — KHÔNG tự tay update 2 cột đó trong code nữa.
 - `type_users`: `description`, `rank_name`, `role`, `point_required` (numeric - hạn mức TỔNG chi tiêu tích lũy để lên hạng: Đồng 0đ, Bạc 2.000.000đ, Vàng 5.000.000đ, Bạch Kim 15.000.000đ, Lục Bảo 30.000.000đ, Kim Cương 50.000.000đ hoặc auto-gán khi mua mèo tại trại), `id`, `max_memorial_photos` (integer - quota ảnh kỷ niệm theo hạng: Đồng 10, Bạc 20, Vàng 40, Bạch Kim 60, Lục Bảo 80, Kim Cương 200), `is_memorial_eligible` (boolean - Staff/Breeder = false, Boss/Customer = true), `point_multiplier` (numeric(3,1) - hệ số nhân điểm tích lũy khi mua hàng theo hạng, mặc định 1.0: Đồng x1.0, Bạc x1.2, Vàng x1.5, Bạch Kim x1.7, Lục Bảo x2.0, Kim Cương x2.5 — ⚠️ cột này MỚI THÊM, hiện CHƯA được áp dụng vào logic cộng điểm lúc tạo đơn hàng, logic tính điểm ở checkout vẫn đang hard-code tỷ lệ theo loại sản phẩm (Petshop 100k=1đ, Pate 100k=10đ) chứ chưa nhân theo `point_multiplier` của khách)
-- `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text)
+- `users`: `providerid` (character varying), `provider` (character varying), `address` (text), `avatarurl` (text), `fullname` (character varying), `email` (character varying), `passwordhash` (character varying), `phone` (character varying), `isphoneverified` (boolean), `userid` (integer), `hasliked` (boolean), `points` (integer), `birthdate` (date), `type_id` (integer), `age` (integer), `familyid` (integer), `updatedat` (timestamp with time zone), `createdat` (timestamp with time zone), `cattery_name` (text), `status` (text), `has_password` (boolean, default false — cờ đánh dấu tài khoản đã từng tự đặt mật khẩu qua `supabase.auth.updateUser({password})` hay chưa. BẮT BUỘC dùng cột này để hiển thị UI "Đặt mật khẩu" vs "Đổi mật khẩu" ở `/profile/edit`, TUYỆT ĐỐI KHÔNG dùng `user.identities` của Supabase Auth để suy luận — vì `updateUser({password})` không tự thêm identity `email` cho tài khoản OAuth, dẫn đến sai trạng thái vĩnh viễn dù đã đặt mật khẩu thành công. Set `true` ngay sau khi `updateUser({password})` thành công.)
 
 
 ## 4b. BẢO MẬT DATABASE (RLS - ROW LEVEL SECURITY)
@@ -26302,7 +26700,7 @@ Dự án là một hệ thống web tích hợp nhiều tính năng dành cho ng
 - `current_userid()` — trả về `users.userid` (bigint) của người đang gọi request, dùng để so sánh quyền sở hữu dòng dữ liệu.
 
 **Tiến độ vá theo nhóm** (cập nhật mỗi khi vá xong 1 nhóm, đừng để lạc hậu):
-- ✅ **Nhóm F** (đã bật RLS nhưng policy sai/hở — ưu tiên vá trước vì dễ chủ quan tưởng đã an toàn): `users` (bỏ `users_select_public_temp`/`users_insert_public` hở, thêm policy chặn tự set `type_id` khác 4 và chỉ xem được dòng của mình hoặc Boss/Staff xem hết), `cat_inquiries` (SELECT/UPDATE giới hạn `is_staff_or_boss()` + policy riêng cho breeder liên quan qua `cats.breeder_id`), `system_settings` (UPDATE chỉ `is_boss()`), `page_banners` (SELECT công khai, ghi chỉ Boss/Staff), `memorial_photos` (insert/select giới hạn đúng `user_id = current_userid()`, update status chỉ Boss/Staff), `family_connections` (chỉ 2 bên `requester_id`/`receiver_id` liên quan mới thấy/sửa được, không còn mở cho `public`) — **ĐÃ XONG**.
+- ✅ **Nhóm F** (đã bật RLS nhưng policy sai/hở — ưu tiên vá trước vì dễ chủ quan tưởng đã an toàn): `users` (bỏ `users_select_public_temp`/`users_insert_public` hở, thêm policy chặn tự set `type_id` khác 4 và chỉ xem được dòng của mình hoặc Boss/Staff xem hết), `cat_inquiries` (SELECT/UPDATE giới hạn `is_staff_or_boss()` + policy riêng cho breeder liên quan qua `cats.breeder_id`), `system_settings` (UPDATE chỉ `is_boss()`), `page_banners` (SELECT công khai, ghi chỉ Boss/Staff), `memorial_photos` (insert/select giới hạn đúng user_id = current_userid(), update status chỉ Boss/Staff, delete: khách tự xoá được ảnh của mình nếu status <> 'approved', Boss/Staff xoá được mọi ảnh — trước đây bảng này CHƯA có policy DELETE nào nên nút xoá ở /profile/memorial chỉ xoá được ở state React, RLS âm thầm chặn 0 dòng không báo lỗi, F5 lại ảnh trồi lên lại; đã vá bằng 2 policy memorial_photos_delete_own_non_approved và memorial_photos_delete_staff), `family_connections` (chỉ 2 bên `requester_id`/`receiver_id` liên quan mới thấy/sửa được, không còn mở cho `public`) — **ĐÃ XONG**.
 - ⏳ **`product_reviews`** (còn lại của Nhóm F) — INSERT hiện vẫn đang mở cho `public` không điều kiện, CHƯA thêm check "đã mua + đã giao + chưa review" ở tầng RLS (rule nghiệp vụ này hiện chỉ có UNIQUE constraint chặn trùng lặp, chưa chặn được review khống không qua đơn hàng thật) — cần làm tiếp.
 - ⏳ **Nhóm D** (`expenses` — chỉ Boss được đụng), **Nhóm E** (`families` — bảng legacy, dự định khoá kín hoàn toàn không cần policy), **Nhóm A** (công khai đọc/Boss-Staff ghi: `products`, `cats`, `categories`, `ems_base_colors`, `ems_patterns`, `pate_types`, `blogs`, `type_users`), **Nhóm B** (riêng tư theo chủ + Boss/Staff xem hết: `pets`, `notifications`, `cat_likes`, `health_records`, `medicalrecords`, `feedbacks`, `orders`, `orderdetails`), **Nhóm C** (Feed, đăng nhập mới xem: `posts`, `post_comments`, `post_likes`, `post_pets`) — TẤT CẢ hiện vẫn đang **TẮT RLS HOÀN TOÀN**, ai cầm anon key cũng đọc/ghi/xoá tự do. CHƯA XỬ LÝ, làm tiếp theo thứ tự này.
 
@@ -26320,9 +26718,10 @@ Yêu cầu AI LUÔN TUÂN THỦ các quy tắc sau để tránh lặp lại các
 7. **Đơn hàng & Doanh số:** `sales_count` của `products` CHỈ được cộng khi admin đổi `orders.orderstatus` sang "Đã giao hàng" (xem hàm `incrementSalesCount` ở `app/dashboard/operations/orders/page.tsx`), KHÔNG cộng lúc tạo đơn. Tương tự, khách chỉ được để lại `product_reviews` khi có đơn ở trạng thái "Đã giao hàng" chứa đúng sản phẩm đó và chưa đánh giá đơn đó lần nào.
 8. **Hệ thống thông báo (notifications):** Mọi thông báo insert vào bảng `notifications` PHẢI có `type` và `link` rõ ràng để chuông thông báo (Header.tsx) hiển thị đúng icon và điều hướng đúng chỗ. Khi thông báo gắn với hành động có thể "undo" (VD: thích bài viết), phải set `related_id` dạng `${post_id}_${actor_userid}` để khi undo (bỏ thích) thì xoá được đúng thông báo đã gửi, tránh rác. Chuông dùng Supabase Realtime (`postgres_changes`) lắng nghe theo `user_id`, không polling.
 9. **Yêu cầu đón bé (cat_inquiries):** Khi khách gửi form "Gửi Yêu Cầu Đón Bé" ở `/cattery/[id]`, BẮT BUỘC lưu vào bảng `cat_inquiries` (không chỉ gửi notification suông) để còn quản lý lead sau này. Thông báo phải gửi cho TOÀN BỘ user có `type_id` 1 hoặc 2 (staff/boss), CỘNG THÊM trại đối tác nếu `cats.breeder_id` thuộc `type_id` 3 — tránh gửi trùng nếu breeder cũng đang là staff (type_id 1/2).
-10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard). Bảng memorial_photos có thêm cột is_last_photo (boolean, default false) — khách tự đánh dấu ở trang /memorial/upload khi chọn đúng 1 bé có status === 'Đã lên thiên đường mèo'. Ảnh có cờ này TRUE sẽ là ảnh tưởng niệm to nhất, có vòng hoa, hiển thị trắng đen (hover ra màu) ở đầu Cây Ký Ức (VineTimeline.tsx, biến isMemorialCap) — KHÔNG còn tự suy đoán theo taken_date muộn nhất nữa. Khi insert ảnh mới với is_last_photo = true, phải gỡ cờ này khỏi ảnh cũ của đúng bé đó trước (qua bảng nối memorial_photo_pets) để đảm bảo mỗi bé chỉ có 1 ảnh cuối.
+10. **Cây ký ức (memorial):** Thú cưng hiện trong dropdown chọn ảnh kỷ niệm lấy từ bảng `pets` với điều kiện `pets.ownerid === userid` của khách đó — tức LÀ TẤT CẢ thú cưng khách tự thêm ở "Thú cưng của tôi" (`/profile/add-pet`), KHÔNG bắt buộc phải là mèo mua tại KinVie nữa. Bảng nối là `memorial_photo_pets` (`photo_id` FK `memorial_photos.id`, `pet_id` FK `pets.petid`), TUYỆT ĐỐI KHÔNG dùng bảng `memorial_photo_cats` (đã bị xoá) hay join tới `cats` cho tính năng này nữa. Cột `cats.buyer_id` và toàn bộ tính năng "gán khách mua mèo" ở trang `/dashboard/cats/breeders/[id]` (search buyer, `selectedBuyer`, lưu `buyer_id`) đã bị GỠ BỎ HOÀN TOÀN — không được thêm lại hay tham chiếu cột này. Quota ảnh lấy từ `type_users.max_memorial_photos` theo `type_id` của khách, đếm số `memorial_photos` có `status != 'rejected'`. Ảnh nén qua canvas về tối đa 1600px cạnh dài, xuất `image/webp` chất lượng 0.8 trước khi upload vào bucket Storage `memorial-images` (bucket PUBLIC, giới hạn 5MB, chỉ nhận jpeg/png/webp). Trang duyệt `/dashboard/system/memorial` gác cổng `type_id` 1 hoặc 2 (Boss/Staff) — khác với `cat_inquiries` chỉ cho riêng Boss, đây cho phép cả Staff. Ảnh đã `approved` thì khách không tự xoá được nữa (chỉ Boss gỡ qua dashboard). Bảng memorial_photos có thêm cột is_last_photo (boolean, default false) — khách tự đánh dấu ở trang /memorial/upload khi chọn đúng 1 bé có status === 'Đã lên thiên đường mèo'. Ảnh có cờ này TRUE sẽ là ảnh tưởng niệm to nhất, có vòng hoa, hiển thị trắng đen (hover ra màu) ở đầu Cây Ký Ức (VineTimeline.tsx, biến isMemorialCap) — KHÔNG còn tự suy đoán theo taken_date muộn nhất nữa. Khi insert ảnh mới với is_last_photo = true, phải gỡ cờ này khỏi ảnh cũ của đúng bé đó trước (qua bảng nối memorial_photo_pets) để đảm bảo mỗi bé chỉ có 1 ảnh cuối. ⏳ CHƯA CÓ cơ chế tự động xoá ảnh rejected sau X ngày (chống spam gửi ảnh) — chưa có cron/pg_cron/edge function nào làm việc này, cột created_at hiện chỉ là thời điểm upload chứ không phải thời điểm bị từ chối nên nếu làm cần cân nhắc thêm cột rejected_at trước khi viết job xoá theo thời gian.
 11. **Set gia đình (family_connections):** Tính năng ở `/profile` cho khách liên kết tài khoản với nhau qua SĐT để gộp chung Boss quản lý. BẮT BUỘC hiểu đây là quan hệ CẶP kiểu kết bạn (bảng `family_connections`), KHÔNG PHẢI cột `users.familyid`/bảng `families` — 2 cái đó là mô hình cũ dùng chung 1 group ID, không đáp ứng được yêu cầu "không bắc cầu" (A set gia đình với B và C, nhưng B-C không tự động thành gia đình nếu 2 người đó chưa tự set với nhau). Mỗi request gửi đi phải kèm insert `notifications` (`type: 'family_request'`, `link: '/profile'`) cho người nhận; khi đồng ý phải insert thêm `notifications` (`type: 'family_accepted'`) báo lại cho người gửi. Khi hiển thị Boss gộp chung ở `/profile`, chỉ gộp mèo của các quan hệ có `status = 'accepted'`; mèo không phải chủ thật của mình CHỈ ĐƯỢC XEM, không cho xoá (check `pet.ownerid === userData.userid` trước khi hiện nút xoá).
 12. **Cascade breed cha/mẹ → con (hướng B):** `pets.breed` khi có chọn cha/mẹ (`father_id`/`mother_id` kèm `father_source`/`mother_source`) được auto-derive qua hàm `deriveBreedFromParents()` (ưu tiên "giống đại diện" qua `getRepresentativeBreed()`, bỏ qua nhánh Mèo Ta/Chưa rõ khi có nhánh cụ thể hơn). Đây là dữ liệu TĨNH lưu 1 lần lúc lưu, KHÔNG tự link động — nên khi breed của 1 `cats` (trang `kinvie/[id]`) hoặc 1 `pets` (trang `profile/edit-pet/[id]`) được sửa và lưu, BẮT BUỘC gọi `cascadeUpdateChildrenBreed(parentId, parentSource)` ở `lib/utils.ts` ngay sau khi update thành công — hàm này quét tất cả `pets` con trỏ đúng `father_id`/`mother_id` + `father_source`/`mother_source`, tính lại breed, rồi ĐỆ QUY tiếp xuống đàn cháu (vì 1 pet cũng có thể là cha/mẹ của pet khác). Chạy ngầm, KHÔNG toast báo breeder. Bảng `cats` KHÔNG nằm trong diện tự cascade lẫn nhau vì breed của `cats` do breeder tự chọn tay, không auto-derive từ cha mẹ. ⚠️ Khi lưu cha/mẹ cho `pets` (cả `add-pet` lẫn `edit-pet`), BẮT BUỘC bóc `fatherId`/`motherId` (dạng prefix `cat_x`/`pet_x`) qua `parseParentRef()` trước khi insert/update — tuyệt đối không lưu thẳng chuỗi có prefix vào cột `father_id`/`mother_id` (int), và phải lưu kèm `father_source`/`mother_source` tương ứng.
+13. **Kiểm tra tài khoản đã có mật khẩu hay chưa:** KHÔNG được dùng `(user.identities || []).some(i => i.provider === 'email')` để xác định tài khoản OAuth đã đặt mật khẩu hay chưa — Supabase KHÔNG tự thêm identity `email` khi gọi `updateUser({password})` cho tài khoản OAuth, gây sai trạng thái vĩnh viễn. Phải dùng cột `users.has_password` (boolean) tự quản lý, set `true` ngay sau khi đặt/đổi mật khẩu thành công.
 
 ### B. Quy tắc Frontend (React/Next.js):
 1. **Bọc thép Component:** Các Component nhận Props (như `ProductCard`) phải luôn có điều kiện fallback (`if (!product) return null;`) và sử dụng Optional Chaining (`product?.name`, `product?.price`) để tránh lỗi `Cannot read properties of undefined` khi sập mạng hoặc truyền thiếu data.
