@@ -49,7 +49,7 @@ export default function CatteryDetailsPage() {
       showGlobalLoading('Đang rước các Boss ra...');
       const { data } = await supabase
         .from('cats')
-        .select('*')
+        .select('*, users:breeder_id(cattery_name, fullname)')
         .in('status', ['Sẵn sàng', 'Đã cọc']);
 
       if (data) {

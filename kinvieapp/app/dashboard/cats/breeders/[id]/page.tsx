@@ -27,6 +27,7 @@ export default function BreederCatDetailPage() {
 
   const [mainImage, setMainImage] = useState<string>('');
   const [gender, setGender] = useState<boolean>(true);
+  const [hasPedigree, setHasPedigree] = useState<boolean>(false);
 
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
   const [dbBreeds, setDbBreeds] = useState<string[]>([]);
@@ -86,6 +87,7 @@ export default function BreederCatDetailPage() {
           setCatData({ ...data, images: loadedImages, medical_history: data.medical_history || [], notes: data.notes || '', approval_status: data.approval_status || 'Chờ duyệt', breeder_id: data.breeder_id, users: data.users });
           if (loadedImages[0]) setMainImage(loadedImages[0]);
           setGender(data.gender !== false);
+          setHasPedigree(data.has_pedigree || false);
 
           const colorStr = data.color || '';
           if (colorStr && !colorStr.includes(' ') && colorStr.length <= 5) {
@@ -165,7 +167,8 @@ export default function BreederCatDetailPage() {
         medical_history: catData.medical_history,
         notes: catData.notes,
         father_id: catData.father_id || null,
-        mother_id: catData.mother_id || null
+        mother_id: catData.mother_id || null,
+        has_pedigree: isPurebred ? hasPedigree : false
       })
       .eq('id', catId);
 
@@ -597,6 +600,13 @@ export default function BreederCatDetailPage() {
                             ))}
                         </div>
                       )}
+                    </div>
+                    <div className="pt-4 border-t border-blue-200/50">
+                      <label className="block text-xs font-bold text-stone-700 mb-3 flex items-center gap-2"><span>📜</span> Bé có giấy tờ (Gia phả TICA/WCF) không?</label>
+                      <div className="flex gap-2 h-12">
+                        <button type="button" onClick={() => setHasPedigree(true)} className={`cursor-pointer flex-1 text-sm font-black rounded-xl transition-all border ${hasPedigree ? 'bg-blue-500 text-white border-blue-500 shadow-md' : 'bg-white text-stone-500 border-stone-200 hover:border-blue-300'}`}>✓ CÓ PHẢ</button>
+                        <button type="button" onClick={() => setHasPedigree(false)} className={`cursor-pointer flex-1 text-sm font-black rounded-xl transition-all border ${!hasPedigree ? 'bg-stone-500 text-white border-stone-500 shadow-md' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}>✗ KHÔNG PHẢ</button>
+                      </div>
                     </div>
                   </div>
                 </div>

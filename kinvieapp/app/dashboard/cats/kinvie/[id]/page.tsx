@@ -39,6 +39,7 @@ export default function CatDetailPage() {
 
   const [mainImage, setMainImage] = useState<string>('');
   const [gender, setGender] = useState<boolean>(true);
+  const [hasPedigree, setHasPedigree] = useState<boolean>(false);
 
   // STATE MÀU SẮC
   const [dbBaseColors, setDbBaseColors] = useState<any[]>([]);
@@ -123,6 +124,7 @@ export default function CatDetailPage() {
           }
           if (loadedImages[0]) setMainImage(loadedImages[0]);
           setGender(data.gender !== false);
+          setHasPedigree(data.has_pedigree || false);
 
           const colorStr = data.color || '';
           if (colorStr && !colorStr.includes(' ') && colorStr.length <= 5) {
@@ -192,6 +194,7 @@ export default function CatDetailPage() {
       price: catData.price, status: catData.status, dob: catData.dob, images: cleanImages,
       medical_history: catData.medical_history, notes: catData.notes,
       father_id: catData.father_id || null, mother_id: catData.mother_id || null,
+      has_pedigree: isPurebred ? hasPedigree : false,   // 👈 thêm dòng này
       buyer_id: selectedBuyer?.userid || null
     }).eq('id', catId);
 
@@ -709,6 +712,14 @@ export default function CatDetailPage() {
                           </motion.div>
                         )}
                       </AnimatePresence>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-blue-200/50">
+                    <label className="block text-xs font-bold text-stone-700 mb-3 flex items-center gap-2"><span>📜</span> Bé có giấy tờ (Gia phả TICA/WCF) không?</label>
+                    <div className="flex gap-2 h-12">
+                      <button type="button" onClick={() => setHasPedigree(true)} className={`cursor-pointer flex-1 text-sm font-black rounded-xl transition-all border ${hasPedigree ? 'bg-blue-500 text-white border-blue-500 shadow-md' : 'bg-white text-stone-500 border-stone-200 hover:border-blue-300'}`}>✓ CÓ PHẢ</button>
+                      <button type="button" onClick={() => setHasPedigree(false)} className={`cursor-pointer flex-1 text-sm font-black rounded-xl transition-all border ${!hasPedigree ? 'bg-stone-500 text-white border-stone-500 shadow-md' : 'bg-white text-stone-500 border-stone-200 hover:border-stone-300'}`}>✗ KHÔNG PHẢ</button>
                     </div>
                   </div>
                 </div>

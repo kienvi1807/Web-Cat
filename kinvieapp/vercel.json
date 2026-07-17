@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/breeding-reminders",
+      "schedule": "0 8 * * *"
+    }
+  ]
+}

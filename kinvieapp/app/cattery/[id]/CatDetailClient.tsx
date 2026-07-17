@@ -325,6 +325,12 @@ export default function CatDetailClient() {
                   <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Ngày sinh</p>
                   <p className="text-sm font-bold text-stone-800">{formatDateDisplay(catData.dob)}</p>
                 </div>
+                <div className="bg-pink-50/50 p-4 rounded-2xl border border-pink-100/50">
+                  <p className="text-[10px] font-black text-stone-400 uppercase tracking-widest mb-1">Giấy tờ</p>
+                  <p className={`text-sm font-bold ${catData.has_pedigree ? 'text-blue-600' : 'text-stone-500'}`}>
+                    {catData.has_pedigree ? '📜 Có phả (TICA/WCF)' : 'Không phả'}
+                  </p>
+                </div>
               </div>
 
               {/* Giá & Nút Liên Hệ */}

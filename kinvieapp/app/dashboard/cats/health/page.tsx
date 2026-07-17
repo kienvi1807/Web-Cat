@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { formatEmsCode, formatDateDisplay } from '@/lib/utils';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import BreedingLog from '@/components/dashboard/BreedingLog';
 
 export default function HealthAndBreedingPage() {
   const [isLoading, setIsLoading] = useState(true);
@@ -260,16 +261,7 @@ export default function HealthAndBreedingPage() {
                   </div>
                 ) : (
                   // MÀN HÌNH NẾU LÀ MÈO CÁI (Sinh sản)
-                  <div className="text-center py-16 bg-rose-50/50 rounded-[2rem] border border-rose-100">
-                    <span className="text-6xl mb-6 inline-block drop-shadow-md">🐈‍⬛</span>
-                    <h4 className="text-xl font-black text-rose-900 mb-2">Nhật Ký Mang Thai & Sinh Nở</h4>
-                    <p className="text-rose-500/70 font-bold text-sm max-w-md mx-auto">
-                      Hệ thống quản lý chu kỳ Salo, dự kiến ngày đẻ, và danh sách đàn con đang được đội ngũ kỹ thuật xây dựng.
-                    </p>
-                    <button className="mt-6 px-6 py-2.5 bg-white text-rose-500 text-xs font-black rounded-xl shadow-sm border border-rose-100 cursor-not-allowed opacity-50">
-                      Đang phát triển...
-                    </button>
-                  </div>
+                  <BreedingLog catId={selectedCat.id} allCatsList={allCats} />
                 )}
               </div>
 

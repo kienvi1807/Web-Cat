@@ -13,27 +13,33 @@ export default function CatCard({ cat }: { cat: any }) {
   // 🎯 QUẢN LÝ TRẠNG THÁI LIKE & SỐ LƯỢNG
   const [isLiked, setIsLiked] = useState(false);
   const [likeCount, setLikeCount] = useState(cat.likes || 0);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [dbUserId, setDbUserId] = useState<number | null>(null);
 
   // 🎯 KHỞI CHẠY LẦN ĐẦU: Kiểm tra xem khách này đã thả tim bé mèo này chưa
   useEffect(() => {
     const checkInitialLikeStatus = async () => {
       const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      if (session) {
-        setCurrentUserId(session.user.id);
+      // 🎯 Bắt buộc đổi UUID Auth -> userid (integer) qua bảng users trước khi query cat_likes
+      const { data: dbUser } = await supabase
+        .from('users')
+        .select('userid')
+        .eq('email', session.user.email)
+        .maybeSingle();
 
-        // Soi trong bảng cat_likes xem có tên vị khách này không
-        const { data } = await supabase
-          .from('cat_likes')
-          .select('id')
-          .eq('cat_id', cat.id)
-          .eq('user_id', session.user.id)
-          .maybeSingle();
+      if (!dbUser) return;
+      setDbUserId(dbUser.userid);
 
-        if (data) {
-          setIsLiked(true); // Đã thả tim rồi thì tô hồng trái tim
-        }
+      const { data } = await supabase
+        .from('cat_likes')
+        .select('id')
+        .eq('cat_id', cat.id)
+        .eq('user_id', dbUser.userid)
+        .maybeSingle();
+
+      if (data) {
+        setIsLiked(true);
       }
     };
 
@@ -51,30 +57,35 @@ export default function CatCard({ cat }: { cat: any }) {
     }
 
     if (actionType === 'like') {
-      if (!currentUserId) {
+      if (!dbUserId) {
         alert("Sen vui lòng đăng nhập để thả tim cho Boss nhé!");
         router.push('/login');
         return;
       }
 
-      // 1. THỦ THUẬT OPTIMISTIC UI: Đổi giao diện NGAY LẬP TỨC cho khách sướng
       const newLikedState = !isLiked;
-      setIsLiked(newLikedState);
-      setLikeCount((prev: number) => newLikedState ? prev + 1 : prev - 1);
 
-      // 2. CHẠY NGẦM ĐẰNG SAU: Bắn dữ liệu lên Database
       try {
         if (newLikedState) {
-          // NẾU THẢ TIM: Lưu vào sổ cat_likes và cộng 1 ở bảng cats
-          await supabase.from('cat_likes').insert({ cat_id: cat.id, user_id: currentUserId });
-          await supabase.from('cats').update({ likes: likeCount + 1 }).eq('id', cat.id);
+          const { error } = await supabase.from('cat_likes').insert({ cat_id: cat.id, user_id: dbUserId });
+          if (error) throw error;   // 🎯 báo lỗi thật nếu insert thất bại, dừng luôn không cộng số
+
+          setIsLiked(true);
+          const newCount = likeCount + 1;
+          setLikeCount(newCount);
+          await supabase.from('cats').update({ likes: newCount }).eq('id', cat.id);
         } else {
-          // NẾU RÚT TIM LẠI: Xóa khỏi sổ cat_likes và trừ 1 ở bảng cats
-          await supabase.from('cat_likes').delete().match({ cat_id: cat.id, user_id: currentUserId });
-          await supabase.from('cats').update({ likes: likeCount - 1 }).eq('id', cat.id);
+          const { error } = await supabase.from('cat_likes').delete().match({ cat_id: cat.id, user_id: dbUserId });
+          if (error) throw error;
+
+          setIsLiked(false);
+          const newCount = Math.max(0, likeCount - 1);
+          setLikeCount(newCount);
+          await supabase.from('cats').update({ likes: newCount }).eq('id', cat.id);
         }
       } catch (error) {
         console.error("Lỗi khi lưu tim:", error);
+        alert("Có lỗi xảy ra, vui lòng thử lại!");   // 🎯 báo cho khách biết thay vì im lặng
       }
     }
   };
