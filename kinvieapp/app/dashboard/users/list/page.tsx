@@ -5,6 +5,7 @@ import { supabase } from '@/lib/supabase';
 import GlassSelect from '@/components/ui/GlassSelect';
 import BackgroundGlow from '@/components/layout/BackgroundGlow';
 import { useLayoutStore } from '@/store/useLayoutStore';
+import { RANK_ICON_MAP } from '@/lib/utils';
 
 const getRoleColor = (role: string, rank: string) => {
   if (role === 'Boss') return 'bg-stone-900 text-cyan-400 border-cyan-500/30 shadow-[0_0_10px_rgba(34,211,238,0.2)]';
@@ -21,6 +22,16 @@ const getRoleColor = (role: string, rank: string) => {
   }
 };
 
+const calculateAgeFromBirthdate = (dobString: string): number | null => {
+  if (!dobString) return null;
+  const dob = new Date(dobString);
+  const now = new Date();
+  let age = now.getFullYear() - dob.getFullYear();
+  const m = now.getMonth() - dob.getMonth();
+  if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
+  return age >= 0 ? age : null;
+};
+
 export default function AccountListPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -32,15 +43,83 @@ export default function AccountListPage() {
 
   // 🎯 STATES CHO MODAL CHỈNH SỬA
   const [editingUser, setEditingUser] = useState<any | null>(null);
-  const [editForm, setEditForm] = useState({ fullname: '', phone: '', age: '' });
+  const [editForm, setEditForm] = useState({ fullname: '', phone: '', birthdate: '', specificAddress: '', type_id: 0 });
+  const [provinces, setProvinces] = useState<any[]>([]);
+  const [districts, setDistricts] = useState<any[]>([]);
+  const [wards, setWards] = useState<any[]>([]);
+  const [selectedProvince, setSelectedProvince] = useState({ code: '', name: '' });
+  const [selectedDistrict, setSelectedDistrict] = useState({ code: '', name: '' });
+  const [selectedWard, setSelectedWard] = useState({ code: '', name: '' });
+  const [pendingAddress, setPendingAddress] = useState<{ province: string; district: string; ward: string; specific: string } | null>(null);
   const [isSaving, setIsSaving] = useState(false);
+  const [customerRanks, setCustomerRanks] = useState<{ id: number; rank_name: string }[]>([]);
 
   const setThemeColor = useLayoutStore(state => state.setThemeColor);
   useEffect(() => { setThemeColor('aqua'); }, [setThemeColor]);
 
   useEffect(() => {
     fetchUsersAndRoles();
+    fetchCustomerRanks();
   }, []);
+
+  useEffect(() => {
+    fetch('https://provinces.open-api.vn/api/p/')
+      .then(res => res.json())
+      .then(data => setProvinces(data))
+      .catch(err => console.error("Lỗi kéo API Tỉnh:", err));
+  }, []);
+
+  useEffect(() => {
+    if (selectedProvince.code) {
+      fetch(`https://provinces.open-api.vn/api/p/${selectedProvince.code}?depth=2`)
+        .then(res => res.json())
+        .then(data => setDistricts(data.districts || []));
+    } else {
+      setDistricts([]);
+      setWards([]);
+    }
+  }, [selectedProvince.code]);
+
+  useEffect(() => {
+    if (selectedDistrict.code) {
+      fetch(`https://provinces.open-api.vn/api/d/${selectedDistrict.code}?depth=2`)
+        .then(res => res.json())
+        .then(data => setWards(data.wards || []));
+    } else {
+      setWards([]);
+    }
+  }, [selectedDistrict.code]);
+
+  // Khôi phục dropdown từ chuỗi address đã lưu của user đang sửa
+  useEffect(() => {
+    if (pendingAddress?.province && provinces.length > 0) {
+      const match = provinces.find((p: any) => p.name === pendingAddress.province);
+      if (match) setSelectedProvince({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, provinces]);
+
+  useEffect(() => {
+    if (pendingAddress?.district && districts.length > 0) {
+      const match = districts.find((d: any) => d.name === pendingAddress.district);
+      if (match) setSelectedDistrict({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, districts]);
+
+  useEffect(() => {
+    if (pendingAddress?.ward && wards.length > 0) {
+      const match = wards.find((w: any) => w.name === pendingAddress.ward);
+      if (match) setSelectedWard({ code: match.code, name: match.name });
+    }
+  }, [pendingAddress, wards]);
+
+  const fetchCustomerRanks = async () => {
+    const { data, error } = await supabase
+      .from('type_users')
+      .select('id, rank_name')
+      .eq('role', 'Customer')
+      .order('point_required', { ascending: true });
+    if (!error && data) setCustomerRanks(data);
+  };
 
   const fetchUsersAndRoles = async () => {
     setIsLoading(true);
@@ -107,29 +186,73 @@ export default function AccountListPage() {
 
   const openEditModal = (user: any) => {
     setEditingUser(user);
+
+    const addressParts = (user.address || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+    // Lưu theo thứ tự: [Số nhà, Phường/Xã, Quận/Huyện, Tỉnh/Thành]
+    const provinceName = addressParts.length >= 1 ? addressParts[addressParts.length - 1] : '';
+    const districtName = addressParts.length >= 2 ? addressParts[addressParts.length - 2] : '';
+    const wardName = addressParts.length >= 3 ? addressParts[addressParts.length - 3] : '';
+    const specificAddress = addressParts.length >= 4 ? addressParts.slice(0, addressParts.length - 3).join(', ') : '';
+
     setEditForm({
       fullname: user.fullname || '',
       phone: user.phone || '',
-      age: user.age || '',
+      birthdate: user.birthdate || '',
+      specificAddress,
+      type_id: user.type_id || 0,
     });
+
+    // Reset trước để không dính dropdown của user vừa sửa trước đó
+    setSelectedProvince({ code: '', name: '' });
+    setSelectedDistrict({ code: '', name: '' });
+    setSelectedWard({ code: '', name: '' });
+    setDistricts([]);
+    setWards([]);
+    setPendingAddress(provinceName || districtName || wardName ? { province: provinceName, district: districtName, ward: wardName, specific: specificAddress } : null);
   };
 
   const handleSaveEdit = async () => {
     if (!editingUser) return;
     setIsSaving(true);
     try {
+      const fullAddress = [
+        editForm.specificAddress,
+        selectedWard.name,
+        selectedDistrict.name,
+        selectedProvince.name,
+      ].filter(Boolean).join(', ');
+
+      const updatePayload: any = {
+        fullname: editForm.fullname,
+        phone: editForm.phone,
+        birthdate: editForm.birthdate || null,
+        address: fullAddress,
+      };
+      if (editingUser.type_users?.role === 'Customer') {
+        updatePayload.type_id = editForm.type_id;
+      }
+
       const { error } = await supabase
         .from('users')
-        .update({
-          fullname: editForm.fullname,
-          phone: editForm.phone,
-          age: editForm.age ? parseInt(editForm.age) : null
-        })
+        .update(updatePayload)
         .eq('userid', editingUser.userid);
 
       if (error) throw error;
 
-      setUsers(users.map(u => u.userid === editingUser.userid ? { ...u, ...editForm } : u));
+      const newRankName = customerRanks.find(r => r.id === editForm.type_id)?.rank_name;
+      setUsers(users.map(u => u.userid === editingUser.userid
+        ? {
+          ...u,
+          fullname: editForm.fullname,
+          phone: editForm.phone,
+          birthdate: editForm.birthdate,
+          address: fullAddress,
+          type_id: editForm.type_id,
+          type_users: editingUser.type_users?.role === 'Customer' && newRankName
+            ? { ...u.type_users, rank_name: newRankName }
+            : u.type_users,
+        }
+        : u));
       setEditingUser(null);
     } catch (err) {
       console.error("Lỗi cập nhật:", err);
@@ -222,7 +345,7 @@ export default function AccountListPage() {
 
                       <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm text-stone-500">
                         <span className="font-bold text-stone-400">ID: KV-{user.userid}</span>
-                        <span>🎂 {user.age ? `${user.age} tuổi` : 'Chưa rõ tuổi'}</span>
+                        <span>🎂 {user.birthdate ? `${calculateAgeFromBirthdate(user.birthdate)} tuổi` : (user.age ? `${user.age} tuổi` : 'Chưa rõ tuổi')}</span>
                         <span>Tham gia: <strong className="text-stone-700">{new Date(user.createdat).toLocaleDateString('vi-VN')}</strong></span>
                       </div>
                     </div>
@@ -263,7 +386,88 @@ export default function AccountListPage() {
             <div className="space-y-5">
               <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Họ và Tên</label><input type="text" value={editForm.fullname} onChange={(e) => setEditForm({ ...editForm, fullname: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
               <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Số Điện Thoại</label><input type="text" value={editForm.phone} onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
-              <div><label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Tuổi (Tùy chọn)</label><input type="number" value={editForm.age} onChange={(e) => setEditForm({ ...editForm, age: e.target.value })} className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none" /></div>
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Ngày Sinh</label>
+                <input
+                  type="date"
+                  value={editForm.birthdate}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setEditForm({ ...editForm, birthdate: e.target.value })}
+                  className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none"
+                />
+                {editForm.birthdate && (
+                  <p className="text-xs text-stone-400 font-bold mt-2 ml-1">
+                    🎂 Tuổi hiện tại: {calculateAgeFromBirthdate(editForm.birthdate)} tuổi
+                  </p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Địa Chỉ</label>
+                <div className="grid grid-cols-1 gap-3">
+                  <GlassSelect
+                    id="edit-user-province"
+                    placeholder="Chọn Tỉnh/Thành"
+                    themeColor="cyan"
+                    allowClear={false}
+                    options={provinces.map((p: any) => ({ value: p.code, label: p.name }))}
+                    selectedValue={selectedProvince.code || null}
+                    onChange={(val) => {
+                      const match = provinces.find((p: any) => p.code === val);
+                      setSelectedProvince({ code: val || '', name: match?.name || '' });
+                      setSelectedDistrict({ code: '', name: '' });
+                      setSelectedWard({ code: '', name: '' });
+                    }}
+                  />
+                  <GlassSelect
+                    id="edit-user-district"
+                    placeholder="Chọn Quận/Huyện"
+                    themeColor="cyan"
+                    allowClear={false}
+                    disabled={!selectedProvince.code}
+                    options={districts.map((d: any) => ({ value: d.code, label: d.name }))}
+                    selectedValue={selectedDistrict.code || null}
+                    onChange={(val) => {
+                      const match = districts.find((d: any) => d.code === val);
+                      setSelectedDistrict({ code: val || '', name: match?.name || '' });
+                      setSelectedWard({ code: '', name: '' });
+                    }}
+                  />
+                  <GlassSelect
+                    id="edit-user-ward"
+                    placeholder="Chọn Phường/Xã"
+                    themeColor="cyan"
+                    allowClear={false}
+                    disabled={!selectedDistrict.code}
+                    options={wards.map((w: any) => ({ value: w.code, label: w.name }))}
+                    selectedValue={selectedWard.code || null}
+                    onChange={(val) => {
+                      const match = wards.find((w: any) => w.code === val);
+                      setSelectedWard({ code: val || '', name: match?.name || '' });
+                    }}
+                  />
+                  <input
+                    type="text"
+                    placeholder="Số nhà, tên đường..."
+                    value={editForm.specificAddress}
+                    onChange={(e) => setEditForm({ ...editForm, specificAddress: e.target.value })}
+                    className="w-full bg-stone-50 border border-stone-200 rounded-2xl px-5 py-4 text-sm font-bold focus:ring-2 focus:ring-cyan-400 outline-none"
+                  />
+                </div>
+              </div>
+              {editingUser.type_users?.role === 'Customer' && (
+                <div>
+                  <label className="text-[10px] font-black text-stone-500 uppercase tracking-widest block mb-2">Hạng Thành Viên</label>
+                  <GlassSelect
+                    id="edit-rank"
+                    options={customerRanks.map(r => ({ value: r.id, label: r.rank_name, iconOrImage: RANK_ICON_MAP[r.rank_name] || '💎' }))}
+                    selectedValue={editForm.type_id}
+                    onChange={(val) => setEditForm({ ...editForm, type_id: Number(val) })}
+                    themeColor="cyan"
+                    allowClear={false}
+                  />
+                </div>
+              )}
             </div>
             <div className="mt-10 flex gap-4">
               <button onClick={() => setEditingUser(null)} className="flex-1 py-4 rounded-2xl font-black text-stone-500 bg-stone-100 hover:bg-stone-200 cursor-pointer">HỦY</button>

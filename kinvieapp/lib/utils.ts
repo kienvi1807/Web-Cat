@@ -132,3 +132,15 @@ export const cascadeUpdateChildrenBreed = async (
     await cascadeUpdateChildrenBreed(child.petid, 'pet', visited);
   }
 };
+
+// 🎯 ICON HẠNG THÀNH VIÊN — DÙNG CHUNG TOÀN HỆ THỐNG, KHÔNG HARD-CODE RẢI RÁC Ở TỪNG PAGE
+export const RANK_ICON_MAP: Record<string, string> = {
+  'Đồng': '/images/ranks/dong.png',
+  'Bạc': '/images/ranks/bac.png',
+  'Vàng': '/images/ranks/vang.png',
+  'Bạch Kim': '/images/ranks/bachkim.png',
+  'Lục Bảo': '/images/ranks/lucbao.png',
+  'Kim Cương': '/images/ranks/kimcuong.png',
+};
+
+export const getRankIcon = (rankName?: string | null) => RANK_ICON_MAP[rankName || ''] || '/images/ranks/dong.png';

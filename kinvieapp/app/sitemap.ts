@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 
 export default function sitemap(): MetadataRoute.Sitemap {
-  const base = 'https://<domain-của-mày>.com';
+  const base = process.env.NEXT_PUBLIC_SITE_URL || 'https://kinvieapp.vercel.app';
   return [
     { url: `${base}/`, priority: 1 },
     { url: `${base}/cattery`, priority: 0.8 },

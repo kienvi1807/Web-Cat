@@ -42,6 +42,9 @@ export const metadata: Metadata = {
     template: "%s | KinVie",
   },
   description: "Trại mèo Maine Coon thuần chủng & cửa hàng dinh dưỡng thú cưng tại Hải Phòng.",
+  verification: {
+    google: "YaiBxc0LVFhdSi4mhz3er-VcFaLCbod0q4She8bCGXE",   // 👈 dán đúng mã Search Console đưa cho bạn vào đây
+  },
 };
 
 export const dynamic = 'force-dynamic';
